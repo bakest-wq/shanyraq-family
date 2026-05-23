@@ -1,4 +1,5 @@
 import { Relative } from '@/types/relative';
+import { getRelativeDisplayName } from '@/utils/relative-names';
 
 export type FamilyUnit = {
   key: string;
@@ -46,12 +47,16 @@ export function buildFamilyTree(relatives: Relative[]): FamilyTreeData {
     });
   }
 
-  const units = Array.from(unitsMap.values()).sort((a, b) =>
-    a.children[0]?.fullName.localeCompare(b.children[0]?.fullName ?? '', 'ru'),
-  );
+  const units = Array.from(unitsMap.values()).sort((a, b) => {
+    const nameA = a.children[0] ? getRelativeDisplayName(a.children[0]) : '';
+    const nameB = b.children[0] ? getRelativeDisplayName(b.children[0]) : '';
+    return nameA.localeCompare(nameB, 'ru');
+  });
 
   for (const unit of units) {
-    unit.children.sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'));
+    unit.children.sort((a, b) =>
+      getRelativeDisplayName(a).localeCompare(getRelativeDisplayName(b), 'ru'),
+    );
   }
 
   const linkedParentIds = new Set<string>();
@@ -69,7 +74,7 @@ export function buildFamilyTree(relatives: Relative[]): FamilyTreeData {
       (relative) =>
         !isLinkedToTree(relative) && !linkedParentIds.has(relative.id),
     )
-    .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'));
+    .sort((a, b) => getRelativeDisplayName(a).localeCompare(getRelativeDisplayName(b), 'ru'));
 
   return { units, unlinked };
 }
@@ -96,12 +101,12 @@ export function getParentCandidates(
 
       return /^(апа|ана|әпке|бала|немере)/i.test(relative.relationship) || relationship.includes('ана') || relationship.includes('апа');
     })
-    .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'));
+    .sort((a, b) => getRelativeDisplayName(a).localeCompare(getRelativeDisplayName(b), 'ru'));
 }
 
 /** Fallback: all relatives except self when no role match. */
 export function getAllParentCandidates(relatives: Relative[], childId: string): Relative[] {
   return relatives
     .filter((relative) => relative.id !== childId && !relative.isDeceased)
-    .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'));
+    .sort((a, b) => getRelativeDisplayName(a).localeCompare(getRelativeDisplayName(b), 'ru'));
 }

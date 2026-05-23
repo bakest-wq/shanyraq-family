@@ -1,4 +1,5 @@
 import { CreateRelativeInput } from '@/types/relative';
+import { syncNameFields } from '@/utils/relative-names';
 
 export type RelativeFormErrors = Partial<
   Record<keyof CreateRelativeInput | 'deathYear', string>
@@ -49,9 +50,10 @@ function isValidBirthday(value: string): boolean {
 
 export function validateRelativeForm(input: CreateRelativeInput): RelativeFormErrors {
   const errors: RelativeFormErrors = {};
+  const synced = syncNameFields(input);
 
-  if (!input.fullName.trim()) {
-    errors.fullName = 'Введите полное имя · Толық атын жазыңыз';
+  if (!synced.firstName.trim() && !synced.fullName.trim()) {
+    errors.firstName = 'Введите имя · Атын жазыңыз';
   }
 
   if (!input.relationship.trim()) {
@@ -91,13 +93,17 @@ export function hasFormErrors(errors: RelativeFormErrors): boolean {
 }
 
 export function prepareRelativeInput(input: CreateRelativeInput): CreateRelativeInput {
+  const synced = syncNameFields(input);
+
   return {
-    ...input,
-    fullName: input.fullName.trim(),
-    relationship: input.relationship.trim(),
-    birthday: input.birthday.trim(),
-    phone: input.phone?.trim() ? normalizeKazakhPhone(input.phone) : '',
-    duaText: input.duaText?.trim() || '',
-    notes: input.notes?.trim() || '',
+    ...synced,
+    birthday: synced.birthday.trim(),
+    phone: synced.phone?.trim() ? normalizeKazakhPhone(synced.phone) : '',
+    duaText: synced.duaText?.trim() || '',
+    notes: synced.notes?.trim() || '',
+    middleName: synced.middleName?.trim() || '',
+    birthSurname: synced.birthSurname?.trim() || '',
+    currentSurname: synced.currentSurname?.trim() || '',
+    displayName: synced.displayName?.trim() || synced.fullName,
   };
 }

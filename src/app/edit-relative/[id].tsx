@@ -15,8 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RelativeFormFields } from '@/components/relatives/RelativeFormFields';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
-import { useRelative, useUpdateRelative } from '@/hooks/useRelatives';
+import { useRelative, useRelatives, useUpdateRelative } from '@/hooks/useRelatives';
 import { CreateRelativeInput } from '@/types/relative';
+import { getRelativeDisplayName } from '@/utils/relative-names';
 import { relativeToFormInput } from '@/utils/relative-form';
 import { hasFormErrors, prepareRelativeInput, validateRelativeForm } from '@/utils/validation';
 import { Palette, Spacing, Typography } from '@/constants/theme';
@@ -26,6 +27,7 @@ export default function EditRelativeScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const relativeId = Array.isArray(id) ? id[0] : id;
   const { relative, loading } = useRelative(relativeId ?? '');
+  const { relatives } = useRelatives();
   const { updateRelative, saving, error: saveError } = useUpdateRelative(relativeId ?? '');
   const [form, setForm] = useState<CreateRelativeInput | null>(null);
   const [errors, setErrors] = useState<ReturnType<typeof validateRelativeForm>>({});
@@ -62,7 +64,7 @@ export default function EditRelativeScreen() {
     if (updated) {
       Alert.alert(
         'Сәтті жаңартылды!',
-        `${updated.fullName} успешно обновлён.`,
+        `${getRelativeDisplayName(updated)} успешно обновлён.`,
         [
           {
             text: 'Жарайды',
@@ -121,6 +123,8 @@ export default function EditRelativeScreen() {
             form={form}
             errors={errors}
             saveError={saveError}
+            relatives={relatives}
+            editingRelativeId={relativeId}
             onChange={updateForm}
           />
 

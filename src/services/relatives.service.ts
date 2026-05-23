@@ -98,6 +98,7 @@ export const relativesService = {
       .update({
         father_id: input.fatherId ?? null,
         mother_id: input.motherId ?? null,
+        spouse_id: input.spouseId ?? null,
       })
       .eq('id', id)
       .eq('family_id', familyId)

@@ -7,8 +7,15 @@ import { DetailField } from '@/components/ui/DetailField';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { AvatarPlaceholder } from '@/components/ui/RelativeCard';
-import { useDeleteRelative, useRelative } from '@/hooks/useRelatives';
+import { useDeleteRelative, useRelative, useRelatives } from '@/hooks/useRelatives';
 import { calculateAge, formatBirthdayKzRu, getAgeLabel } from '@/utils/dates';
+import {
+  findFamilyAnchor,
+  formatRelationshipPath,
+  getChildrenOf,
+  getRelationshipPath,
+} from '@/utils/kinship-path';
+import { getRelativeDisplayName } from '@/utils/relative-names';
 import { Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 
 export default function RelativeDetailsScreen() {
@@ -16,6 +23,7 @@ export default function RelativeDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const relativeId = Array.isArray(id) ? id[0] : id;
   const { relative, loading, error } = useRelative(relativeId ?? '');
+  const { relatives } = useRelatives();
   const { deleteRelativeAndLeave, deleting } = useDeleteRelative();
 
   if (!relativeId) {
@@ -48,6 +56,12 @@ export default function RelativeDetailsScreen() {
   }
 
   const age = calculateAge(relative.birthday);
+  const anchor = findFamilyAnchor(relatives);
+  const relationshipPath = formatRelationshipPath(
+    getRelationshipPath(relative, relatives, anchor),
+  );
+  const children = getChildrenOf(relative.id, relatives);
+  const displayName = getRelativeDisplayName(relative);
 
   const handleCall = () => {
     if (!relative.phone) {
@@ -64,7 +78,7 @@ export default function RelativeDetailsScreen() {
     }
     const digits = relative.phone.replace(/\D/g, '');
     Linking.openURL(
-      `https://wa.me/${digits}?text=${encodeURIComponent(`Ассалаумағалейкум, ${relative.fullName}!`)}`,
+      `https://wa.me/${digits}?text=${encodeURIComponent(`Ассалаумағалейкум, ${displayName}!`)}`,
     );
   };
 
@@ -106,13 +120,13 @@ export default function RelativeDetailsScreen() {
 
         <Card goldBorder style={styles.heroCard}>
           <AvatarPlaceholder
-            name={relative.fullName}
+            name={displayName}
             color={relative.avatarColor}
             size={96}
             deceased={relative.isDeceased}
           />
-          <Text style={styles.relationship}>{relative.relationship}</Text>
-          <Text style={styles.name}>{relative.fullName}</Text>
+          <Text style={styles.relationship}>{relationshipPath}</Text>
+          <Text style={styles.name}>{displayName}</Text>
           {relative.isDeceased ? (
             <View style={styles.deceasedBadge}>
               <Text style={styles.deceasedBadgeText}>🕊️ Марқұм</Text>
@@ -121,6 +135,16 @@ export default function RelativeDetailsScreen() {
         </Card>
 
         <Card style={styles.detailsCard}>
+          <DetailField label="Аты · Имя" value={relative.firstName || '—'} />
+          {relative.middleName ? (
+            <DetailField label="Әke аты · Отчество" value={relative.middleName} />
+          ) : null}
+          {relative.currentSurname ? (
+            <DetailField label="Тегі · Фамилия" value={relative.currentSurname} />
+          ) : null}
+          {relative.birthSurname ? (
+            <DetailField label="Туған тегі · Birth surname" value={relative.birthSurname} />
+          ) : null}
           <DetailField label="Туған күні · Дата рождения" value={formatBirthdayKzRu(relative.birthday)} />
           <DetailField
             label="Жасы · Возраст"
@@ -149,6 +173,13 @@ export default function RelativeDetailsScreen() {
             value={relative.notes || '—'}
             multiline
           />
+          {children.length > 0 ? (
+            <DetailField
+              label="Балалар · Дети"
+              value={children.map((child) => getRelativeDisplayName(child)).join(', ')}
+              multiline
+            />
+          ) : null}
         </Card>
 
         <View style={styles.actionsGrid}>

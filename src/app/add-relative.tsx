@@ -14,8 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RelativeFormFields } from '@/components/relatives/RelativeFormFields';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
-import { useCreateRelative } from '@/hooks/useRelatives';
+import { useCreateRelative, useRelatives } from '@/hooks/useRelatives';
 import { CreateRelativeInput } from '@/types/relative';
+import { getRelativeDisplayName } from '@/utils/relative-names';
 import { EMPTY_RELATIVE_FORM } from '@/utils/relative-form';
 import { hasFormErrors, prepareRelativeInput, validateRelativeForm } from '@/utils/validation';
 import { Palette, Spacing, Typography } from '@/constants/theme';
@@ -23,6 +24,7 @@ import { Palette, Spacing, Typography } from '@/constants/theme';
 export default function AddRelativeScreen() {
   const router = useRouter();
   const { createRelative, saving, error: saveError } = useCreateRelative();
+  const { relatives } = useRelatives();
   const [form, setForm] = useState<CreateRelativeInput>(EMPTY_RELATIVE_FORM);
   const [errors, setErrors] = useState<ReturnType<typeof validateRelativeForm>>({});
 
@@ -48,7 +50,7 @@ export default function AddRelativeScreen() {
     if (created) {
       Alert.alert(
         'Сәтті сақталды!',
-        `${created.fullName} отбасыңызға қосылды.\n\nУспешно добавлен в семью.`,
+        `${getRelativeDisplayName(created)} отбасыңызға қосылды.\n\nУспешно добавлен в семью.`,
         [
           {
             text: 'Жарайды',
@@ -80,6 +82,7 @@ export default function AddRelativeScreen() {
             form={form}
             errors={errors}
             saveError={saveError}
+            relatives={relatives}
             onChange={updateForm}
           />
 

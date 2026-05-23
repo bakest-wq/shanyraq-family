@@ -25,6 +25,11 @@ create table if not exists public.relatives (
   id uuid primary key default gen_random_uuid(),
   family_id uuid references public.families(id) on delete cascade,
   full_name text not null,
+  first_name text,
+  middle_name text,
+  birth_surname text,
+  current_surname text,
+  display_name text,
   relationship text not null,
   birthday date,
   phone text,
@@ -35,6 +40,9 @@ create table if not exists public.relatives (
   notes text,
   father_id uuid references public.relatives(id) on delete set null,
   mother_id uuid references public.relatives(id) on delete set null,
+  spouse_id uuid references public.relatives(id) on delete set null,
+  gender text check (gender in ('male', 'female')),
+  marital_status text check (marital_status in ('single', 'married', 'widowed', 'divorced')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -43,6 +51,7 @@ create index if not exists relatives_family_id_idx on public.relatives (family_i
 create index if not exists relatives_birthday_idx on public.relatives (birthday);
 create index if not exists relatives_father_id_idx on public.relatives (father_id);
 create index if not exists relatives_mother_id_idx on public.relatives (mother_id);
+create index if not exists relatives_spouse_id_idx on public.relatives (spouse_id);
 
 alter table public.families enable row level security;
 alter table public.family_members enable row level security;

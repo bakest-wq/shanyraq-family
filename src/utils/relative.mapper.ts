@@ -1,11 +1,33 @@
 import { AVATAR_COLORS, CreateRelativeInput, Relative } from '@/types/relative';
 import type { RelativeInsert, RelativeRow, RelativeUpdate } from '@/types/database';
+import {
+  composeDisplayName,
+  composeFullName,
+  getRelativeDisplayName,
+  parseLegacyFullName,
+} from '@/utils/relative-names';
 
 export function mapRelativeRow(row: RelativeRow): Relative {
+  const legacy = parseLegacyFullName(row.full_name);
+  const firstName = row.first_name?.trim() || legacy.firstName;
+  const middleName = row.middle_name?.trim() || legacy.middleName;
+  const currentSurname = row.current_surname?.trim() || legacy.currentSurname;
+  const fullName =
+    row.full_name?.trim() ||
+    composeFullName({ firstName, middleName, currentSurname, fullName: row.full_name });
+  const displayName =
+    row.display_name?.trim() ||
+    composeDisplayName({ firstName, middleName, currentSurname, fullName });
+
   return {
     id: row.id,
     familyId: row.family_id ?? undefined,
-    fullName: row.full_name,
+    fullName,
+    firstName,
+    middleName,
+    birthSurname: row.birth_surname ?? undefined,
+    currentSurname,
+    displayName,
     relationship: row.relationship,
     birthday: row.birthday ?? '',
     phone: row.phone ?? '',
@@ -16,6 +38,9 @@ export function mapRelativeRow(row: RelativeRow): Relative {
     notes: row.notes ?? undefined,
     fatherId: row.father_id ?? undefined,
     motherId: row.mother_id ?? undefined,
+    spouseId: row.spouse_id ?? undefined,
+    gender: row.gender ?? undefined,
+    maritalStatus: row.marital_status ?? undefined,
     createdAt: row.created_at,
   };
 }
@@ -29,17 +54,31 @@ export function mapRelativeToUpdate(input: CreateRelativeInput, familyId?: strin
 }
 
 function mapRelativePayload(input: CreateRelativeInput, familyId?: string): RelativeInsert {
+  const fullName = composeFullName(input);
+  const displayName = composeDisplayName({ ...input, fullName });
+  const seedName = displayName || fullName || input.firstName;
+
   return {
     family_id: familyId ?? null,
-    full_name: input.fullName.trim(),
+    full_name: fullName,
+    first_name: input.firstName.trim() || null,
+    middle_name: input.middleName?.trim() || null,
+    birth_surname: input.birthSurname?.trim() || null,
+    current_surname: input.currentSurname?.trim() || null,
+    display_name: displayName || null,
     relationship: input.relationship.trim(),
     birthday: input.birthday.trim() || null,
     phone: input.phone?.trim() || null,
-    avatar_color: input.avatarColor ?? pickAvatarColor(input.fullName),
+    avatar_color: input.avatarColor ?? pickAvatarColor(seedName),
     is_deceased: input.isDeceased ?? false,
     death_year: input.deathYear ?? null,
     dua_text: input.duaText?.trim() || null,
     notes: input.notes?.trim() || null,
+    father_id: input.fatherId ?? null,
+    mother_id: input.motherId ?? null,
+    spouse_id: input.spouseId ?? null,
+    gender: input.gender ?? null,
+    marital_status: input.maritalStatus ?? null,
   };
 }
 
@@ -54,4 +93,9 @@ export function filterLivingRelatives(relatives: Relative[]): Relative[] {
 
 export function filterDeceasedRelatives(relatives: Relative[]): Relative[] {
   return relatives.filter((relative) => relative.isDeceased);
+}
+
+/** @deprecated Use getRelativeDisplayName */
+export function getRelativeSortName(relative: Relative): string {
+  return getRelativeDisplayName(relative);
 }
