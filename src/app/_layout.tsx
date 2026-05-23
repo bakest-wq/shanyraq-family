@@ -1,15 +1,44 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { Palette } from '@/constants/theme';
+import { ArchiveProvider } from '@/providers/ArchiveProvider';
+import { FamilyProvider } from '@/providers/FamilyProvider';
+import { NotificationsProvider } from '@/providers/NotificationsProvider';
+import { RelativesProvider } from '@/providers/RelativesProvider';
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+function AppProviders({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <RelativesProvider>
+      <ArchiveProvider>
+        <NotificationsProvider>{children}</NotificationsProvider>
+      </ArchiveProvider>
+    </RelativesProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <FamilyProvider>
+      <AppProviders>
+        <StatusBar style="dark" />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Palette.cream } }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="create-family" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="join-family" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="notification-settings" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="archive" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="add-memory" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="add-relative" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="relative/[id]" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="edit-relative/[id]" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="congratulations/[id]" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="connect-relative/[id]" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+        </Stack>
+      </AppProviders>
+    </FamilyProvider>
   );
 }

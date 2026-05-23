@@ -1,0 +1,81 @@
+-- Shanyraq Family · database schema
+-- Run in Supabase SQL Editor
+
+create extension if not exists "pgcrypto";
+
+create table if not exists public.families (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  invite_code text not null unique,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.family_members (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid not null references public.families(id) on delete cascade,
+  display_name text not null,
+  role text not null default 'member' check (role in ('owner', 'member')),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists family_members_family_id_idx on public.family_members (family_id);
+
+create table if not exists public.relatives (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid references public.families(id) on delete cascade,
+  full_name text not null,
+  relationship text not null,
+  birthday date,
+  phone text,
+  avatar_color text not null default '#2D6A4F',
+  is_deceased boolean not null default false,
+  death_year integer,
+  dua_text text,
+  notes text,
+  father_id uuid references public.relatives(id) on delete set null,
+  mother_id uuid references public.relatives(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists relatives_family_id_idx on public.relatives (family_id);
+create index if not exists relatives_birthday_idx on public.relatives (birthday);
+create index if not exists relatives_father_id_idx on public.relatives (father_id);
+create index if not exists relatives_mother_id_idx on public.relatives (mother_id);
+
+alter table public.families enable row level security;
+alter table public.family_members enable row level security;
+alter table public.relatives enable row level security;
+
+create policy "families_select_public"
+  on public.families for select
+  using (true);
+
+create policy "families_insert_public"
+  on public.families for insert
+  with check (true);
+
+create policy "family_members_select_public"
+  on public.family_members for select
+  using (true);
+
+create policy "family_members_insert_public"
+  on public.family_members for insert
+  with check (true);
+
+create policy "relatives_select_public"
+  on public.relatives for select
+  using (true);
+
+create policy "relatives_insert_public"
+  on public.relatives for insert
+  with check (true);
+
+create policy "relatives_update_public"
+  on public.relatives for update
+  using (true);
+
+create policy "relatives_delete_public"
+  on public.relatives for delete
+  using (true);
