@@ -1,4 +1,5 @@
 import { Alert, Platform } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 import { isSupabaseReady } from '@/lib/supabase';
 import { Relative } from '@/types/relative';
@@ -9,92 +10,72 @@ import {
 
 const STORAGE_BUCKET = 'relative-photos';
 
-async function loadImagePicker() {
-  return import('expo-image-picker');
-}
-
-async function updatePhotoUrlSafe(
+async function updatePhotoUrlInDatabase(
   relativeId: string,
   photoUrl: string | null,
   familyId: string,
-): Promise<Relative | null> {
-  try {
-    const { relativesService } = await import('@/services/relatives.service');
-    return await relativesService.updatePhotoUrl(relativeId, photoUrl, familyId);
-  } catch {
-    return null;
+): Promise<Relative> {
+  if (!isSupabaseReady()) {
+    throw new Error('Supabase is not configured.');
   }
+
+  const { relativesService } = await import('@/services/relatives.service');
+  return relativesService.updatePhotoUrl(relativeId, photoUrl, familyId);
 }
 
 export async function requestRelativePhotoPermission(): Promise<boolean> {
   if (Platform.OS === 'web') {
-    return false;
+    return true;
   }
 
-  const ImagePicker = await loadImagePicker();
   const library = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-  if (!library.granted) {
-    Alert.alert(
-      'Рұқсат керек',
-      'Фото таңдау үшін галереяға рұқсат беріңіз · Allow photo library access.',
-    );
-    return false;
+  if (library.granted) {
+    return true;
   }
 
-  return true;
+  Alert.alert(
+    'Рұқсат жоқ · Permission denied',
+    'Фото таңдау үшін галереяға рұқсат беріңіз · Allow photo library access in settings.',
+  );
+  return false;
 }
 
 export async function pickRelativePhotoUri(): Promise<string | null> {
-  const allowed = await requestRelativePhotoPermission();
-  if (!allowed) {
-    return null;
-  }
-
-  const ImagePicker = await loadImagePicker();
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ['images'],
-    allowsEditing: true,
-    aspect: [1, 1],
-    quality: 0.85,
-  });
-
-  if (result.canceled || !result.assets[0]?.uri) {
-    return null;
-  }
-
-  return result.assets[0].uri;
-}
-
-async function uploadRelativePhotoToSupabase(
-  familyId: string,
-  relativeId: string,
-  sourceUri: string,
-): Promise<string | null> {
-  if (!isSupabaseReady()) {
-    return null;
-  }
-
   try {
-    const response = await fetch(sourceUri);
-    const arrayBuffer = await response.arrayBuffer();
-    const path = `${familyId}/${relativeId}.jpg`;
-    const { getSupabaseClient } = await import('@/lib/supabase');
-    const supabase = getSupabaseClient();
-
-    const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, arrayBuffer, {
-      upsert: true,
-      contentType: 'image/jpeg',
-      cacheControl: '3600',
-    });
-
-    if (error) {
+    const allowed = await requestRelativePhotoPermission();
+    if (!allowed) {
       return null;
     }
 
-    const { data } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path);
-    return data.publicUrl;
-  } catch {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: Platform.OS !== 'web',
+      aspect: [1, 1],
+      quality: 0.85,
+      selectionLimit: 1,
+    });
+
+    if (result.canceled || !result.assets?.[0]?.uri) {
+      return null;
+    }
+
+    return result.assets[0].uri;
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Фото таңдау сәтсіз аяқталды · Failed to pick photo.';
+
+    if (Platform.OS === 'web') {
+      Alert.alert(
+        'Фото · Photo',
+        'Браузерде фото таңдау қолжетімсіз болуы мүмкін. Expo Go немесе мобильді қолданбаны қолданыңыз.',
+      );
+      return null;
+    }
+
+    Alert.alert('Қате · Ошибка', message);
     return null;
   }
 }
@@ -113,29 +94,24 @@ async function removeRelativePhotoFromSupabase(familyId: string, relativeId: str
   }
 }
 
-/** Save photo locally first; cloud upload is best-effort only. */
+/** Copies image locally and persists the uri in Supabase `photo_url` (MVP, no Storage upload). */
+export async function saveAndSyncPhotoUrl(
+  relativeId: string,
+  sourceUri: string,
+  familyId: string,
+): Promise<string> {
+  const localUri = await saveRelativePhotoLocally(relativeId, sourceUri);
+  await updatePhotoUrlInDatabase(relativeId, localUri, familyId);
+  return localUri;
+}
+
+/** @deprecated Use saveAndSyncPhotoUrl */
 export async function attachRelativePhoto(
   relativeId: string,
   sourceUri: string,
   familyId: string,
-): Promise<Relative> {
-  const localUri = await saveRelativePhotoLocally(relativeId, sourceUri);
-  const remoteUrl = await uploadRelativePhotoToSupabase(familyId, relativeId, sourceUri);
-  const photoUrl = remoteUrl ?? localUri;
-
-  const updated = await updatePhotoUrlSafe(relativeId, photoUrl, familyId);
-  if (updated) {
-    return updated;
-  }
-
-  const { relativesService } = await import('@/services/relatives.service');
-  const fallback = await relativesService.getById(relativeId, familyId);
-
-  if (fallback) {
-    return { ...fallback, photoUrl: localUri };
-  }
-
-  throw new Error('Failed to save photo.');
+): Promise<void> {
+  await saveAndSyncPhotoUrl(relativeId, sourceUri, familyId);
 }
 
 export async function removeRelativePhoto(
@@ -149,17 +125,5 @@ export async function removeRelativePhoto(
     await removeRelativePhotoFromSupabase(familyId, relativeId);
   }
 
-  const updated = await updatePhotoUrlSafe(relativeId, null, familyId);
-  if (updated) {
-    return updated;
-  }
-
-  const { relativesService } = await import('@/services/relatives.service');
-  const fallback = await relativesService.getById(relativeId, familyId);
-
-  if (fallback) {
-    return { ...fallback, photoUrl: undefined };
-  }
-
-  throw new Error('Failed to remove photo.');
+  return updatePhotoUrlInDatabase(relativeId, null, familyId);
 }

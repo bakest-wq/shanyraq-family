@@ -33,17 +33,23 @@ export function RelativePhotoPicker({
   const displayUri = pendingPhotoUri ?? photoUrl ?? null;
   const hasPhoto = Boolean(displayUri);
 
-  const handlePick = () => {
+  const handlePick = async () => {
     if (uploading) {
       return;
     }
 
-    void (async () => {
+    try {
       const uri = await pickRelativePhotoUri();
       if (uri) {
         onPhotoSelected(uri);
       }
-    })();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Фото таңдау сәтсіз аяқталды · Failed to pick photo.';
+      Alert.alert('Қате · Ошибка', message);
+    }
   };
 
   const handleRemove = () => {
@@ -88,7 +94,7 @@ export function RelativePhotoPicker({
             label={hasPhoto ? 'Фотоны өзгерту · Change' : 'Фото қосу · Add photo'}
             sublabel={uploading ? 'Жүктелуде...' : 'Галереядан таңдау'}
             variant="green"
-            onPress={uploading ? undefined : handlePick}
+            onPress={uploading ? undefined : () => void handlePick()}
           />
 
           {hasPhoto ? (

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 
@@ -41,6 +41,10 @@ export function RelativeAvatar({
   const initials = getRelativeInitials(name);
   const fontSize = size >= 96 ? size * 0.28 : size * 0.38;
   const showPhoto = Boolean(photoUrl) && !imageFailed;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [photoUrl]);
   const gradientTop = useMemo(() => blendWithWhite(color, 0.28), [color]);
   const gradientBottom = color;
 

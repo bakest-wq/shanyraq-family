@@ -64,7 +64,8 @@ export const relativesService = {
       handleSupabaseError(error, 'Failed to save relative.');
     }
 
-    return mapRelativeRow(data);
+    const [relative] = await enrichRelativesWithLocalPhotos([mapRelativeRow(data)]);
+    return relative;
   },
 
   async update(id: string, input: CreateRelativeInput, familyId: string): Promise<Relative> {
@@ -83,7 +84,8 @@ export const relativesService = {
       handleSupabaseError(error, 'Failed to update relative.');
     }
 
-    return mapRelativeRow(data);
+    const [relative] = await enrichRelativesWithLocalPhotos([mapRelativeRow(data)]);
+    return relative;
   },
 
   async updatePhotoUrl(

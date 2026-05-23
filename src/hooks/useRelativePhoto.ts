@@ -4,9 +4,9 @@ import { Alert } from 'react-native';
 import { useFamilyContext } from '@/providers/FamilyProvider';
 import { useRelativesContext } from '@/providers/RelativesProvider';
 import {
-  attachRelativePhoto,
   pickRelativePhotoUri,
   removeRelativePhoto,
+  saveAndSyncPhotoUrl,
 } from '@/services/relative-photo.service';
 import { Relative } from '@/types/relative';
 
@@ -16,11 +16,31 @@ export function useRelativePhoto(relative: Relative | null) {
   const [uploading, setUploading] = useState(false);
 
   const pickAndUploadPhoto = useCallback(async () => {
-    if (!relative || !familyId || uploading) {
+    if (!relative || uploading) {
       return;
     }
 
-    const uri = await pickRelativePhotoUri();
+    if (!familyId) {
+      Alert.alert(
+        'Қате · Ошибка',
+        'Отбасы таңдалмаған · Family session is missing.',
+      );
+      return;
+    }
+
+    let uri: string | null = null;
+
+    try {
+      uri = await pickRelativePhotoUri();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Фото таңдау сәтсіз аяқталды · Failed to pick photo.';
+      Alert.alert('Қате · Ошибка', message);
+      return;
+    }
+
     if (!uri) {
       return;
     }
@@ -28,7 +48,7 @@ export function useRelativePhoto(relative: Relative | null) {
     setUploading(true);
 
     try {
-      await attachRelativePhoto(relative.id, uri, familyId);
+      await saveAndSyncPhotoUrl(relative.id, uri, familyId);
       await refetch({ silent: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Фото сақталмады.';

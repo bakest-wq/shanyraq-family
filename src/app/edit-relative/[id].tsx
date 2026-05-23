@@ -18,7 +18,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useRelative, useRelatives, useUpdateRelative } from '@/hooks/useRelatives';
 import { useToast } from '@/hooks/useToast';
 import { useFamilyContext } from '@/providers/FamilyProvider';
-import { attachRelativePhoto, removeRelativePhoto } from '@/services/relative-photo.service';
+import { removeRelativePhoto, saveAndSyncPhotoUrl } from '@/services/relative-photo.service';
 import { relativesService } from '@/services/relatives.service';
 import { CreateRelativeInput } from '@/types/relative';
 import {
@@ -119,7 +119,30 @@ export default function EditRelativeScreen() {
     }
 
     const { pendingPhotoUri, clearPhoto, ...relativeInput } = prepared;
-    const updated = await updateRelative(relativeInput);
+    let nextPhotoUrl = relativeInput.photoUrl;
+
+    if (familyId) {
+      try {
+        if (clearPhoto) {
+          if (relative?.photoUrl) {
+            await removeRelativePhoto(relativeId, familyId, relative.photoUrl);
+          }
+          nextPhotoUrl = undefined;
+        } else if (pendingPhotoUri) {
+          nextPhotoUrl = await saveAndSyncPhotoUrl(relativeId, pendingPhotoUri, familyId);
+        }
+      } catch {
+        Alert.alert(
+          'Фото · Photo',
+          'Данные сохранены, но фото не обновилось. Попробуйте ещё раз.',
+        );
+      }
+    }
+
+    const updated = await updateRelative({
+      ...relativeInput,
+      photoUrl: nextPhotoUrl,
+    });
     let linksSynced = false;
 
     if (updated && familyId) {
@@ -138,25 +161,8 @@ export default function EditRelativeScreen() {
         );
         await refetch({ silent: true });
         linksSynced = true;
-      }
-
-      try {
-        if (clearPhoto && relative?.photoUrl) {
-          await removeRelativePhoto(relativeId, familyId, relative.photoUrl);
-        }
-
-        if (pendingPhotoUri) {
-          await attachRelativePhoto(relativeId, pendingPhotoUri, familyId);
-        }
-
-        if (!linksSynced) {
-          await refetch({ silent: true });
-        }
-      } catch {
-        Alert.alert(
-          'Фото · Photo',
-          'Данные сохранены, но фото не обновилось. Попробуйте ещё раз.',
-        );
+      } else if (pendingPhotoUri || clearPhoto) {
+        await refetch({ silent: true });
       }
     }
 

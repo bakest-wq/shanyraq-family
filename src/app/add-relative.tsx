@@ -16,7 +16,7 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useCreateRelative, useRelatives } from '@/hooks/useRelatives';
 import { useToast } from '@/hooks/useToast';
 import { useFamilyContext } from '@/providers/FamilyProvider';
-import { attachRelativePhoto } from '@/services/relative-photo.service';
+import { saveAndSyncPhotoUrl } from '@/services/relative-photo.service';
 import { relativesService } from '@/services/relatives.service';
 import { CreateRelativeInput } from '@/types/relative';
 import {
@@ -105,7 +105,7 @@ export default function AddRelativeScreen() {
 
       if (pendingPhotoUri && familyId) {
         try {
-          await attachRelativePhoto(created.id, pendingPhotoUri, familyId);
+          await saveAndSyncPhotoUrl(created.id, pendingPhotoUri, familyId);
           await refetch({ silent: true });
         } catch {
           showToast({

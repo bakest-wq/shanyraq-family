@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import {
   copyAsync,
   deleteAsync,
@@ -43,7 +44,54 @@ async function ensurePhotosDir(): Promise<void> {
   }
 }
 
+async function isUsablePhotoUri(uri: string): Promise<boolean> {
+  if (
+    uri.startsWith('blob:') ||
+    uri.startsWith('data:') ||
+    uri.startsWith('http://') ||
+    uri.startsWith('https://')
+  ) {
+    return true;
+  }
+
+  if (Platform.OS === 'web') {
+    return true;
+  }
+
+  try {
+    const info = await getInfoAsync(uri);
+    return info.exists;
+  } catch {
+    return false;
+  }
+}
+
+export async function resolveRelativePhotoUrl(
+  relative: Relative,
+  localMap?: LocalPhotoMap,
+): Promise<string | undefined> {
+  const map = localMap ?? (await readLocalPhotoMap());
+  const candidates = [map[relative.id], relative.photoUrl].filter(
+    (uri): uri is string => Boolean(uri),
+  );
+
+  for (const uri of candidates) {
+    if (await isUsablePhotoUri(uri)) {
+      return uri;
+    }
+  }
+
+  return undefined;
+}
+
 export async function saveRelativePhotoLocally(relativeId: string, sourceUri: string): Promise<string> {
+  if (Platform.OS === 'web' || sourceUri.startsWith('blob:') || sourceUri.startsWith('data:')) {
+    const map = await readLocalPhotoMap();
+    map[relativeId] = sourceUri;
+    await writeLocalPhotoMap(map);
+    return sourceUri;
+  }
+
   await ensurePhotosDir();
   const destination = `${PHOTOS_DIR}${relativeId}.jpg`;
 
@@ -64,8 +112,11 @@ export async function getLocalRelativePhotoUri(relativeId: string): Promise<stri
     return null;
   }
 
-  const info = await getInfoAsync(uri);
-  return info.exists ? uri : null;
+  if (await isUsablePhotoUri(uri)) {
+    return uri;
+  }
+
+  return null;
 }
 
 export async function removeLocalRelativePhoto(relativeId: string): Promise<void> {
@@ -90,28 +141,15 @@ export async function removeLocalRelativePhoto(relativeId: string): Promise<void
 export async function enrichRelativesWithLocalPhotos(relatives: Relative[]): Promise<Relative[]> {
   const map = await readLocalPhotoMap();
 
-  return relatives.map((relative) => {
-    if (relative.photoUrl) {
-      return relative;
-    }
-
-    const localUri = map[relative.id];
-    return localUri ? { ...relative, photoUrl: localUri } : relative;
-  });
+  return Promise.all(
+    relatives.map(async (relative) => {
+      const photoUrl = await resolveRelativePhotoUrl(relative, map);
+      return photoUrl ? { ...relative, photoUrl } : { ...relative, photoUrl: undefined };
+    }),
+  );
 }
 
 export async function enrichRelativeWithLocalPhoto(relative: Relative): Promise<Relative> {
-  if (relative.photoUrl) {
-    return relative;
-  }
-
-  const localUri = await getLocalRelativePhotoUri(relative.id);
-  if (!localUri) {
-    return relative;
-  }
-
-  return {
-    ...relative,
-    photoUrl: localUri,
-  };
+  const photoUrl = await resolveRelativePhotoUrl(relative);
+  return photoUrl ? { ...relative, photoUrl } : { ...relative, photoUrl: undefined };
 }
