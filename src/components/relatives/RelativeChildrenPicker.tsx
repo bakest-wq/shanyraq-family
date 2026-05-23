@@ -48,15 +48,15 @@ export function RelativeChildrenPicker({
           ))}
         </View>
       ) : (
-        <Text style={styles.emptyText}>Балалар таңдалмаған · Дети не выбраны</Text>
+        <Text style={styles.emptyText}>Бala taңдалмаған · Дети не выбраны</Text>
       )}
 
       <Pressable
         onPress={() => setModalVisible(true)}
         style={({ pressed }) => [styles.selectButton, pressed && styles.pressed]}
         accessibilityRole="button"
-        accessibilityLabel="Балаларын таңдау · Выбрать детей">
-        <Text style={styles.selectButtonText}>Балаларын таңдау · Выбрать детей</Text>
+        accessibilityLabel="Баланы таңдау · Выбрать ребёнка">
+        <Text style={styles.selectButtonText}>Баланы таңдау · Выбрать</Text>
       </Pressable>
 
       <RelativeChildrenSelectModal

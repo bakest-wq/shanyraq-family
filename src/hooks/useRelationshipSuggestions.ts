@@ -7,6 +7,7 @@ import {
   analyzeRelationshipSuggestions,
   applyRelationshipSuggestion,
   dismissSuggestionId,
+  filterVisibleSuggestions,
   loadDismissedSuggestionIds,
 } from '@/utils/relationship-suggestions';
 import type { AnalyzeSuggestionsContext, RelationshipSuggestion } from '@/utils/relationship-suggestions/types';
@@ -14,6 +15,7 @@ import type { AnalyzeSuggestionsContext, RelationshipSuggestion } from '@/utils/
 type UseRelationshipSuggestionsOptions = AnalyzeSuggestionsContext & {
   limit?: number;
   enabled?: boolean;
+  highConfidenceOnly?: boolean;
 };
 
 export function useRelationshipSuggestions(options: UseRelationshipSuggestionsOptions = {}) {
@@ -25,13 +27,24 @@ export function useRelationshipSuggestions(options: UseRelationshipSuggestionsOp
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
   const {
-    limit = 6,
+    limit = 2,
     enabled = true,
+    highConfidenceOnly = true,
     subjectId,
     draftFatherId,
     draftMotherId,
     draftSpouseId,
   } = options;
+
+  const context = useMemo(
+    () => ({
+      subjectId,
+      draftFatherId,
+      draftMotherId,
+      draftSpouseId,
+    }),
+    [draftFatherId, draftMotherId, draftSpouseId, subjectId],
+  );
 
   useEffect(() => {
     if (!familyId) {
@@ -52,24 +65,25 @@ export function useRelationshipSuggestions(options: UseRelationshipSuggestionsOp
       return [];
     }
 
-    return analyzeRelationshipSuggestions(relatives, {
-      subjectId,
-      draftFatherId,
-      draftMotherId,
-      draftSpouseId,
-    })
-      .filter((suggestion) => !dismissedIds.has(suggestion.id))
+    const analyzed = analyzeRelationshipSuggestions(relatives, context).filter(
+      (suggestion) => !dismissedIds.has(suggestion.id),
+    );
+
+    if (highConfidenceOnly) {
+      return filterVisibleSuggestions(analyzed, context, limit);
+    }
+
+    return analyzed
+      .filter((suggestion) => suggestion.kind !== 'note_shared_parents')
       .slice(0, limit);
   }, [
+    context,
     dismissedIds,
-    draftFatherId,
-    draftMotherId,
-    draftSpouseId,
     enabled,
+    highConfidenceOnly,
     limit,
     loadingDismissed,
     relatives,
-    subjectId,
   ]);
 
   const dismissSuggestion = useCallback(
@@ -98,8 +112,8 @@ export function useRelationshipSuggestions(options: UseRelationshipSuggestionsOp
           await refetch({ silent: true });
           showToast({
             type: 'success',
-            title: 'Байланыстар сақталды 🌿',
-            message: 'Связь успешно добавлена в шежіре',
+            title: 'Байланыс сақталды 🌿',
+            message: suggestion.promptKz,
           });
         }
 

@@ -44,7 +44,18 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test:sibling-sync": "npx tsx src/utils/sibling-relationship-sync.test.ts",
+    "test:kinship": "npx tsx src/utils/kinship/kinship.engine.test.ts",
+    "test:parent-picker": "npx tsx src/utils/parent-link-candidates.test.ts",
+    "test:sibling-inheritance": "npx tsx src/utils/sibling-parent-inheritance.test.ts",
+    "test:unlinked-ux": "npx tsx src/utils/unlinked-relative-ux.test.ts",
+    "test:family-graph": "npx tsx src/utils/family-graph/family-graph.test.ts",
+    "test:parent-side": "npx tsx src/utils/parent-side-relatives.test.ts",
+    "test:parent-side-add": "npx tsx src/utils/parent-side-sibling-add.test.ts",
+    "test:parent-side-quality": "npx tsx src/utils/parent-side-quality.test.ts",
+    "test:graph-integrity": "npx tsx src/services/graph-integrity.service.test.ts",
+    "test:user-identity": "npx tsx src/utils/user-identity.test.ts"
   },
   "private": true
 }

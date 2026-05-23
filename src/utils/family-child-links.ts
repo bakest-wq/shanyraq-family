@@ -1,6 +1,10 @@
 import { Relative, RelativeGender } from '@/types/relative';
 import { getAncestorIds } from '@/utils/family-link-validation';
 import { findRelativeById } from '@/utils/family-link-picker';
+import {
+  areSharedParentSiblings,
+  sharesLinkedParentWithRoot,
+} from '@/utils/family-sibling-links';
 import { getRelativeDisplayName } from '@/utils/relative-names';
 import { isParentRelationship } from '@/utils/relationship-presets';
 
@@ -8,16 +12,8 @@ export type ParentLinkRole = 'father' | 'mother';
 
 export function resolveParentLinkRole(
   gender?: RelativeGender,
-  relationship?: string,
+  _relationship?: string,
 ): ParentLinkRole | null {
-  if (relationship === 'Әке') {
-    return 'father';
-  }
-
-  if (relationship === 'Ана') {
-    return 'mother';
-  }
-
   if (gender === 'male') {
     return 'father';
   }
@@ -38,10 +34,20 @@ export function getChildrenLinkedToParent(
   relatives: Relative[],
   role: ParentLinkRole,
 ): Relative[] {
+  const parent = findRelativeById(relatives, parentId);
+  const sharedParentSiblingIds = parent
+    ? new Set(
+        relatives
+          .filter((candidate) => sharesLinkedParentWithRoot(parent, candidate))
+          .map((candidate) => candidate.id),
+      )
+    : new Set<string>();
+
   return relatives
     .filter((relative) =>
       role === 'father' ? relative.fatherId === parentId : relative.motherId === parentId,
     )
+    .filter((relative) => !sharedParentSiblingIds.has(relative.id))
     .sort((a, b) => getRelativeDisplayName(a).localeCompare(getRelativeDisplayName(b), 'ru'));
 }
 
@@ -62,6 +68,13 @@ export function buildChildLinkCandidates(
   if (parentId) {
     blockedIds.add(parentId);
     getAncestorIds(parentId, relatives).forEach((id) => blockedIds.add(id));
+
+    const parent = findRelativeById(relatives, parentId);
+    if (parent) {
+      relatives
+        .filter((candidate) => sharesLinkedParentWithRoot(parent, candidate))
+        .forEach((candidate) => blockedIds.add(candidate.id));
+    }
   }
 
   return relatives
@@ -112,6 +125,15 @@ export function validateChildLinkSelection(
 
   if (!findRelativeById(relatives, childId)) {
     return 'Туыс табылмады · Relative not found';
+  }
+
+  if (parentId) {
+    const parent = findRelativeById(relatives, parentId);
+    const child = findRelativeById(relatives, childId);
+
+    if (parent && child && areSharedParentSiblings(parent, child)) {
+      return 'Бауыр балалар тізіміне кіре алмайды · Sibling cannot be linked as child';
+    }
   }
 
   return null;

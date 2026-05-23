@@ -24,6 +24,11 @@ export type RelationshipSuggestionAction =
 export type RelationshipSuggestion = {
   id: string;
   kind: SuggestionKind;
+  /** Short missing-link context, e.g. «Ана байланысы жоқ» */
+  contextKz: string;
+  /** Compact action prompt, e.g. «Мадинаны ана ретінде байланыстыру?» */
+  promptKz: string;
+  /** @deprecated Use promptKz — kept for internal compatibility */
   messageKz: string;
   messageRu: string;
   subjectId?: string;

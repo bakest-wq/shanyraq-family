@@ -112,8 +112,8 @@ export function describeKinship(from: Relative, to: Relative, relatives: Relativ
   }
 
   return {
-    kazakh: to.relationship,
-    russian: PRESET_RU[to.relationship] ?? to.relationship,
+    kazakh: 'Байланыс жоқ',
+    russian: 'Связь не указана',
   };
 }
 
@@ -155,8 +155,8 @@ export function getRelationshipPath(
   }
 
   return {
-    kazakh: relative.relationship,
-    russian: PRESET_RU[relative.relationship] ?? relative.relationship,
+    kazakh: 'Байланыс жоқ',
+    russian: 'Связь не указана',
   };
 }
 

@@ -15,19 +15,29 @@ import {
   FamilyLinkType,
   filterFamilyLinkCandidates,
   getFamilyLinkModalTitle,
+  relativeLinkIdsMatch,
 } from '@/utils/family-link-picker';
+import type { ParentLinkCandidate } from '@/utils/parent-link-candidates';
 import { getRelativeDisplayName } from '@/utils/relative-names';
 import { Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+
+type LinkCandidate = Relative & {
+  isSharedParent?: boolean;
+};
 
 type RelativeLinkSelectModalProps = {
   visible: boolean;
   linkType: FamilyLinkType;
-  candidates: Relative[];
+  candidates: LinkCandidate[];
   selectedId: string | null | undefined;
   subjectGender?: RelativeGender;
   onSelect: (id: string) => void;
   onClose: () => void;
 };
+
+function isParentLinkCandidate(candidate: LinkCandidate): candidate is ParentLinkCandidate {
+  return candidate.isSharedParent !== undefined;
+}
 
 export function RelativeLinkSelectModal({
   visible,
@@ -41,9 +51,26 @@ export function RelativeLinkSelectModal({
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredCandidates = useMemo(
-    () => filterFamilyLinkCandidates(candidates, linkType, subjectGender, searchQuery),
+    () =>
+      filterFamilyLinkCandidates(
+        candidates,
+        linkType,
+        subjectGender,
+        searchQuery,
+      ) as LinkCandidate[],
     [candidates, linkType, searchQuery, subjectGender],
   );
+
+  const groupedCandidates = useMemo(() => {
+    if (linkType !== 'father' && linkType !== 'mother') {
+      return { shared: [] as LinkCandidate[], other: filteredCandidates };
+    }
+
+    const shared = filteredCandidates.filter((candidate) => candidate.isSharedParent);
+    const other = filteredCandidates.filter((candidate) => !candidate.isSharedParent);
+
+    return { shared, other };
+  }, [filteredCandidates, linkType]);
 
   const handleClose = () => {
     setSearchQuery('');
@@ -55,6 +82,56 @@ export function RelativeLinkSelectModal({
     setSearchQuery('');
     onClose();
   };
+
+  const renderCandidate = (candidate: LinkCandidate) => {
+    const selected = relativeLinkIdsMatch(selectedId, candidate.id);
+
+    return (
+      <Pressable
+        key={candidate.id}
+        onPress={() => handleSelect(candidate.id)}
+        style={({ pressed }) => [
+          styles.option,
+          selected && styles.optionSelected,
+          pressed && styles.optionPressed,
+        ]}
+        accessibilityRole="button"
+        accessibilityState={{ selected }}>
+        <AvatarPlaceholder
+          name={getRelativeDisplayName(candidate)}
+          color={candidate.avatarColor}
+          photoUrl={candidate.photoUrl}
+          size={48}
+        />
+        <View style={styles.optionInfo}>
+          <Text
+            style={[styles.optionName, selected && styles.optionNameSelected]}
+            numberOfLines={2}>
+            {getRelativeDisplayName(candidate)}
+          </Text>
+          <Text
+            style={[styles.optionRole, selected && styles.optionRoleSelected]}
+            numberOfLines={1}>
+            {candidate.relationship}
+          </Text>
+          {candidate.isSharedParent ? (
+            <Text
+              style={[
+                styles.sharedParentsBadge,
+                selected && styles.sharedParentsBadgeSelected,
+              ]}>
+              Ортақ ата-ана
+            </Text>
+          ) : null}
+        </View>
+      </Pressable>
+    );
+  };
+
+  const showGroupedSections =
+    (linkType === 'father' || linkType === 'mother') &&
+    groupedCandidates.shared.length > 0 &&
+    filteredCandidates.some(isParentLinkCandidate);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
@@ -76,42 +153,19 @@ export function RelativeLinkSelectModal({
                   Іздеу сөзін өзгертіңіз · немесе жыныс/байланыс сүзгісіне сай туыстар жоқ.
                 </Text>
               </View>
+            ) : showGroupedSections ? (
+              <>
+                <Text style={styles.sectionTitle}>Ортақ ата-ана</Text>
+                {groupedCandidates.shared.map(renderCandidate)}
+                {groupedCandidates.other.length > 0 ? (
+                  <>
+                    <Text style={styles.sectionTitle}>Басқа туысдар</Text>
+                    {groupedCandidates.other.map(renderCandidate)}
+                  </>
+                ) : null}
+              </>
             ) : (
-              filteredCandidates.map((candidate) => {
-                const selected = selectedId === candidate.id;
-
-                return (
-                  <Pressable
-                    key={candidate.id}
-                    onPress={() => handleSelect(candidate.id)}
-                    style={({ pressed }) => [
-                      styles.option,
-                      selected && styles.optionSelected,
-                      pressed && styles.optionPressed,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}>
-                    <AvatarPlaceholder
-                      name={getRelativeDisplayName(candidate)}
-                      color={candidate.avatarColor}
-                      photoUrl={candidate.photoUrl}
-                      size={48}
-                    />
-                    <View style={styles.optionInfo}>
-                      <Text
-                        style={[styles.optionName, selected && styles.optionNameSelected]}
-                        numberOfLines={2}>
-                        {getRelativeDisplayName(candidate)}
-                      </Text>
-                      <Text
-                        style={[styles.optionRole, selected && styles.optionRoleSelected]}
-                        numberOfLines={1}>
-                        {candidate.relationship}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })
+              filteredCandidates.map(renderCandidate)
             )}
           </ScrollView>
 
@@ -146,6 +200,13 @@ const styles = StyleSheet.create({
   },
   list: {
     maxHeight: 420,
+  },
+  sectionTitle: {
+    ...Typography.caption,
+    color: Palette.greenDeep,
+    fontWeight: '800',
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   option: {
     flexDirection: 'row',
@@ -184,6 +245,14 @@ const styles = StyleSheet.create({
     color: Palette.textSecondary,
   },
   optionRoleSelected: {
+    color: Palette.goldLight,
+  },
+  sharedParentsBadge: {
+    ...Typography.caption,
+    color: Palette.greenMid,
+    fontWeight: '700',
+  },
+  sharedParentsBadgeSelected: {
     color: Palette.goldLight,
   },
   emptyState: {

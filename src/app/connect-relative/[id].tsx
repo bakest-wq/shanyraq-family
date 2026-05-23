@@ -150,7 +150,8 @@ export default function ConnectRelativeScreen() {
 
         <Card goldBorder style={styles.helperCard}>
           <Text style={styles.helperText}>
-            Балаға әke мен ana таңдаңыз — шежіреде отбасы блогы автоматты түрде пайда болады.
+            Бір ата-ана бірнеше балаға байланыса алады. Балаға әke мен ana таңдаңыз — шежіреде
+            отбасы блогы автоматты түрде пайда болады.
           </Text>
         </Card>
 
@@ -167,7 +168,6 @@ export default function ConnectRelativeScreen() {
 
         <Card style={styles.linkCard}>
           <RelativeLinkPicker
-            label="Әke · Отец"
             linkType="father"
             selectedId={fatherId}
             candidates={fatherCandidates}
@@ -183,7 +183,6 @@ export default function ConnectRelativeScreen() {
             }}
           />
           <RelativeLinkPicker
-            label="Ana · Мать"
             linkType="mother"
             selectedId={motherId}
             candidates={motherCandidates}

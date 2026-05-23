@@ -64,7 +64,7 @@ export default function CreateFamilyScreen() {
         ownerName: ownerName.trim(),
       });
 
-      router.replace('/(tabs)');
+      router.replace('/setup-onboarding');
 
       Alert.alert(
         'Отбасы құрылды!',

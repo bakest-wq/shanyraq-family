@@ -5,7 +5,8 @@ import { StyleSheet, View } from 'react-native';
 import { BirthdayCalendarCard } from '@/components/calendar/BirthdayCalendarCard';
 import { ReminderSettingsPanel } from '@/components/calendar/ReminderSettingsPanel';
 import { AppHeader } from '@/components/ui/AppHeader';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { PresetEmptyState } from '@/components/ui/EmptyState';
+import { EMPTY_STATE_PRESETS } from '@/constants/family-ux-content';
 import { ErrorState } from '@/components/ui/EmptyState';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { MonthSection } from '@/components/ui/MonthSection';
@@ -64,11 +65,8 @@ export default function CalendarScreen() {
         <ErrorState message={error} onRetry={() => void refetch()} />
       ) : !hasBirthdays ? (
         <View style={styles.emptyWrap}>
-          <EmptyState
-            icon="📅"
-            title="Добавьте даты рождения родственников, чтобы получать напоминания."
-            subtitle="Туған күндерді қосыңыз · Add birthday dates"
-            actionLabel="Добавить родственника"
+          <PresetEmptyState
+            preset={EMPTY_STATE_PRESETS.birthdays}
             onAction={() => router.push('/add-relative')}
           />
         </View>

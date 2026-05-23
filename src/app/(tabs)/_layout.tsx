@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { Palette, Typography } from '@/constants/theme';
 import { useFamily } from '@/hooks/useFamily';
+import { useSetupOnboarding } from '@/hooks/useSetupOnboarding';
 import { useRefreshRelativesOnFocus } from '@/hooks/useRelatives';
 
 type TabIconProps = {
@@ -23,9 +24,10 @@ function TabIcon({ emoji, focused, label }: TabIconProps) {
 
 export default function TabLayout() {
   const { isReady, hasFamily } = useFamily();
+  const { isReady: onboardingReady, isCompleted } = useSetupOnboarding();
   useRefreshRelativesOnFocus();
 
-  if (!isReady) {
+  if (!isReady || !onboardingReady) {
     return (
       <View style={styles.loadingWrap}>
         <LoadingState message="Жүктелуде..." />
@@ -35,6 +37,10 @@ export default function TabLayout() {
 
   if (!hasFamily) {
     return <Redirect href="/onboarding" />;
+  }
+
+  if (!isCompleted) {
+    return <Redirect href="/setup-onboarding" />;
   }
 
   return (
@@ -58,7 +64,9 @@ export default function TabLayout() {
         name="relatives"
         options={{
           title: 'Туыстар',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👨‍👩‍👧‍👦" focused={focused} label="Туыстар" />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="👨‍👩‍👧‍👦" focused={focused} label="Туыстар" />
+          ),
           tabBarLabel: () => null,
         }}
       />
@@ -73,9 +81,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="shezhire"
         options={{
-          title: 'Шежіре',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🌳" focused={focused} label="Шежіре" />,
-          tabBarLabel: () => null,
+          href: null,
         }}
       />
       <Tabs.Screen

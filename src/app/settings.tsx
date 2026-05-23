@@ -2,11 +2,16 @@ import { useRouter } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DevTestFamilyTools } from '@/components/settings/DevTestFamilyTools';
 import { Card } from '@/components/ui/Card';
+import { isDevToolsEnabled } from '@/constants/dev-tools';
 import { DetailField } from '@/components/ui/DetailField';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { QuickActionButton } from '@/components/ui/QuickActionButton';
+import { GRAPH_INTEGRITY_COPY } from '@/constants/graph-integrity-content';
+import { USER_IDENTITY_COPY } from '@/constants/user-identity-content';
 import { useFamily } from '@/hooks/useFamily';
+import { useUserIdentity } from '@/hooks/useUserIdentity';
 import {
   buildFamilyInviteMessage,
   copyTextToClipboard,
@@ -18,6 +23,7 @@ import { Palette, Spacing, Typography } from '@/constants/theme';
 export default function SettingsScreen() {
   const router = useRouter();
   const { session, leaveFamily } = useFamily();
+  const { myRelative, hasLinkedRelative } = useUserIdentity();
 
   const inviteCode = session?.inviteCode ?? '';
   const inviteDisplay = inviteCode ? formatInviteCodeDisplay(inviteCode) : '—';
@@ -102,6 +108,39 @@ export default function SettingsScreen() {
         </Card>
 
         <Card style={styles.card}>
+          <Text style={styles.sectionLabel}>Шежіре сапасы · Data health</Text>
+          <Text style={styles.inviteIntro}>
+            Байланыс қателерін тексеру · Check broken links and safe repairs
+          </Text>
+          <QuickActionButton
+            icon="🌿"
+            label={GRAPH_INTEGRITY_COPY.healthCheckTitle}
+            sublabel={GRAPH_INTEGRITY_COPY.healthCheckSubtitle}
+            variant="green"
+            onPress={() => router.push('/shezhire-health-check')}
+          />
+        </Card>
+
+        <Card style={styles.card}>
+          <Text style={styles.sectionLabel}>{USER_IDENTITY_COPY.linkedLabel}</Text>
+          <DetailField
+            label={USER_IDENTITY_COPY.settingsButton}
+            value={
+              hasLinkedRelative && myRelative
+                ? myRelative.displayName || myRelative.fullName || myRelative.firstName
+                : USER_IDENTITY_COPY.notLinked
+            }
+          />
+          <QuickActionButton
+            icon="👤"
+            label={USER_IDENTITY_COPY.settingsButton}
+            sublabel={USER_IDENTITY_COPY.settingsHint}
+            variant="green"
+            onPress={() => router.push('/who-am-i')}
+          />
+        </Card>
+
+        <Card style={styles.card}>
           <Text style={styles.sectionLabel}>Еске салулар · Notifications</Text>
           <Text style={styles.inviteIntro}>
             Туған күн және марқұмдарға дұға eskertuleri — локальные push на устройстве.
@@ -154,6 +193,8 @@ export default function SettingsScreen() {
             />
           </View>
         </Card>
+
+        {isDevToolsEnabled ? <DevTestFamilyTools /> : null}
 
         <View style={styles.actions}>
           <PrimaryButton

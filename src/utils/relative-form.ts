@@ -1,9 +1,14 @@
 import { CreateRelativeInput, Relative } from '@/types/relative';
 import { relativeToBirthdayFormParts } from '@/utils/birthday-parts';
+import { getEffectiveSpouse } from '@/utils/relationship-engine';
 import { syncNameFields } from '@/utils/relative-names';
 
-export function relativeToFormInput(relative: Relative): CreateRelativeInput {
+export function relativeToFormInput(
+  relative: Relative,
+  relatives: Relative[] = [],
+): CreateRelativeInput {
   const birthdayFields = relativeToBirthdayFormParts(relative);
+  const effectiveSpouse = relatives.length > 0 ? getEffectiveSpouse(relative, relatives) : null;
 
   return {
     fullName: relative.fullName,
@@ -23,7 +28,7 @@ export function relativeToFormInput(relative: Relative): CreateRelativeInput {
     notes: relative.notes ?? '',
     fatherId: relative.fatherId ?? null,
     motherId: relative.motherId ?? null,
-    spouseId: relative.spouseId ?? null,
+    spouseId: relative.spouseId ?? effectiveSpouse?.id ?? null,
     gender: relative.gender,
     maritalStatus: relative.maritalStatus,
     zhuz: relative.zhuz ?? '',

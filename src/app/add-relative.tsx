@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -15,48 +15,79 @@ import { RelativeFormFields } from '@/components/relatives/RelativeFormFields';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useCreateRelative, useRelatives } from '@/hooks/useRelatives';
 import { useToast } from '@/hooks/useToast';
+import { useUserIdentity } from '@/hooks/useUserIdentity';
 import { useFamilyContext } from '@/providers/FamilyProvider';
 import { saveAndSyncPhotoUrl } from '@/services/relative-photo.service';
 import { relativesService } from '@/services/relatives.service';
-import { CreateRelativeInput } from '@/types/relative';
+import { CreateRelativeInput, ConnectParentsInput } from '@/types/relative';
 import {
   hasChildLinkChanges,
   resolveParentLinkRole,
-  shouldShowChildrenLinkSection,
 } from '@/utils/family-child-links';
+import { resolveFamilyLinkFormLayout } from '@/utils/family-link-modes';
 import { EMPTY_RELATIVE_FORM } from '@/utils/relative-form';
 import { hasFormErrors, prepareRelativeInput, validateRelativeForm } from '@/utils/validation';
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function AddRelativeScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ fatherId?: string; motherId?: string }>();
+  const params = useLocalSearchParams<{
+    fatherId?: string;
+    motherId?: string;
+    relationship?: string;
+    rootId?: string;
+    fromSetup?: string;
+    linkAsUser?: string;
+  }>();
   const { showToast } = useToast();
   const { familyId } = useFamilyContext();
+  const { linkRelative, hasLinkedRelative } = useUserIdentity();
   const { createRelative, saving, error: saveError } = useCreateRelative();
   const { relatives, refetch } = useRelatives();
   const [form, setForm] = useState<CreateRelativeInput>(EMPTY_RELATIVE_FORM);
   const [errors, setErrors] = useState<ReturnType<typeof validateRelativeForm>>({});
   const [linkedChildIds, setLinkedChildIds] = useState<string[]>([]);
+  const [pendingSiblingSync, setPendingSiblingSync] = useState<{
+    siblingId: string;
+    patch: Partial<ConnectParentsInput>;
+  } | null>(null);
+
+  const referenceRootId = useMemo(() => {
+    const rootId = Array.isArray(params.rootId) ? params.rootId[0] : params.rootId;
+    return rootId ?? null;
+  }, [params.rootId]);
+
+  const shouldLinkAsUser = useMemo(() => {
+    const value = Array.isArray(params.linkAsUser) ? params.linkAsUser[0] : params.linkAsUser;
+    return value === '1' || value === 'true';
+  }, [params.linkAsUser]);
 
   useEffect(() => {
     const fatherId = Array.isArray(params.fatherId) ? params.fatherId[0] : params.fatherId;
     const motherId = Array.isArray(params.motherId) ? params.motherId[0] : params.motherId;
+    const relationship = Array.isArray(params.relationship)
+      ? params.relationship[0]
+      : params.relationship;
 
-    if (!fatherId && !motherId) {
+    if (!fatherId && !motherId && !relationship) {
       return;
     }
 
     setForm((current) => ({
       ...current,
-      relationship: 'Бала',
-      fatherId: fatherId ?? null,
-      motherId: motherId ?? null,
+      ...(relationship ? { relationship } : {}),
+      ...(fatherId || motherId
+        ? {
+            relationship: relationship ?? 'Бала',
+            fatherId: fatherId ?? null,
+            motherId: motherId ?? null,
+          }
+        : {}),
     }));
-  }, [params.fatherId, params.motherId]);
+  }, [params.fatherId, params.motherId, params.relationship]);
 
   useEffect(() => {
-    if (!shouldShowChildrenLinkSection(form.relationship)) {
+    if (!resolveFamilyLinkFormLayout(form.relationship).showChildrenPicker) {
       setLinkedChildIds([]);
     }
   }, [form.relationship]);
@@ -77,6 +108,16 @@ export default function AddRelativeScreen() {
         delete next[key];
       }
       return next;
+    });
+  };
+
+  const handleSiblingParentSync = (siblingId: string, patch: Partial<CreateRelativeInput>) => {
+    setPendingSiblingSync({
+      siblingId,
+      patch: {
+        fatherId: patch.fatherId,
+        motherId: patch.motherId,
+      },
     });
   };
 
@@ -131,6 +172,17 @@ export default function AddRelativeScreen() {
         linksSynced = true;
       }
 
+      if (pendingSiblingSync && familyId) {
+        await relativesService.patchRelativeLinks(
+          pendingSiblingSync.siblingId,
+          pendingSiblingSync.patch,
+          familyId,
+        );
+        await refetch({ silent: true });
+        linksSynced = true;
+        setPendingSiblingSync(null);
+      }
+
       setForm(EMPTY_RELATIVE_FORM);
       setLinkedChildIds([]);
       setErrors({});
@@ -149,9 +201,17 @@ export default function AddRelativeScreen() {
         message: 'Родственник успешно добавлен',
       });
 
+      if (
+        shouldLinkAsUser ||
+        (!hasLinkedRelative &&
+          (relativeInput.relationship === 'Мен' || relativeInput.relationship === 'Я'))
+      ) {
+        await linkRelative(created.id);
+      }
+
       router.replace({
-        pathname: '/(tabs)/relatives',
-        params: { highlightId: created.id },
+        pathname: shouldLinkAsUser ? '/(tabs)/relatives' : '/(tabs)/relatives',
+        params: { highlightId: created.id, ...(shouldLinkAsUser ? { view: 'tree' } : {}) },
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Не удалось сохранить родственника.';
@@ -186,10 +246,12 @@ export default function AddRelativeScreen() {
             errors={errors}
             saveError={saveError}
             relatives={relatives}
+            referenceRootId={referenceRootId}
             linkedChildIds={linkedChildIds}
             onLinkedChildIdsChange={setLinkedChildIds}
             onChange={updateForm}
             onPatch={patchForm}
+            onSiblingParentSync={handleSiblingParentSync}
           />
 
           <View style={styles.saveWrap}>

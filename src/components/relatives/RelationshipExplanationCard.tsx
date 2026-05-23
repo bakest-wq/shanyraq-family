@@ -1,6 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
+import { HelperHintBanner } from '@/components/ui/HelperHintBanner';
+import { SECTION_HELPER_TEXT } from '@/constants/family-ux-content';
 import { Relative } from '@/types/relative';
 import {
   buildRelationshipExplanation,
@@ -43,6 +45,13 @@ export function RelationshipExplanationCard({
       {explanation.hint ? (
         <Text style={styles.hint}>{formatRelationshipPath(explanation.hint)}</Text>
       ) : null}
+
+      <HelperHintBanner
+        icon="🌿"
+        text={SECTION_HELPER_TEXT.relationshipExplanation.text}
+        subtext={SECTION_HELPER_TEXT.relationshipExplanation.subtext}
+        tone="cream"
+      />
     </Card>
   );
 }

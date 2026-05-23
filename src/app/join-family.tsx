@@ -94,7 +94,7 @@ export default function JoinFamilyScreen() {
             label="Кіру · Открыть отбасы"
             sublabel="Shanyraq Family"
             variant="green"
-            onPress={() => router.replace('/(tabs)')}
+            onPress={() => router.replace('/setup-onboarding')}
           />
         </View>
       </SafeAreaView>

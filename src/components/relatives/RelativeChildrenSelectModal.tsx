@@ -80,7 +80,7 @@ export function RelativeChildrenSelectModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
       <Pressable style={styles.backdrop} onPress={handleClose}>
         <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
-          <Text style={styles.title}>Балаларын таңдау · Выбрать детей</Text>
+          <Text style={styles.title}>Баланы таңдау · Выбрать ребёнка</Text>
           <Text style={styles.subtitle}>
             Бірнеше баланы таңдауға болады · Можно выбрать несколько
           </Text>

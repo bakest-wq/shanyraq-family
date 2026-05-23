@@ -15,11 +15,6 @@ export async function applyRelationshipSuggestion(
       suggestion.action.primaryPatch,
       familyId,
     );
-    await relativesService.patchRelativeLinks(
-      suggestion.action.secondaryId,
-      suggestion.action.secondaryPatch,
-      familyId,
-    );
     return;
   }
 

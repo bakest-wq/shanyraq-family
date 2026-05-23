@@ -21,7 +21,7 @@ export default function OnboardingScreen() {
   }
 
   if (hasFamily) {
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href="/setup-onboarding" />;
   }
 
   return (
@@ -31,8 +31,9 @@ export default function OnboardingScreen() {
           <View style={styles.logoWrap}>
             <Text style={styles.logo}>🏠</Text>
           </View>
-          <Text style={styles.title}>Shanyraq Family</Text>
-          <Text style={styles.subtitle}>Шаңырақ · Семейный очаг</Text>
+          <Text style={styles.title}>Сіздің цифрлық шаңырағыңыз 🌿</Text>
+          <Text style={styles.subtitle}>Туыстарды, туған күндерді және шежірені бірге сақтаңыз.</Text>
+          <Text style={styles.subtitleRu}>Shanyraq Family · семейный очаг</Text>
         </View>
 
         <Card goldBorder style={styles.introCard}>
@@ -106,6 +107,11 @@ const styles = StyleSheet.create({
   subtitle: {
     ...Typography.body,
     color: Palette.textSecondary,
+    textAlign: 'center',
+  },
+  subtitleRu: {
+    ...Typography.bodySmall,
+    color: Palette.textMuted,
     textAlign: 'center',
   },
   introCard: {

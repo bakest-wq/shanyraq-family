@@ -1,207 +1,159 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FamilyViewTabs } from '@/components/family/FamilyViewTabs';
+import { RelativesListPanel } from '@/components/family/RelativesListPanel';
+import { ShezhireTreePanel } from '@/components/family/ShezhireTreePanel';
 import { AppHeader } from '@/components/ui/AppHeader';
-import { EmptyState, ErrorState } from '@/components/ui/EmptyState';
-import { FilterChips } from '@/components/ui/FilterChips';
+import { ErrorState } from '@/components/ui/EmptyState';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
-import { RelativeListCard } from '@/components/ui/RelativeListCard';
 import { ScreenShell } from '@/components/ui/ScreenShell';
-import { SearchField } from '@/components/ui/SearchField';
-import { SectionTitle } from '@/components/ui/SectionTitle';
 import { useRelatives } from '@/hooks/useRelatives';
-import {
-  filterRelatives,
-  RELATIVE_FILTERS,
-  RelativeFilter,
-} from '@/utils/relatives-filters';
-import { Palette, Spacing, Typography } from '@/constants/theme';
+import { FamilyView, parseFamilyView } from '@/utils/family-view';
+import { Palette, Spacing } from '@/constants/theme';
 
-export default function RelativesScreen() {
+export default function FamilyScreen() {
   const router = useRouter();
-  const { highlightId } = useLocalSearchParams<{ highlightId?: string | string[] }>();
+  const insets = useSafeAreaInsets();
+  const { highlightId, view: viewParam } = useLocalSearchParams<{
+    highlightId?: string | string[];
+    view?: string | string[];
+  }>();
   const resolvedHighlightId = Array.isArray(highlightId) ? highlightId[0] : highlightId;
-  const { relatives, loading, error, isEmpty, refetch } = useRelatives();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<RelativeFilter>('all');
+  const [activeView, setActiveView] = useState<FamilyView>(() => parseFamilyView(viewParam));
   const [refreshing, setRefreshing] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const listOffsetRef = useRef(0);
-  const itemOffsetsRef = useRef<Record<string, number>>({});
 
-  useEffect(() => {
-    if (!resolvedHighlightId) {
-      return;
-    }
+  const {
+    relatives,
+    loading,
+    error,
+    isEmpty,
+    invalidateRelatives,
+    refetch,
+    relativesRevision,
+    getRelativeById,
+  } = useRelatives();
 
-    setSearchQuery('');
-    setActiveFilter('all');
-  }, [resolvedHighlightId]);
-
-  const filteredRelatives = useMemo(
-    () => filterRelatives(relatives, searchQuery, activeFilter),
-    [relatives, searchQuery, activeFilter],
+  useFocusEffect(
+    useCallback(() => {
+      void invalidateRelatives({ silent: true });
+    }, [invalidateRelatives]),
   );
 
-  const scrollToHighlightedRelative = useCallback(() => {
-    if (!resolvedHighlightId || loading) {
-      return;
-    }
-
-    const itemY = itemOffsetsRef.current[resolvedHighlightId];
-    if (itemY === undefined) {
-      return;
-    }
-
-    scrollRef.current?.scrollTo({
-      y: Math.max(0, listOffsetRef.current + itemY - Spacing.lg),
-      animated: true,
-    });
-  }, [loading, resolvedHighlightId]);
-
   useEffect(() => {
-    if (!resolvedHighlightId || loading) {
-      return;
-    }
+    setActiveView(parseFamilyView(viewParam));
+  }, [viewParam]);
 
-    const timer = setTimeout(() => {
-      scrollToHighlightedRelative();
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [loading, resolvedHighlightId, filteredRelatives.length, scrollToHighlightedRelative]);
-
-  useEffect(() => {
-    if (!resolvedHighlightId) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      router.setParams({ highlightId: '' });
-    }, 3200);
-
-    return () => clearTimeout(timer);
-  }, [resolvedHighlightId, router]);
+  const handleViewChange = useCallback(
+    (nextView: FamilyView) => {
+      setActiveView(nextView);
+      router.setParams(nextView === 'tree' ? { view: 'tree' } : { view: 'list' });
+    },
+    [router],
+  );
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refetch({ silent: true });
+    await invalidateRelatives({ silent: true });
     setRefreshing(false);
-  }, [refetch]);
+  }, [invalidateRelatives]);
 
-  const headerSubtitle = `${filteredRelatives.length} из ${relatives.length} · родственников`;
+  const headerSubtitle = useMemo(() => {
+    if (loading) {
+      return 'Загрузка...';
+    }
+
+    if (activeView === 'tree') {
+      return `${relatives.length} туыс · отбасы ағашы`;
+    }
+
+    return `${relatives.length} из ${relatives.length} · родственников`;
+  }, [activeView, loading, relatives]);
+
+  const openAddRelative = useCallback(() => {
+    router.push('/add-relative');
+  }, [router]);
 
   return (
     <ScreenShell
-      scrollRef={scrollRef}
+      scrollRef={activeView === 'list' ? scrollRef : undefined}
       refreshing={refreshing}
       onRefresh={() => void handleRefresh()}
       header={
-        <AppHeader
-          title="Туыстар"
-          subtitle={loading ? 'Загрузка...' : headerSubtitle}
-        />
+        <View style={styles.headerWrap}>
+          <AppHeader
+            title="Туыстар · Родственники"
+            subtitle={headerSubtitle}
+            badge={activeView === 'tree' ? '🌳' : '👨‍👩‍👧‍👦'}
+            onRefresh={() => void handleRefresh()}
+            refreshing={refreshing}
+          />
+          <FamilyViewTabs value={activeView} onChange={handleViewChange} />
+        </View>
+      }
+      footer={
+        !loading && !error ? (
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.md) }]}>
+            <PrimaryButton
+              label="Туыс қосу"
+              sublabel="Добавить родственника · Add relative"
+              variant="green"
+              onPress={openAddRelative}
+            />
+          </View>
+        ) : null
       }
       contentStyle={styles.content}>
       {loading ? (
-        <LoadingState message="Туыстар жүктелуде..." />
+        <LoadingState
+          message={
+            activeView === 'tree'
+              ? 'Шежіре жүктелуде · Загрузка...'
+              : 'Туыстар жүктелуде...'
+          }
+        />
       ) : error ? (
         <ErrorState message={error} onRetry={() => void refetch()} />
-      ) : isEmpty ? (
-        <View style={styles.emptyWrap}>
-          <EmptyState
-            icon="👨‍👩‍👧‍👦"
-            title="Пока нет родственников. Добавьте первого."
-            subtitle="Туыс қосу · Добавить родственника"
-            actionLabel="Добавить родственника"
-            onAction={() => router.push('/add-relative')}
-          />
-        </View>
+      ) : activeView === 'list' ? (
+        <RelativesListPanel
+          relatives={relatives}
+          loading={loading}
+          error={error}
+          isEmpty={isEmpty}
+          highlightId={resolvedHighlightId}
+          scrollRef={scrollRef}
+          onRetry={() => void refetch()}
+        />
       ) : (
-        <>
-          <SectionTitle
-            title="Отбасыңыз"
-            subtitle="Поиск, фильтры и быстрые действия"
-          />
-
-          <SearchField value={searchQuery} onChangeText={setSearchQuery} />
-
-          <FilterChips
-            options={RELATIVE_FILTERS}
-            value={activeFilter}
-            onChange={setActiveFilter}
-          />
-
-          {filteredRelatives.length === 0 ? (
-            <View style={styles.noResults}>
-              <Text style={styles.noResultsTitle}>Ничего не найдено</Text>
-              <Text style={styles.noResultsText}>
-                Попробуйте другой запрос или фильтр
-              </Text>
-              <PrimaryButton
-                label="Сбросить фильтры"
-                variant="gold"
-                onPress={() => {
-                  setSearchQuery('');
-                  setActiveFilter('all');
-                }}
-              />
-            </View>
-          ) : (
-            <View
-              style={styles.list}
-              onLayout={(event) => {
-                listOffsetRef.current = event.nativeEvent.layout.y;
-              }}>
-              {filteredRelatives.map((relative) => (
-                <View
-                  key={relative.id}
-                  onLayout={(event) => {
-                    itemOffsetsRef.current[relative.id] = event.nativeEvent.layout.y;
-                  }}>
-                  <RelativeListCard
-                    relative={relative}
-                    highlighted={relative.id === resolvedHighlightId}
-                  />
-                </View>
-              ))}
-            </View>
-          )}
-        </>
+        <ShezhireTreePanel
+          relatives={relatives}
+          isEmpty={isEmpty}
+          relativesRevision={relativesRevision}
+          getRelativeById={getRelativeById}
+          refreshing={refreshing}
+          onRefresh={() => void handleRefresh()}
+        />
       )}
     </ScreenShell>
   );
 }
 
 const styles = StyleSheet.create({
+  headerWrap: {
+    backgroundColor: Palette.cream,
+  },
   content: {
     gap: Spacing.lg,
   },
-  emptyWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingVertical: Spacing.xxl,
-  },
-  list: {
-    gap: Spacing.md,
-  },
-  noResults: {
-    alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: Palette.white,
-    borderRadius: 20,
-    padding: Spacing.xl,
-  },
-  noResultsTitle: {
-    ...Typography.subtitle,
-    color: Palette.textPrimary,
-    textAlign: 'center',
-  },
-  noResultsText: {
-    ...Typography.bodySmall,
-    color: Palette.textSecondary,
-    textAlign: 'center',
+  footer: {
+    backgroundColor: Palette.cream,
+    borderTopWidth: 1,
+    borderTopColor: Palette.creamDark,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
   },
 });

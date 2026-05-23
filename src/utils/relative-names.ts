@@ -36,8 +36,37 @@ export function composeDisplayName(input: {
   return input.firstName?.trim() ?? '';
 }
 
+function hasCustomDisplayName(displayName?: string, fullName?: string, composedFull?: string): boolean {
+  const trimmedDisplay = displayName?.trim();
+  if (!trimmedDisplay) {
+    return false;
+  }
+
+  if (trimmedDisplay === fullName?.trim()) {
+    return false;
+  }
+
+  if (composedFull && trimmedDisplay === composedFull) {
+    return false;
+  }
+
+  return true;
+}
+
 export function getRelativeDisplayName(relative: Relative): string {
-  return relative.displayName || relative.fullName || relative.firstName;
+  const composedFull = composeFullName(relative);
+  const storedDisplay = relative.displayName?.trim();
+  const storedFull = relative.fullName?.trim();
+
+  if (composedFull) {
+    if (!hasCustomDisplayName(storedDisplay, storedFull, composedFull)) {
+      return composedFull;
+    }
+
+    return storedDisplay!;
+  }
+
+  return storedDisplay || storedFull || relative.firstName;
 }
 
 export function parseLegacyFullName(fullName: string): {
@@ -68,7 +97,15 @@ export function parseLegacyFullName(fullName: string): {
 
 export function syncNameFields(input: CreateRelativeInput): CreateRelativeInput {
   const fullName = composeFullName(input);
-  const displayName = composeDisplayName({ ...input, fullName });
+  const autoDisplay = composeDisplayName({
+    firstName: input.firstName,
+    middleName: input.middleName,
+    currentSurname: input.currentSurname,
+    fullName,
+  });
+  const displayName = hasCustomDisplayName(input.displayName, input.fullName, fullName)
+    ? input.displayName!.trim()
+    : autoDisplay;
 
   return {
     ...input,
@@ -76,4 +113,8 @@ export function syncNameFields(input: CreateRelativeInput): CreateRelativeInput 
     fullName,
     displayName,
   };
+}
+
+export function resolveRelativeFromList(relative: Relative, relatives: Relative[]): Relative {
+  return relatives.find((item) => item.id === relative.id) ?? relative;
 }

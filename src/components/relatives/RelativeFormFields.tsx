@@ -1,30 +1,32 @@
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
-import { RelativeLinkPicker } from '@/components/relatives/RelativeLinkPicker';
-import { RelativeChildrenPicker } from '@/components/relatives/RelativeChildrenPicker';
-import { RelativePhotoPicker } from '@/components/relatives/RelativePhotoPicker';
-import { SuggestedLinksSection } from '@/components/relatives/SuggestedLinksSection';
 import { BirthdayPicker } from '@/components/relatives/BirthdayPicker';
+import { FamilyLinkSections } from '@/components/relatives/FamilyLinkSections';
+import { RelativePhotoPicker } from '@/components/relatives/RelativePhotoPicker';
 import { RuPicker } from '@/components/relatives/RuPicker';
 import { RelationshipSelector } from '@/components/relatives/RelationshipSelector';
 import { Card } from '@/components/ui/Card';
 import { FormField } from '@/components/ui/FormField';
+import { HelperHintBanner } from '@/components/ui/HelperHintBanner';
 import {
   CreateRelativeInput,
   GENDER_OPTIONS,
   MARITAL_STATUS_OPTIONS,
   Relative,
 } from '@/types/relative';
-import { buildFamilyLinkCandidates, validateRelativeFamilyLinksFull } from '@/utils/family-link-validation';
-import { shouldShowChildrenLinkSection } from '@/utils/family-child-links';
 import {
   findFamilyAnchor,
   formatRelationshipPath,
   getRelationshipPath,
 } from '@/utils/kinship-path';
-import { isSpouseRelationship } from '@/utils/relationship-presets';
+import { SECTION_HELPER_TEXT } from '@/constants/family-ux-content';
 import { getRelativeDisplayName } from '@/utils/relative-names';
+import {
+  getParentSideAutoLabelHelperText,
+  getParentSideSiblingHelperText,
+  isParentSideSiblingRelationship,
+} from '@/utils/parent-side-sibling-add';
 import { pickAvatarColor } from '@/utils/relative.mapper';
 import { RelativeFormErrors } from '@/utils/validation';
 import { RuSelection } from '@/utils/ru-dictionary';
@@ -36,6 +38,7 @@ type RelativeFormFieldsProps = {
   saveError?: string | null;
   relatives: Relative[];
   editingRelativeId?: string;
+  referenceRootId?: string | null;
   linkedChildIds?: string[];
   onLinkedChildIdsChange?: (ids: string[]) => void;
   onChange: <K extends keyof CreateRelativeInput>(
@@ -43,6 +46,7 @@ type RelativeFormFieldsProps = {
     value: CreateRelativeInput[K],
   ) => void;
   onPatch?: (patch: Partial<CreateRelativeInput>) => void;
+  onSiblingParentSync?: (siblingId: string, patch: Partial<CreateRelativeInput>) => void;
 };
 
 export function RelativeFormFields({
@@ -51,60 +55,13 @@ export function RelativeFormFields({
   saveError,
   relatives,
   editingRelativeId,
+  referenceRootId,
   linkedChildIds = [],
   onLinkedChildIdsChange,
   onChange,
   onPatch,
+  onSiblingParentSync,
 }: RelativeFormFieldsProps) {
-  const linkContext = useMemo(
-    () => ({
-      fatherId: form.fatherId,
-      motherId: form.motherId,
-      spouseId: form.spouseId,
-    }),
-    [form.fatherId, form.motherId, form.spouseId],
-  );
-
-  const fatherCandidates = useMemo(
-    () =>
-      buildFamilyLinkCandidates(relatives, 'father', {
-        subjectId: editingRelativeId,
-        subjectGender: form.gender,
-        links: linkContext,
-      }),
-    [relatives, editingRelativeId, form.gender, linkContext],
-  );
-
-  const motherCandidates = useMemo(
-    () =>
-      buildFamilyLinkCandidates(relatives, 'mother', {
-        subjectId: editingRelativeId,
-        subjectGender: form.gender,
-        links: linkContext,
-      }),
-    [relatives, editingRelativeId, form.gender, linkContext],
-  );
-
-  const spouseCandidates = useMemo(
-    () =>
-      buildFamilyLinkCandidates(relatives, 'spouse', {
-        subjectId: editingRelativeId,
-        subjectGender: form.gender,
-        links: linkContext,
-      }),
-    [relatives, editingRelativeId, form.gender, linkContext],
-  );
-
-  const linkValidation = useMemo(
-    () =>
-      validateRelativeFamilyLinksFull(form, {
-        relativeId: editingRelativeId,
-        relatives,
-        subjectGender: form.gender,
-      }),
-    [form, editingRelativeId, relatives],
-  );
-
   const previewRelative = useMemo((): Relative | null => {
     if (editingRelativeId) {
       return relatives.find((relative) => relative.id === editingRelativeId) ?? null;
@@ -145,9 +102,6 @@ export function RelativeFormFields({
     return formatRelationshipPath(getRelationshipPath(previewRelative, relatives, anchor));
   }, [previewRelative, relatives]);
 
-  const showChildrenSection = shouldShowChildrenLinkSection(form.relationship);
-  const showSpouseSection = isSpouseRelationship(form.relationship);
-
   const handleBirthdayChange = (
     patch: Pick<
       CreateRelativeInput,
@@ -175,6 +129,10 @@ export function RelativeFormFields({
   };
 
   const showBirthSurname = form.gender === 'female';
+  const parentSideSiblingHelper = getParentSideSiblingHelperText(form.relationship);
+  const parentSideAutoLabelHelper = isParentSideSiblingRelationship(form.relationship)
+    ? getParentSideAutoLabelHelperText()
+    : null;
 
   const handleRuChange = (patch: Partial<RuSelection>) => {
     if (patch.zhuz !== undefined) {
@@ -229,6 +187,12 @@ export function RelativeFormFields({
           error={errors.relationship}
           onChange={(relationship) => onChange('relationship', relationship)}
         />
+        {parentSideSiblingHelper ? (
+          <HelperHintBanner text={parentSideSiblingHelper} />
+        ) : null}
+        {parentSideAutoLabelHelper ? (
+          <HelperHintBanner text={parentSideAutoLabelHelper} tone="cream" />
+        ) : null}
       </Card>
 
       <Card style={styles.sectionCard}>
@@ -265,6 +229,7 @@ export function RelativeFormFields({
         value={form.middleName ?? ''}
         onChangeText={(value) => onChange('middleName', value)}
         autoCapitalize="words"
+        hint="Тек көрсету үшін · Display only, does not affect tree links"
       />
 
       <FormField
@@ -314,101 +279,27 @@ export function RelativeFormFields({
         </View>
       </Card>
 
-      <Card goldBorder style={styles.sectionCard}>
-        <Text style={styles.sectionLabel}>Отбасы байланысы · Family links</Text>
-        <Text style={styles.hint}>
-          Әke, аna, жұбай — шежіре автоматты түрде құрылады. Таңдау үшін «Таңдау» батырмасын басыңыз.
-        </Text>
-        <View style={styles.linkFields}>
-          <RelativeLinkPicker
-            label="Әke · Отец"
-            linkType="father"
-            selectedId={form.fatherId}
-            candidates={fatherCandidates}
-            relatives={relatives}
-            subjectId={editingRelativeId}
-            subjectGender={form.gender}
-            links={linkContext}
-            error={errors.fatherId}
-            warning={!errors.fatherId ? linkValidation.warnings.fatherId : undefined}
-            onSelect={(id) => onChange('fatherId', id)}
-          />
-          <RelativeLinkPicker
-            label="Ana · Мать"
-            linkType="mother"
-            selectedId={form.motherId}
-            candidates={motherCandidates}
-            relatives={relatives}
-            subjectId={editingRelativeId}
-            subjectGender={form.gender}
-            links={linkContext}
-            error={errors.motherId}
-            warning={!errors.motherId ? linkValidation.warnings.motherId : undefined}
-            onSelect={(id) => onChange('motherId', id)}
-          />
-          {!showSpouseSection ? (
-            <RelativeLinkPicker
-              label="Жұбай · Супруг(а)"
-              linkType="spouse"
-              selectedId={form.spouseId}
-              candidates={spouseCandidates}
-              relatives={relatives}
-              subjectId={editingRelativeId}
-              subjectGender={form.gender}
-              links={linkContext}
-              error={errors.spouseId}
-              warning={!errors.spouseId ? linkValidation.warnings.spouseId : undefined}
-              onSelect={(id) => onChange('spouseId', id)}
-            />
-          ) : null}
-        </View>
-      </Card>
-
-      {showChildrenSection && onLinkedChildIdsChange ? (
-        <Card goldBorder style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Балалары · Дети</Text>
-          <Text style={styles.hint}>
-            Балаларды таңдағаннан кейін сақтау батырмасын басыңыз · После выбора детей нажмите «Сохранить».
-          </Text>
-          <RelativeChildrenPicker
-            parentId={editingRelativeId}
-            relatives={relatives}
-            selectedIds={linkedChildIds}
-            onChange={onLinkedChildIdsChange}
-          />
-        </Card>
-      ) : null}
-
-      {showSpouseSection ? (
-        <Card goldBorder style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Жұбайы · Супруг(а)</Text>
-          <RelativeLinkPicker
-            label="Жұбай · Супруг(а)"
-            linkType="spouse"
-            selectedId={form.spouseId}
-            candidates={spouseCandidates}
-            relatives={relatives}
-            subjectId={editingRelativeId}
-            subjectGender={form.gender}
-            links={linkContext}
-            error={errors.spouseId}
-            warning={!errors.spouseId ? linkValidation.warnings.spouseId : undefined}
-            onSelect={(id) => onChange('spouseId', id)}
-          />
-        </Card>
-      ) : null}
-
-      <SuggestedLinksSection
-        subjectId={editingRelativeId}
-        draftFatherId={form.fatherId}
-        draftMotherId={form.motherId}
-        draftSpouseId={form.spouseId}
-        limit={editingRelativeId ? 4 : 3}
+      <FamilyLinkSections
+        form={form}
+        errors={errors}
+        relatives={relatives}
+        editingRelativeId={editingRelativeId}
+        referenceRootId={referenceRootId}
+        linkedChildIds={linkedChildIds}
+        onLinkedChildIdsChange={onLinkedChildIdsChange}
+        onChange={onChange}
+        onPatch={onPatch}
+        onSiblingParentSync={onSiblingParentSync}
       />
 
       <Card goldBorder style={styles.sectionCard}>
         <Text style={styles.sectionLabel}>Шежіре деректері · Shezhire</Text>
-        <Text style={styles.hint}>Міндетті емес · Ру анықтамалығынан таңдаңыз</Text>
+        <HelperHintBanner
+          icon="🌿"
+          text={SECTION_HELPER_TEXT.ruSelection.text}
+          subtext={SECTION_HELPER_TEXT.ruSelection.subtext}
+          tone="cream"
+        />
         <RuPicker
           zhuz={form.zhuz}
           ru={form.ru}
@@ -500,9 +391,6 @@ const styles = StyleSheet.create({
   sectionCard: {
     gap: Spacing.md,
   },
-  linkFields: {
-    gap: Spacing.lg,
-  },
   sectionLabel: {
     ...Typography.bodySmall,
     color: Palette.textPrimary,
@@ -555,24 +443,6 @@ const styles = StyleSheet.create({
   },
   optionChipTextSelected: {
     color: Palette.white,
-  },
-  childrenList: {
-    gap: Spacing.sm,
-  },
-  childRow: {
-    backgroundColor: Palette.cream,
-    borderRadius: Radius.md,
-    padding: Spacing.sm,
-    gap: 2,
-  },
-  childName: {
-    ...Typography.bodySmall,
-    color: Palette.textPrimary,
-    fontWeight: '700',
-  },
-  childMeta: {
-    ...Typography.caption,
-    color: Palette.textSecondary,
   },
   switchRow: {
     flexDirection: 'row',

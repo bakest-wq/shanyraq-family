@@ -3,8 +3,13 @@ import {
   FamilyLinkType,
   findRelativeById,
   matchesGenderForFamilyLink,
+  relativeLinkIdsMatch,
 } from '@/utils/family-link-picker';
+import { getAncestorIds, getDescendantIds } from '@/utils/family-graph';
+import { buildFamilyLinkCandidatesForType } from '@/utils/parent-link-candidates';
 import { getRelativeDisplayName } from '@/utils/relative-names';
+
+export { getAncestorIds, getDescendantIds } from '@/utils/family-graph';
 
 export type FamilyLinkValues = {
   fatherId?: string | null;
@@ -42,6 +47,8 @@ const MSG = {
     'Баланы ата-ана ретінде таңдауға болмайды · Child cannot be a parent',
   parentAsSpouse:
     'Ата-ананы жұбай ретінде таңдауға болмайды · Parent cannot be spouse',
+  spouseAsParent:
+    'Жұбайды ата-ана ретінде таңдауға болмайды · Spouse cannot be parent',
   sameParents:
     'Әke мен ana бір адам бола алмайды · Father and mother must differ',
   genericWarning: 'Бұл байланыс шежіреде қате болуы мүмкін',
@@ -52,54 +59,6 @@ const MSG = {
   genderSpouse: 'Жұбай жыNSысы сәйкес емес · Spouse gender mismatch',
   notFound: 'Туыс табылмады · Relative not found',
 } as const;
-
-/** All descendants (children, grandchildren, …) of a person. */
-export function getDescendantIds(relativeId: string, relatives: Relative[]): Set<string> {
-  const descendants = new Set<string>();
-  const queue = [relativeId];
-
-  while (queue.length > 0) {
-    const currentId = queue.shift()!;
-
-    for (const relative of relatives) {
-      if (relative.fatherId !== currentId && relative.motherId !== currentId) {
-        continue;
-      }
-
-      if (!descendants.has(relative.id)) {
-        descendants.add(relative.id);
-        queue.push(relative.id);
-      }
-    }
-  }
-
-  return descendants;
-}
-
-/** All ancestors (parents, grandparents, …) of a person. */
-export function getAncestorIds(relativeId: string, relatives: Relative[]): Set<string> {
-  const ancestors = new Set<string>();
-  const byId = new Map(relatives.map((relative) => [relative.id, relative]));
-
-  const visitParents = (personId: string) => {
-    const person = byId.get(personId);
-    if (!person) {
-      return;
-    }
-
-    for (const parentId of [person.fatherId, person.motherId]) {
-      if (!parentId || ancestors.has(parentId)) {
-        continue;
-      }
-
-      ancestors.add(parentId);
-      visitParents(parentId);
-    }
-  };
-
-  visitParents(relativeId);
-  return ancestors;
-}
 
 function genderUnknownWarning(linkType: FamilyLinkType, subjectGender?: RelativeGender): string {
   if (linkType === 'spouse' && !subjectGender) {
@@ -126,7 +85,7 @@ function validateLinkPerson(
     return { error: MSG.notFound };
   }
 
-  if (relativeId && personId === relativeId) {
+  if (relativeId && relativeLinkIdsMatch(personId, relativeId)) {
     if (linkType === 'spouse') {
       return { error: MSG.selfSpouse };
     }
@@ -134,7 +93,18 @@ function validateLinkPerson(
     return { error: MSG.selfParent };
   }
 
-  if (relativeId && getDescendantIds(relativeId, relatives).has(personId)) {
+  if (
+    (linkType === 'father' || linkType === 'mother') &&
+    links.spouseId &&
+    relativeLinkIdsMatch(personId, links.spouseId)
+  ) {
+    return { error: MSG.spouseAsParent };
+  }
+
+  if (
+    relativeId &&
+    [...getDescendantIds(relativeId, relatives)].some((id) => relativeLinkIdsMatch(id, personId))
+  ) {
     if (linkType === 'spouse') {
       return { error: `${MSG.childAsParent} · ${MSG.genericWarning}` };
     }
@@ -142,15 +112,19 @@ function validateLinkPerson(
     return { error: MSG.childAsParent };
   }
 
-  if (linkType === 'spouse' && relativeId && getAncestorIds(relativeId, relatives).has(personId)) {
+  if (
+    linkType === 'spouse' &&
+    relativeId &&
+    [...getAncestorIds(relativeId, relatives)].some((id) => relativeLinkIdsMatch(id, personId))
+  ) {
     return { error: MSG.parentAsSpouse };
   }
 
-  if (linkType === 'father' && links.motherId && personId === links.motherId) {
+  if (linkType === 'father' && links.motherId && relativeLinkIdsMatch(personId, links.motherId)) {
     return { error: MSG.sameParents };
   }
 
-  if (linkType === 'mother' && links.fatherId && personId === links.fatherId) {
+  if (linkType === 'mother' && links.fatherId && relativeLinkIdsMatch(personId, links.fatherId)) {
     return { error: MSG.sameParents };
   }
 
@@ -265,45 +239,5 @@ export function buildFamilyLinkCandidates(
     links?: FamilyLinkValues;
   },
 ): Relative[] {
-  const { subjectId, subjectGender, links = {} } = context;
-  const blockedIds = new Set<string>();
-
-  if (subjectId) {
-    blockedIds.add(subjectId);
-    getDescendantIds(subjectId, relatives).forEach((id) => blockedIds.add(id));
-
-    if (linkType === 'spouse') {
-      getAncestorIds(subjectId, relatives).forEach((id) => blockedIds.add(id));
-    }
-  }
-
-  if (linkType === 'father' && links.motherId) {
-    blockedIds.add(links.motherId);
-  }
-
-  if (linkType === 'mother' && links.fatherId) {
-    blockedIds.add(links.fatherId);
-  }
-
-  if (linkType === 'spouse') {
-    if (links.fatherId) {
-      blockedIds.add(links.fatherId);
-    }
-
-    if (links.motherId) {
-      blockedIds.add(links.motherId);
-    }
-  }
-
-  return relatives
-    .filter((relative) => !relative.isDeceased)
-    .filter((relative) => !blockedIds.has(relative.id))
-    .filter((relative) => {
-      if (!relative.gender) {
-        return true;
-      }
-
-      return matchesGenderForFamilyLink(relative, linkType, subjectGender);
-    })
-    .sort((a, b) => getRelativeDisplayName(a).localeCompare(getRelativeDisplayName(b), 'ru'));
+  return buildFamilyLinkCandidatesForType(relatives, linkType, context);
 }

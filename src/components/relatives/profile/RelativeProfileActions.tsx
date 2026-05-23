@@ -9,6 +9,7 @@ type RelativeProfileActionsProps = {
   relative: Relative;
   displayName: string;
   deleting: boolean;
+  onEdit: () => void;
   onCongratulations: () => void;
   onDelete: () => void;
 };
@@ -17,11 +18,18 @@ export function RelativeProfileActions({
   relative,
   displayName,
   deleting,
+  onEdit,
   onCongratulations,
   onDelete,
 }: RelativeProfileActionsProps) {
   return (
     <View style={styles.wrap}>
+      <PrimaryButton
+        label="Өзгерту · Edit"
+        sublabel="Байланыстар мен аты-жөн · Links and profile"
+        variant="green"
+        onPress={onEdit}
+      />
       {!relative.isDeceased && relative.phone ? (
         <ContactButtons phone={relative.phone} name={displayName} />
       ) : null}

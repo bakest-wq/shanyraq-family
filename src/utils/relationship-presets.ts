@@ -41,6 +41,35 @@ export const RELATIONSHIP_OPTIONS: RelationshipOption[] = [
     group: 'core',
     genderHint: 'female',
   },
+  {
+    value: 'Сіңлі',
+    label: 'Сіңлі · Младшая сестра',
+    kazakh: 'Сіңлі',
+    russian: 'Младшая сестра',
+    group: 'core',
+    genderHint: 'female',
+  },
+  {
+    value: 'Бауыр',
+    label: 'Бауыр · Брат/сестра',
+    kazakh: 'Бауыр',
+    russian: 'Брат/сестра',
+    group: 'core',
+  },
+  {
+    value: 'father_side_sibling',
+    label: 'Әke жағы бауыр · Father\'s sibling',
+    kazakh: 'Әke жағы бауыр',
+    russian: 'Брат/сестра отца',
+    group: 'extended',
+  },
+  {
+    value: 'mother_side_sibling',
+    label: 'Ana жағы бауыр · Mother\'s sibling',
+    kazakh: 'Ana жағы бауыр',
+    russian: 'Брат/сестра матери',
+    group: 'extended',
+  },
   { value: 'Ұлы', label: 'Ұлы · Сын', kazakh: 'Ұлы', russian: 'Сын', group: 'children', genderHint: 'male' },
   { value: 'Қызы', label: 'Қызы · Дочь', kazakh: 'Қызы', russian: 'Дочь', group: 'children', genderHint: 'female' },
   { value: 'Бала', label: 'Бала · Ребёнок', kazakh: 'Бала', russian: 'Ребёнок', group: 'children' },
@@ -82,6 +111,14 @@ export const RELATIONSHIP_OPTIONS: RelationshipOption[] = [
     russian: 'Супруг',
     group: 'marriage',
     genderHint: 'male',
+  },
+  {
+    value: 'Әйелі',
+    label: 'Әйелі · Жена',
+    kazakh: 'Әйелі',
+    russian: 'Жена',
+    group: 'marriage',
+    genderHint: 'female',
   },
   {
     value: 'Келін',
@@ -129,7 +166,7 @@ export function findRelationshipOption(value: string): RelationshipOption | unde
 
 const PARENT_RELATIONSHIPS = new Set(['Әке', 'Ана']);
 
-const SPOUSE_RELATIONSHIPS = new Set(['Жұбайы', 'Күйеуі']);
+const SPOUSE_RELATIONSHIPS = new Set(['Жұбайы', 'Күйеуі', 'Әйелі']);
 
 const CHILD_RELATIONSHIPS = new Set(
   RELATIONSHIP_OPTIONS.filter((option) => option.group === 'children').map((option) => option.value),
@@ -145,6 +182,27 @@ export function isSpouseRelationship(value: string): boolean {
 
 export function isChildRelationship(value: string): boolean {
   return CHILD_RELATIONSHIPS.has(value);
+}
+
+const SIBLING_RELATIONSHIPS = new Set([
+  'Аға',
+  'Әпке',
+  'Іні',
+  'Қарындас',
+  'Сіңлі',
+  'Бауыр',
+  'father_side_sibling',
+  'mother_side_sibling',
+]);
+
+const EXTENDED_RELATIONSHIPS = new Set(['Жиен', 'Немере', 'Нағашы', 'Бөле', 'Келін', 'Күйеу бала']);
+
+export function isSiblingRelationship(value: string): boolean {
+  return SIBLING_RELATIONSHIPS.has(value);
+}
+
+export function isExtendedRelationship(value: string): boolean {
+  return EXTENDED_RELATIONSHIPS.has(value);
 }
 
 /** Legacy alias kept for older imports. */

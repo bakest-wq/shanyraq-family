@@ -1,5 +1,6 @@
 import { AVATAR_COLORS, CreateRelativeInput, Relative } from '@/types/relative';
 import type { RelativeInsert, RelativeRow, RelativeUpdate } from '@/types/database';
+import { normalizeRelativeLinkId } from '@/utils/family-link-picker';
 import { syncBirthdayFields } from '@/utils/birthday-parts';
 import {
   composeDisplayName,
@@ -13,12 +14,16 @@ export function mapRelativeRow(row: RelativeRow): Relative {
   const firstName = row.first_name?.trim() || legacy.firstName;
   const middleName = row.middle_name?.trim() || legacy.middleName;
   const currentSurname = row.current_surname?.trim() || legacy.currentSurname;
-  const fullName =
-    row.full_name?.trim() ||
-    composeFullName({ firstName, middleName, currentSurname, fullName: row.full_name });
+  const composedFromParts = composeFullName({ firstName, middleName, currentSurname });
+  const storedFull = row.full_name?.trim() ?? '';
+  const fullName = composedFromParts || storedFull;
+  const storedDisplay = row.display_name?.trim();
   const displayName =
-    row.display_name?.trim() ||
-    composeDisplayName({ firstName, middleName, currentSurname, fullName });
+    storedDisplay &&
+    storedDisplay !== storedFull &&
+    (!composedFromParts || storedDisplay !== composedFromParts)
+      ? storedDisplay
+      : composeDisplayName({ firstName, middleName, currentSurname, fullName });
   const birthdayFields = syncBirthdayFields({
     birthday: row.birthday ?? '',
     birthdayDay: row.birthday_day,
@@ -53,9 +58,9 @@ export function mapRelativeRow(row: RelativeRow): Relative {
     deathYear: row.death_year ?? undefined,
     duaText: row.dua_text ?? undefined,
     notes: row.notes ?? undefined,
-    fatherId: row.father_id ?? undefined,
-    motherId: row.mother_id ?? undefined,
-    spouseId: row.spouse_id ?? undefined,
+    fatherId: normalizeRelativeLinkId(row.father_id) ?? undefined,
+    motherId: normalizeRelativeLinkId(row.mother_id) ?? undefined,
+    spouseId: normalizeRelativeLinkId(row.spouse_id) ?? undefined,
     gender: row.gender ?? undefined,
     maritalStatus: row.marital_status ?? undefined,
     zhuz: row.zhuz ?? undefined,

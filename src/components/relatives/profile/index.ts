@@ -1,3 +1,4 @@
+export { RelativeProfileKinshipSection } from './RelativeProfileKinshipSection';
 export { RelativeProfileActions } from './RelativeProfileActions';
 export { RelativeProfileFamilySection } from './RelativeProfileFamilySection';
 export { RelativeProfileHeader } from './RelativeProfileHeader';

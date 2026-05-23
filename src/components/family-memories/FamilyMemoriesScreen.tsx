@@ -5,7 +5,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ArchiveCategoryChips } from '@/components/archive/ArchiveCategoryChips';
 import { FamilyMemoryCard } from '@/components/family-memories/FamilyMemoryCard';
 import { AppHeader } from '@/components/ui/AppHeader';
-import { EmptyState, ErrorState } from '@/components/ui/EmptyState';
+import { EmptyState, PresetEmptyState, ErrorState } from '@/components/ui/EmptyState';
+import { EMPTY_STATE_PRESETS } from '@/constants/family-ux-content';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenShell } from '@/components/ui/ScreenShell';
@@ -67,11 +68,8 @@ export function FamilyMemoriesScreen({ showBackButton = true }: FamilyMemoriesSc
         <ErrorState message={error} onRetry={() => void refetch()} />
       ) : isEmpty ? (
         <View style={styles.emptyWrap}>
-          <EmptyState
-            icon="🌿"
-            title="Отбасының естеліктері осында сақталады 🌿"
-            subtitle="Фото, естеліктер, насихат, дауыс және құжаттар"
-            actionLabel="Естелік қосу · Add memory"
+          <PresetEmptyState
+            preset={EMPTY_STATE_PRESETS.memories}
             onAction={() => router.push('/add-memory')}
           />
         </View>
@@ -80,7 +78,8 @@ export function FamilyMemoriesScreen({ showBackButton = true }: FamilyMemoriesSc
           <EmptyState
             icon="🔍"
             title="Бұл түрде естелік жоқ"
-            subtitle="Basqa turdi tanдаńyz · Выберите другой тип"
+            subtitle="Басқа түрді таңдаңыз · Try another memory type"
+            hint="Жаңа естелік қосуға әрқашан болады"
             actionLabel="Естелік қосу · Add memory"
             onAction={() => router.push('/add-memory')}
           />

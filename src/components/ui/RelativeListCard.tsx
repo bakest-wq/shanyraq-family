@@ -9,6 +9,8 @@ import {
   getAgeLabel,
   getUpcomingBirthdayLabel,
 } from '@/utils/dates';
+import { buildEditRelativeHref } from '@/utils/edit-relative-navigation';
+import { getRelativeDisplayName } from '@/utils/relative-names';
 import { Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 
 import { AvatarPlaceholder } from './RelativeCard';
@@ -87,6 +89,10 @@ export function RelativeListCard({ relative, highlighted = false }: RelativeList
     });
   };
 
+  const handleEdit = () => {
+    router.push(buildEditRelativeHref(relative.id, 'relatives'));
+  };
+
   return (
     <Animated.View
       style={[
@@ -102,21 +108,29 @@ export function RelativeListCard({ relative, highlighted = false }: RelativeList
           elevation: 4,
         },
       ]}>
-      <View style={styles.topRow}>
-        <AvatarPlaceholder
-          name={relative.fullName}
-          color={relative.avatarColor}
-          photoUrl={relative.photoUrl}
-          size={72}
-          deceased={relative.isDeceased}
-        />
-        <View style={styles.info}>
-          <Text style={styles.relationship}>{relative.relationship}</Text>
-          <Text style={styles.name}>{relative.fullName}</Text>
-          <Text style={styles.birthday}>{formatBirthdayKzRu(relative)}</Text>
-          {age !== null ? <Text style={styles.age}>{getAgeLabel(age)}</Text> : null}
+      <Pressable
+        onPress={handleDetails}
+        onLongPress={handleEdit}
+        style={({ pressed }) => [styles.topRowPressable, pressed && styles.pressed]}
+        accessibilityRole="button"
+        accessibilityLabel={`${getRelativeDisplayName(relative)} · профиль`}
+        accessibilityHint="Long press to edit · ұзақ басу — өңдеу">
+        <View style={styles.topRow}>
+          <AvatarPlaceholder
+            name={getRelativeDisplayName(relative)}
+            color={relative.avatarColor}
+            photoUrl={relative.photoUrl}
+            size={72}
+            deceased={relative.isDeceased}
+          />
+          <View style={styles.info}>
+            <Text style={styles.relationship}>{relative.relationship}</Text>
+            <Text style={styles.name}>{getRelativeDisplayName(relative)}</Text>
+            <Text style={styles.birthday}>{formatBirthdayKzRu(relative)}</Text>
+            {age !== null ? <Text style={styles.age}>{getAgeLabel(age)}</Text> : null}
+          </View>
         </View>
-      </View>
+      </Pressable>
 
       {upcomingLabel ? (
         <View style={styles.badgeRow}>
@@ -154,16 +168,16 @@ export function RelativeListCard({ relative, highlighted = false }: RelativeList
           <Text style={styles.actionLabel}>WhatsApp</Text>
         </Pressable>
         <Pressable
-          onPress={handleDetails}
+          onPress={handleEdit}
           style={({ pressed }) => [
             styles.actionButton,
             styles.detailsButton,
             pressed && styles.pressed,
           ]}
           accessibilityRole="button"
-          accessibilityLabel={`Подробнее ${relative.fullName}`}>
-          <Text style={styles.actionIcon}>ℹ️</Text>
-          <Text style={[styles.actionLabel, styles.detailsLabel]}>Подробнее</Text>
+          accessibilityLabel={`Өзгерту ${relative.fullName}`}>
+          <Text style={styles.actionIcon}>✏️</Text>
+          <Text style={[styles.actionLabel, styles.detailsLabel]}>Өзгерту</Text>
         </Pressable>
       </View>
     </Animated.View>
@@ -183,6 +197,9 @@ const styles = StyleSheet.create({
   cardDeceased: {
     borderColor: Palette.creamDark,
     opacity: 0.95,
+  },
+  topRowPressable: {
+    borderRadius: Radius.md,
   },
   topRow: {
     flexDirection: 'row',

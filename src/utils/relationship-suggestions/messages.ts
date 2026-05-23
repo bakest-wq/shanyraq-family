@@ -1,5 +1,11 @@
 import type { RelativeGender } from '@/types/relative';
 
+export type ContextualSuggestionCopy = {
+  contextKz: string;
+  promptKz: string;
+  messageRu: string;
+};
+
 export function childPossessiveRoleLabel(gender?: RelativeGender): { kz: string; ru: string } {
   if (gender === 'female') {
     return { kz: 'қызы', ru: 'дочь' };
@@ -8,68 +14,87 @@ export function childPossessiveRoleLabel(gender?: RelativeGender): { kz: string;
   return { kz: 'ұлы', ru: 'сын' };
 }
 
-export function parentRoleLabel(
-  role: 'father' | 'mother',
-): { kz: string; ru: string } {
+export function parentRoleLabel(role: 'father' | 'mother'): {
+  kz: string;
+  ru: string;
+  context: string;
+  accusative: string;
+} {
   if (role === 'mother') {
-    return { kz: 'анасы', ru: 'мать' };
+    return { kz: 'анасы', ru: 'мать', context: 'Ана байланысы жоқ', accusative: 'ана' };
   }
 
-  return { kz: 'әкesi', ru: 'отец' };
+  return { kz: 'әкesi', ru: 'отец', context: 'Әke байланысы жоқ', accusative: 'әke' };
 }
 
 export function buildChildToParentMessage(
   childName: string,
   parentName: string,
+  role: 'father' | 'mother',
   gender?: RelativeGender,
-): { kz: string; ru: string } {
-  const role = childPossessiveRoleLabel(gender);
+): ContextualSuggestionCopy {
+  const label = parentRoleLabel(role);
+  const childRole = childPossessiveRoleLabel(gender);
 
   return {
-    kz: `${childName} — ${parentName}ның ${role.kz} болуы мүмкін`,
-    ru: `${childName} может быть ${role.ru} ${parentName}`,
+    contextKz: label.context,
+    promptKz: `${parentName}ды ${label.accusative} ретінде байланыстыру?`,
+    messageRu: `${parentName} как ${label.ru} для ${childName} (${childRole.ru})`,
   };
 }
 
 export function buildMissingParentMessage(
-  childName: string,
+  _childName: string,
   parentName: string,
   role: 'father' | 'mother',
-): { kz: string; ru: string } {
+): ContextualSuggestionCopy {
   const label = parentRoleLabel(role);
 
   return {
-    kz: `${childName} үшін ${parentName} ${label.kz} ретінде қосылуы мүмкін`,
-    ru: `Для ${childName} можно указать ${parentName} как ${label.ru}`,
+    contextKz: label.context,
+    promptKz: `${parentName}ды ${label.accusative} ретінде байланыстыру?`,
+    messageRu: `${parentName} как ${label.ru}`,
   };
 }
 
 export function buildSpouseLinkMessage(
   personAName: string,
   personBName: string,
-): { kz: string; ru: string } {
+): ContextualSuggestionCopy {
   return {
-    kz: `${personAName} мен ${personBName} жұбай болуы мүмкін`,
-    ru: `${personAName} и ${personBName} могут быть супругами`,
+    contextKz: 'Жұбай байланысы толық емес',
+    promptKz: `${personBName} жұбайын қайтару?`,
+    messageRu: `Добавить ${personBName} как супруга ${personAName}`,
   };
 }
 
 export function buildCoParentSpouseMessage(
   personAName: string,
   personBName: string,
-): { kz: string; ru: string } {
+): ContextualSuggestionCopy {
   return {
-    kz: `${personAName} мен ${personBName} — ортақ балалардың ата-анасы. Жұбай байланысын қосу ұсынылады`,
-    ru: `${personAName} и ${personBName} — родители одних детей. Рекомендуем связать как супругов`,
+    contextKz: 'Жұбай байланысы жоқ',
+    promptKz: `${personAName} мен ${personBName} жұбайын қосу?`,
+    messageRu: `Связать ${personAName} и ${personBName} как супругов`,
   };
 }
 
 export function buildSiblingNoteMessage(
   personAName: string,
   personBName: string,
-): { kz: string; ru: string } {
+): ContextualSuggestionCopy {
   return {
-    kz: `${personAName} мен ${personBName} — бауырлар (ортақ ата-ана)`,
-    ru: `${personAName} и ${personBName} — братья/сёстры (общие родители)`,
+    contextKz: 'Ортақ ата-ана',
+    promptKz: `${personAName} мен ${personBName} — бауырлар`,
+    messageRu: `${personAName} и ${personBName} — братья/сёстры`,
+  };
+}
+
+export function copyToSuggestionFields(copy: ContextualSuggestionCopy) {
+  return {
+    contextKz: copy.contextKz,
+    promptKz: copy.promptKz,
+    messageKz: copy.promptKz,
+    messageRu: copy.messageRu,
   };
 }

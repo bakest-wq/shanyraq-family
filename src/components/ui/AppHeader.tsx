@@ -7,26 +7,50 @@ type AppHeaderProps = {
   subtitle?: string;
   badge?: string;
   onBadgePress?: () => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 };
 
-export function AppHeader({ title, subtitle, badge, onBadgePress }: AppHeaderProps) {
+export function AppHeader({
+  title,
+  subtitle,
+  badge,
+  onBadgePress,
+  onRefresh,
+  refreshing = false,
+}: AppHeaderProps) {
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
         <View style={styles.brandMark}>
           <Text style={styles.brandIcon}>🏠</Text>
         </View>
-        {badge ? (
-          onBadgePress ? (
-            <Pressable onPress={onBadgePress} style={styles.badge}>
-              <Text style={styles.badgeText}>{badge}</Text>
+        <View style={styles.actions}>
+          {onRefresh ? (
+            <Pressable
+              onPress={refreshing ? undefined : onRefresh}
+              style={({ pressed }) => [
+                styles.refreshButton,
+                refreshing && styles.refreshButtonDisabled,
+                pressed && !refreshing && styles.pressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Жаңарту · Refresh">
+              <Text style={styles.refreshText}>{refreshing ? '…' : '↻'}</Text>
             </Pressable>
-          ) : (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{badge}</Text>
-            </View>
-          )
-        ) : null}
+          ) : null}
+          {badge ? (
+            onBadgePress ? (
+              <Pressable onPress={onBadgePress} style={styles.badge}>
+                <Text style={styles.badgeText}>{badge}</Text>
+              </Pressable>
+            ) : (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{badge}</Text>
+              </View>
+            )
+          ) : null}
+        </View>
       </View>
       <Text style={styles.title}>{title}</Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
@@ -46,6 +70,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  refreshButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Palette.white,
+    borderWidth: 1,
+    borderColor: Palette.goldLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refreshButtonDisabled: {
+    opacity: 0.5,
+  },
+  refreshText: {
+    ...Typography.body,
+    color: Palette.greenDeep,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  pressed: {
+    opacity: 0.85,
   },
   brandMark: {
     width: 44,

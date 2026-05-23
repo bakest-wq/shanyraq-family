@@ -1,5 +1,6 @@
 import { Relative } from '@/types/relative';
 import { findFamilyAnchor } from '@/utils/kinship-path';
+import { areSharedParentSiblings } from '@/utils/family-sibling-links';
 import { findRelationship } from '@/utils/relationship-engine';
 import { getChildren, getSiblings } from '@/utils/relationship-engine';
 import { getRelativeDisplayName } from '@/utils/relative-names';
@@ -17,6 +18,7 @@ import {
   buildMissingParentMessage,
   buildSiblingNoteMessage,
   buildSpouseLinkMessage,
+  copyToSuggestionFields,
 } from '@/utils/relationship-suggestions/messages';
 import type {
   AnalyzeSuggestionsContext,
@@ -80,8 +82,7 @@ function suggestCoParentSpouses(
     pushSuggestion(bucket, seen, {
       id: `coparent-spouse:${suggestionPairKey(father.id, mother.id)}`,
       kind: 'link_spouse_from_coparents',
-      messageKz: message.kz,
-      messageRu: message.ru,
+      ...copyToSuggestionFields(message),
       subjectId: father.id,
       relatedIds: [father.id, mother.id, child.id],
       priority: 1,
@@ -119,8 +120,7 @@ function suggestMissingParentFromSpouse(
         pushSuggestion(bucket, seen, {
           id: `missing-mother:${child.id}:${spouse.id}`,
           kind: 'link_missing_parent_from_spouse',
-          messageKz: message.kz,
-          messageRu: message.ru,
+          ...copyToSuggestionFields(message),
           subjectId: child.id,
           relatedIds: [child.id, spouse.id, father.id],
           priority: 2,
@@ -147,8 +147,7 @@ function suggestMissingParentFromSpouse(
         pushSuggestion(bucket, seen, {
           id: `missing-father:${child.id}:${spouse.id}`,
           kind: 'link_missing_parent_from_spouse',
-          messageKz: message.kz,
-          messageRu: message.ru,
+          ...copyToSuggestionFields(message),
           subjectId: child.id,
           relatedIds: [child.id, spouse.id, mother.id],
           priority: 2,
@@ -173,8 +172,8 @@ function suggestChildToParent(
       continue;
     }
 
-    const parentIsFather = isMale(parent) || parent.relationship === 'Әке';
-    const parentIsMother = isFemale(parent) || parent.relationship === 'Ана';
+    const parentIsFather = parent.gender === 'male';
+    const parentIsMother = parent.gender === 'female';
 
     if (!parentIsFather && !parentIsMother) {
       continue;
@@ -182,6 +181,10 @@ function suggestChildToParent(
 
     for (const child of relatives) {
       if (child.id === parent.id || child.isDeceased) {
+        continue;
+      }
+
+      if (areSharedParentSiblings(parent, child)) {
         continue;
       }
 
@@ -206,14 +209,14 @@ function suggestChildToParent(
         const message = buildChildToParentMessage(
           getRelativeDisplayName(child),
           getRelativeDisplayName(parent),
+          'father',
           child.gender,
         );
 
         pushSuggestion(bucket, seen, {
           id: `link-child-father:${child.id}:${parent.id}`,
           kind: 'link_child_to_parent',
-          messageKz: message.kz,
-          messageRu: message.ru,
+          ...copyToSuggestionFields(message),
           subjectId: parent.id,
           relatedIds: [child.id, parent.id],
           priority: 3,
@@ -229,14 +232,14 @@ function suggestChildToParent(
         const message = buildChildToParentMessage(
           getRelativeDisplayName(child),
           getRelativeDisplayName(parent),
+          'mother',
           child.gender,
         );
 
         pushSuggestion(bucket, seen, {
           id: `link-child-mother:${child.id}:${parent.id}`,
           kind: 'link_child_to_parent',
-          messageKz: message.kz,
-          messageRu: message.ru,
+          ...copyToSuggestionFields(message),
           subjectId: parent.id,
           relatedIds: [child.id, parent.id],
           priority: 3,
@@ -274,8 +277,7 @@ function suggestReciprocalSpouse(
     pushSuggestion(bucket, seen, {
       id: `reciprocal-spouse:${suggestionPairKey(person.id, spouse.id)}`,
       kind: 'link_spouse_reciprocal',
-      messageKz: message.kz,
-      messageRu: message.ru,
+      ...copyToSuggestionFields(message),
       subjectId: person.id,
       relatedIds: [person.id, spouse.id],
       priority: 4,
@@ -309,8 +311,7 @@ function suggestSharedParentNotes(
       pushSuggestion(bucket, seen, {
         id: `shared-parents:${suggestionPairKey(person.id, sibling.id)}`,
         kind: 'note_shared_parents',
-        messageKz: message.kz,
-        messageRu: message.ru,
+        ...copyToSuggestionFields(message),
         subjectId: person.id,
         relatedIds: [person.id, sibling.id],
         priority: 8,
@@ -361,10 +362,11 @@ export function analyzeRelationshipSuggestions(
     return sorted;
   }
 
+  const subjectId = context.subjectId;
+
   return sorted.filter(
     (suggestion) =>
-      suggestion.subjectId === context.subjectId ||
-      suggestion.relatedIds.includes(context.subjectId),
+      suggestion.subjectId === subjectId || suggestion.relatedIds.includes(subjectId),
   );
 }
 

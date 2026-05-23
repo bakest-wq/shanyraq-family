@@ -5,11 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RelativeSelectModal } from '@/components/relatives/RelativeSelectModal';
 import { RelationshipExplanationCard } from '@/components/relatives/RelationshipExplanationCard';
-import { SuggestedLinksSection } from '@/components/relatives/SuggestedLinksSection';
 import { Card } from '@/components/ui/Card';
+import { PresetEmptyState } from '@/components/ui/EmptyState';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { AvatarPlaceholder } from '@/components/ui/RelativeCard';
+import { EMPTY_STATE_PRESETS } from '@/constants/family-ux-content';
 import { useRelatives } from '@/hooks/useRelatives';
+import { useUserIdentity } from '@/hooks/useUserIdentity';
 import { Relative } from '@/types/relative';
 import { getRelativeDisplayName } from '@/utils/relative-names';
 import { findRelationship, formatRelationshipLabel, formatRelationshipPath } from '@/utils/relationship-engine';
@@ -23,13 +25,17 @@ export default function RelationshipScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ from?: string; to?: string }>();
   const { relatives, loading } = useRelatives();
+  const { myRelative } = useUserIdentity();
   const [personA, setPersonA] = useState<Relative | null>(null);
   const [personB, setPersonB] = useState<Relative | null>(null);
   const [activeSlot, setActiveSlot] = useState<PersonSlot | null>(null);
 
   const initialA = useMemo(
-    () => relatives.find((relative) => relative.id === params.from) ?? null,
-    [params.from, relatives],
+    () =>
+      relatives.find((relative) => relative.id === params.from) ??
+      myRelative ??
+      null,
+    [myRelative, params.from, relatives],
   );
   const initialB = useMemo(
     () => relatives.find((relative) => relative.id === params.to) ?? null,
@@ -66,6 +72,31 @@ export default function RelationshipScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <LoadingState message="Жүктелуде · Загрузка..." />
+      </SafeAreaView>
+    );
+  }
+
+  if (relatives.length === 0) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Text style={styles.backText}>← Артқа</Text>
+          </Pressable>
+          <Text style={styles.title}>Туыстық</Text>
+          <Text style={styles.subtitle}>Relationship · Шежіре байланысы</Text>
+        </View>
+        <View style={styles.emptyWrap}>
+          <PresetEmptyState
+            preset={EMPTY_STATE_PRESETS.relationshipNoRelatives}
+            onAction={() =>
+              router.push({
+                pathname: '/add-relative',
+                params: selectedA ? { rootId: selectedA.id } : undefined,
+              })
+            }
+          />
+        </View>
       </SafeAreaView>
     );
   }
@@ -138,9 +169,10 @@ export default function RelationshipScreen() {
               ) : null}
             </>
           ) : (
-            <Text style={styles.resultPlaceholder}>
-              Екі адамды таңдаңыз · Выберите двух человек
-            </Text>
+            <PresetEmptyState
+              preset={EMPTY_STATE_PRESETS.relationship}
+              style={styles.nestedEmpty}
+            />
           )}
         </Card>
 
@@ -151,8 +183,6 @@ export default function RelationshipScreen() {
             relatives={relatives}
           />
         ) : null}
-
-        <SuggestedLinksSection limit={5} />
       </ScrollView>
 
       <RelativeSelectModal
@@ -339,5 +369,19 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Palette.textSecondary,
     textAlign: 'center',
+  },
+  nestedEmpty: {
+    borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: Spacing.sm,
+  },
+  emptyWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xxl,
   },
 });

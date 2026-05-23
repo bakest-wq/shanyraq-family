@@ -1,9 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { RelativeLinkSelectModal } from '@/components/relatives/RelativeLinkSelectModal';
 import { Relative, RelativeGender } from '@/types/relative';
-import { FamilyLinkType, findRelativeById } from '@/utils/family-link-picker';
+import { FamilyLinkType, findRelativeById, getFamilyLinkFieldLabel } from '@/utils/family-link-picker';
+import {
+  buildSiblingParentApplyLabel,
+  type SiblingParentTemplate,
+} from '@/utils/parent-link-candidates';
 import {
   FamilyLinkValues,
   ValidateFamilyLinksContext,
@@ -13,7 +17,6 @@ import { getRelativeDisplayName } from '@/utils/relative-names';
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
 
 type RelativeLinkPickerProps = {
-  label: string;
   linkType: FamilyLinkType;
   selectedId: string | null | undefined;
   candidates: Relative[];
@@ -21,6 +24,10 @@ type RelativeLinkPickerProps = {
   subjectGender?: RelativeGender;
   subjectId?: string;
   links?: FamilyLinkValues;
+  siblingParentTemplates?: SiblingParentTemplate[];
+  onApplySiblingParents?: (fatherId: string | null, motherId: string | null) => void;
+  autoOpen?: boolean;
+  onAutoOpenHandled?: () => void;
   error?: string;
   warning?: string;
   onSelect: (id: string | null) => void;
@@ -29,7 +36,6 @@ type RelativeLinkPickerProps = {
 const EMPTY_LABEL = 'Таңдалмаған · Не выбран';
 
 export function RelativeLinkPicker({
-  label,
   linkType,
   selectedId,
   candidates,
@@ -37,10 +43,15 @@ export function RelativeLinkPicker({
   subjectGender,
   subjectId,
   links = {},
+  siblingParentTemplates = [],
+  onApplySiblingParents,
+  autoOpen = false,
+  onAutoOpenHandled,
   error,
   warning,
   onSelect,
 }: RelativeLinkPickerProps) {
+  const label = getFamilyLinkFieldLabel(linkType);
   const [modalVisible, setModalVisible] = useState(false);
 
   const validationContext = useMemo<ValidateFamilyLinksContext>(
@@ -60,6 +71,17 @@ export function RelativeLinkPicker({
   const displayName = selectedRelative
     ? getRelativeDisplayName(selectedRelative)
     : EMPTY_LABEL;
+
+  useEffect(() => {
+    if (!autoOpen) {
+      return;
+    }
+
+    setModalVisible(true);
+    onAutoOpenHandled?.();
+  }, [autoOpen, onAutoOpenHandled]);
+
+  const clearLabel = linkType === 'spouse' ? 'Жұбайды жою' : 'Тазарту · Очистить';
 
   const handleSelect = (id: string) => {
     const issue = validateFamilyLinkSelection(linkType, id, validationContext, links);
@@ -105,6 +127,27 @@ export function RelativeLinkPicker({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
       {!error && warning ? <Text style={styles.warningText}>{warning}</Text> : null}
 
+      {linkType === 'father' &&
+      siblingParentTemplates.length > 0 &&
+      onApplySiblingParents ? (
+        <View style={styles.quickActions}>
+          {siblingParentTemplates.slice(0, 3).map((template) => (
+            <Pressable
+              key={template.sibling.id}
+              onPress={() =>
+                onApplySiblingParents(template.fatherId ?? null, template.motherId ?? null)
+              }
+              style={({ pressed }) => [styles.quickActionButton, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel={buildSiblingParentApplyLabel(template.sibling)}>
+              <Text style={styles.quickActionText}>
+                {buildSiblingParentApplyLabel(template.sibling)}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
       <View style={styles.actions}>
         <Pressable
           onPress={() => setModalVisible(true)}
@@ -119,8 +162,8 @@ export function RelativeLinkPicker({
             onPress={() => onSelect(null)}
             style={({ pressed }) => [styles.actionButton, styles.clearButton, pressed && styles.pressed]}
             accessibilityRole="button"
-            accessibilityLabel={`${label} · Тазарту`}>
-            <Text style={styles.clearButtonText}>Тазарту · Очистить</Text>
+            accessibilityLabel={clearLabel}>
+            <Text style={styles.clearButtonText}>{clearLabel}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -190,6 +233,25 @@ const styles = StyleSheet.create({
     color: Palette.gold,
     fontWeight: '600',
     lineHeight: 20,
+  },
+  quickActions: {
+    gap: Spacing.sm,
+  },
+  quickActionButton: {
+    minHeight: 48,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Palette.gold,
+    backgroundColor: '#FFF9EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.md,
+  },
+  quickActionText: {
+    ...Typography.caption,
+    color: Palette.greenDeep,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   actions: {
     flexDirection: 'row',

@@ -1,4 +1,5 @@
 import { CreateRelativeInput } from '@/types/relative';
+import { SHEZHIRE_FOCUSED_ROOT } from '@/constants/family-ux-content';
 import {
   getBirthYearForValidation,
   syncBirthdayFields,
@@ -7,10 +8,11 @@ import {
 import {
   ValidateFamilyLinksContext,
   FamilyLinkWarnings,
-  validateRelativeFamilyLinks,
   validateRelativeFamilyLinksFull,
 } from '@/utils/family-link-validation';
 import { syncNameFields } from '@/utils/relative-names';
+import { isParentSideSiblingRelationship } from '@/utils/parent-side-sibling-add';
+import { validateRelativeBeforeSave } from '@/services/graph-integrity.service';
 
 export type RelativeFormErrors = Partial<
   Record<keyof CreateRelativeInput | 'deathYear', string>
@@ -83,6 +85,12 @@ export function validateRelativeForm(
     errors.relationship = 'Туыстықты таңдаңыз · Выберите родство';
   }
 
+  if (isParentSideSiblingRelationship(input.relationship)) {
+    if (!input.fatherId?.trim() || !input.motherId?.trim()) {
+      errors.fatherId = SHEZHIRE_FOCUSED_ROOT.parentSide.grandparentsMissingFather;
+    }
+  }
+
   const birthdayError = validateBirthdayPartsInput(birthdayFields);
   if (birthdayError) {
     errors.birthday = birthdayError;
@@ -106,8 +114,8 @@ export function validateRelativeForm(
   }
 
   if (context) {
-    const linkErrors = validateRelativeFamilyLinks(input, context);
-    Object.assign(errors, linkErrors);
+    const integrity = validateRelativeBeforeSave(input, context.relatives, context);
+    Object.assign(errors, integrity.errors);
   }
 
   return errors;

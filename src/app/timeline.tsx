@@ -5,7 +5,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { TimelineEventCard } from '@/components/timeline/TimelineEventCard';
 import { YearSection } from '@/components/timeline/YearSection';
 import { AppHeader } from '@/components/ui/AppHeader';
-import { EmptyState, ErrorState } from '@/components/ui/EmptyState';
+import { PresetEmptyState, ErrorState } from '@/components/ui/EmptyState';
+import { EMPTY_STATE_PRESETS } from '@/constants/family-ux-content';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { QuickActionButton } from '@/components/ui/QuickActionButton';
@@ -74,11 +75,8 @@ export default function TimelineScreen() {
         <ErrorState message={error} onRetry={() => void refetch()} />
       ) : isEmpty ? (
         <View style={styles.emptyWrap}>
-          <EmptyState
-            icon="🌿"
-            title="Отбасы тарихы осында жиналады 🌿"
-            subtitle="Туған күн, үйлену, естеліктер — барлық маңызды сәттер"
-            actionLabel="Оқиға қосу"
+          <PresetEmptyState
+            preset={EMPTY_STATE_PRESETS.timeline}
             onAction={() => router.push('/add-timeline-event')}
           />
         </View>

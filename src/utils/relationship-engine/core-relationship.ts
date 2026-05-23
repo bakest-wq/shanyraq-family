@@ -19,14 +19,6 @@ function inferChildType(relative: Relative): CoreRelationshipType | null {
     return 'daughter';
   }
 
-  if (relative.relationship === 'Ұлы') {
-    return 'son';
-  }
-
-  if (relative.relationship === 'Қызы') {
-    return 'daughter';
-  }
-
   return null;
 }
 

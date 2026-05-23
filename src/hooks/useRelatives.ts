@@ -4,17 +4,31 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useFamilyContext } from '@/providers/FamilyProvider';
 import { useRelativesContext } from '@/providers/RelativesProvider';
 import { relativesService } from '@/services/relatives.service';
+import {
+  assessSafeDelete,
+  DeleteBlockedError,
+} from '@/services/graph-integrity.service';
 import { CreateRelativeInput, ConnectParentsInput, Relative } from '@/types/relative';
+import { findRelativeByLinkId } from '@/utils/family-link-picker';
 
 export function useRelatives() {
-  return useRelativesContext();
+  const context = useRelativesContext();
+  const getRelativeById = useCallback(
+    (relativeId: string) => findRelativeByLinkId(context.relatives, relativeId),
+    [context.relatives],
+  );
+
+  return {
+    ...context,
+    getRelativeById,
+  };
 }
 
 export function useRelative(relativeId: string) {
   const { relatives, loading, error, refetch } = useRelativesContext();
 
   const relative = useMemo(
-    () => relatives.find((item) => item.id === relativeId) ?? null,
+    () => findRelativeByLinkId(relatives, relativeId),
     [relatives, relativeId],
   );
 
@@ -29,18 +43,18 @@ export function useRelative(relativeId: string) {
 
 /** Silently refresh relatives when a tab screen gains focus (e.g. after closing Add Relative). */
 export function useRefreshRelativesOnFocus() {
-  const { refetch } = useRelativesContext();
+  const { invalidateRelatives } = useRelativesContext();
 
   useFocusEffect(
     useCallback(() => {
-      void refetch({ silent: true });
-    }, [refetch]),
+      void invalidateRelatives({ silent: true });
+    }, [invalidateRelatives]),
   );
 }
 
 export function useCreateRelative() {
   const { familyId } = useFamilyContext();
-  const { refetch } = useRelativesContext();
+  const { invalidateRelatives, upsertRelative } = useRelativesContext();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +69,8 @@ export function useCreateRelative() {
         }
 
         const created = await relativesService.create(input, familyId);
-        await refetch();
+        upsertRelative(created);
+        await invalidateRelatives({ silent: true });
         return created;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Не удалось сохранить родственника.';
@@ -65,7 +80,7 @@ export function useCreateRelative() {
         setSaving(false);
       }
     },
-    [familyId, refetch],
+    [familyId, invalidateRelatives, upsertRelative],
   );
 
   return {
@@ -77,7 +92,7 @@ export function useCreateRelative() {
 
 export function useUpdateRelative(relativeId: string) {
   const { familyId } = useFamilyContext();
-  const { refetch } = useRelativesContext();
+  const { upsertRelative, invalidateRelatives } = useRelativesContext();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,7 +107,10 @@ export function useUpdateRelative(relativeId: string) {
         }
 
         const updated = await relativesService.update(relativeId, input, familyId);
-        await refetch();
+        if (updated) {
+          upsertRelative(updated);
+        }
+        await invalidateRelatives({ silent: true });
         return updated;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Не удалось обновить родственника.';
@@ -102,7 +120,7 @@ export function useUpdateRelative(relativeId: string) {
         setSaving(false);
       }
     },
-    [familyId, relativeId, refetch],
+    [familyId, invalidateRelatives, relativeId, upsertRelative],
   );
 
   return {
@@ -114,7 +132,7 @@ export function useUpdateRelative(relativeId: string) {
 
 export function useConnectParents(relativeId: string) {
   const { familyId } = useFamilyContext();
-  const { refetch } = useRelativesContext();
+  const { invalidateRelatives, upsertRelative } = useRelativesContext();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -129,7 +147,10 @@ export function useConnectParents(relativeId: string) {
         }
 
         const updated = await relativesService.connectParents(relativeId, input, familyId);
-        await refetch();
+        if (updated) {
+          upsertRelative(updated);
+        }
+        await invalidateRelatives({ silent: true });
         return updated;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Не удалось связать родственников.';
@@ -139,7 +160,7 @@ export function useConnectParents(relativeId: string) {
         setSaving(false);
       }
     },
-    [familyId, relativeId, refetch],
+    [familyId, invalidateRelatives, relativeId, upsertRelative],
   );
 
   return {
@@ -152,7 +173,7 @@ export function useConnectParents(relativeId: string) {
 export function useDeleteRelative() {
   const router = useRouter();
   const { familyId } = useFamilyContext();
-  const { refetch } = useRelativesContext();
+  const { invalidateRelatives } = useRelativesContext();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -167,9 +188,14 @@ export function useDeleteRelative() {
         }
 
         await relativesService.delete(relativeId, familyId);
-        await refetch();
+        await invalidateRelatives({ silent: true });
         return true;
       } catch (err) {
+        if (err instanceof DeleteBlockedError) {
+          setError(err.message);
+          return false;
+        }
+
         const message = err instanceof Error ? err.message : 'Не удалось удалить родственника.';
         setError(message);
         return false;
@@ -177,7 +203,20 @@ export function useDeleteRelative() {
         setDeleting(false);
       }
     },
-    [familyId, refetch],
+    [familyId, invalidateRelatives],
+  );
+
+  const clearRelativeReferences = useCallback(
+    async (relativeId: string): Promise<number> => {
+      if (!familyId) {
+        return 0;
+      }
+
+      const applied = await relativesService.clearRelativeReferences(relativeId, familyId);
+      await invalidateRelatives({ silent: true });
+      return applied;
+    },
+    [familyId, invalidateRelatives],
   );
 
   const deleteRelativeAndLeave = useCallback(
@@ -194,6 +233,9 @@ export function useDeleteRelative() {
   return {
     deleteRelative,
     deleteRelativeAndLeave,
+    clearRelativeReferences,
+    assessSafeDelete: (relativeId: string, familyRelatives: Relative[]) =>
+      assessSafeDelete(relativeId, familyRelatives),
     deleting,
     error,
   };

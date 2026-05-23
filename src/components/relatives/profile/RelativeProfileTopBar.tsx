@@ -35,8 +35,8 @@ export function RelativeProfileTopBar({
         ]}
         accessibilityRole="button"
         accessibilityState={{ disabled: editDisabled }}
-        accessibilityLabel="Өңдеу · Edit">
-        <Text style={[styles.editText, editDisabled && styles.editTextDisabled]}>Өңдеу · Edit</Text>
+        accessibilityLabel="Өзгерту · Edit">
+        <Text style={[styles.editText, editDisabled && styles.editTextDisabled]}>Өзгерту · Edit</Text>
       </Pressable>
     </View>
   );

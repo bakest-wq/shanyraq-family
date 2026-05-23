@@ -2,9 +2,12 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Relative } from '@/types/relative';
 import { findRelativeById } from '@/utils/family-link-picker';
+import { getEffectiveSpouse } from '@/utils/relationship-engine';
 
 import { RelativeProfileLinkRow } from './RelativeProfileLinkRow';
 import { RelativeProfileSection } from './RelativeProfileSection';
+import { HelperHintBanner } from '@/components/ui/HelperHintBanner';
+import { SHEZHIRE_NAME_WARNING } from '@/constants/family-ux-content';
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
 type RelativeProfileFamilySectionProps = {
@@ -22,12 +25,13 @@ export function RelativeProfileFamilySection({
 }: RelativeProfileFamilySectionProps) {
   const father = findRelativeById(relatives, relative.fatherId);
   const mother = findRelativeById(relatives, relative.motherId);
-  const spouse = findRelativeById(relatives, relative.spouseId);
+  const spouse = getEffectiveSpouse(relative, relatives);
 
   return (
     <RelativeProfileSection
       title="Отбасы байланысы · Семья"
       subtitle="Әke, ana, жұбай және балалар">
+      <HelperHintBanner text={SHEZHIRE_NAME_WARNING} />
       <RelativeProfileLinkRow
         label="Әke · Отец"
         relative={father}

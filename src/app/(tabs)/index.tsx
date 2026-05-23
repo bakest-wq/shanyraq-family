@@ -6,9 +6,12 @@ import { Card } from '@/components/ui/Card';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { QuickActionButton } from '@/components/ui/QuickActionButton';
 import { AvatarPlaceholder } from '@/components/ui/RelativeCard';
+import { OnboardingHintsCard } from '@/components/ui/OnboardingHintsCard';
+import { UserIdentityPromptBanner } from '@/components/identity/UserIdentityPromptBanner';
 import { ScreenShell } from '@/components/ui/ScreenShell';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { FAMILY_GREETING } from '@/data/mockData';
+import { familyViewHref } from '@/utils/family-view';
 import { useFamily } from '@/hooks/useFamily';
 import { useRelatives } from '@/hooks/useRelatives';
 import {
@@ -26,7 +29,7 @@ import { Palette, Spacing, Typography } from '@/constants/theme';
 export default function HomeScreen() {
   const router = useRouter();
   const { session } = useFamily();
-  const { livingRelatives, loading, error } = useRelatives();
+  const { livingRelatives, loading, error, isEmpty } = useRelatives();
   const today = new Date();
 
   const todayBirthdays = livingRelatives.filter(
@@ -52,6 +55,8 @@ export default function HomeScreen() {
         <Text style={styles.greeting}>{FAMILY_GREETING}</Text>
         <Text style={styles.greetingSub}>Қош келдіңіз · Добро пожаловать домой</Text>
       </View>
+
+      <UserIdentityPromptBanner />
 
       <Card goldBorder>
         <SectionTitle title="Сегодня" subtitle={formatTodayDate(today)} />
@@ -106,6 +111,10 @@ export default function HomeScreen() {
         </Card>
       ) : null}
 
+      {!loading && !error && isEmpty ? (
+        <OnboardingHintsCard />
+      ) : null}
+
       <View style={styles.actionsBlock}>
         <SectionTitle title="Жылдам әрекет" subtitle="Быстрые действия" />
         <View style={styles.actionsList}>
@@ -127,7 +136,7 @@ export default function HomeScreen() {
             icon="🌳"
             label="Семейное дерево"
             sublabel="Отбасы ағашы"
-            onPress={() => router.push('/shezhire')}
+            onPress={() => router.push(familyViewHref('tree'))}
           />
           <QuickActionButton
             icon="⚙️"

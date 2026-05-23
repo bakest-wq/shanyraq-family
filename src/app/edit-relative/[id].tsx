@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -17,6 +17,7 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useRelative, useRelatives, useUpdateRelative } from '@/hooks/useRelatives';
 import { useToast } from '@/hooks/useToast';
+import { useUserIdentity } from '@/hooks/useUserIdentity';
 import { useFamilyContext } from '@/providers/FamilyProvider';
 import { removeRelativePhoto, saveAndSyncPhotoUrl } from '@/services/relative-photo.service';
 import { relativesService } from '@/services/relatives.service';
@@ -25,9 +26,14 @@ import {
   getLinkedChildIdsForParent,
   hasChildLinkChanges,
   resolveParentLinkRole,
-  shouldShowChildrenLinkSection,
 } from '@/utils/family-child-links';
-import { getRelativeDisplayName } from '@/utils/relative-names';
+import {
+  navigateAfterEditSave,
+  parseEditReturnTo,
+} from '@/utils/edit-relative-navigation';
+import { resolveFamilyLinkFormLayout } from '@/utils/family-link-modes';
+import { pickDefaultRootId } from '@/utils/focused-family-tree';
+import { resolveMyRelativeId } from '@/utils/current-user-relative';
 import { relativeToFormInput } from '@/utils/relative-form';
 import { hasFormErrors, prepareRelativeInput, validateRelativeForm } from '@/utils/validation';
 import { Palette, Spacing, Typography } from '@/constants/theme';
@@ -35,26 +41,51 @@ import { Palette, Spacing, Typography } from '@/constants/theme';
 export default function EditRelativeScreen() {
   const router = useRouter();
   const { showToast } = useToast();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, returnTo: returnToParam } = useLocalSearchParams<{
+    id: string;
+    returnTo?: string | string[];
+  }>();
   const relativeId = Array.isArray(id) ? id[0] : id;
+  const returnTo = parseEditReturnTo(returnToParam);
   const { relative, loading } = useRelative(relativeId ?? '');
-  const { relatives, refetch } = useRelatives();
+  const { relatives, invalidateRelatives } = useRelatives();
   const { familyId } = useFamilyContext();
   const { updateRelative, saving, error: saveError } = useUpdateRelative(relativeId ?? '');
   const [form, setForm] = useState<CreateRelativeInput | null>(null);
   const [errors, setErrors] = useState<ReturnType<typeof validateRelativeForm>>({});
   const [linkedChildIds, setLinkedChildIds] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const loadedChildRoleKey = useRef<string | null>(null);
+  const initializedRelativeIdRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (relative) {
-      setForm(relativeToFormInput(relative));
+  const { myRelativeId } = useUserIdentity();
+
+  const referenceRootId = useMemo(() => {
+    if (returnTo === 'shezhire') {
+      return pickDefaultRootId(relatives, myRelativeId);
     }
-  }, [relative]);
+
+    return resolveMyRelativeId(relatives, myRelativeId);
+  }, [myRelativeId, relatives, returnTo]);
 
   useEffect(() => {
+    if (!relative || !relativeId) {
+      return;
+    }
+
+    if (initializedRelativeIdRef.current === relativeId) {
+      return;
+    }
+
+    setForm(relativeToFormInput(relative, relatives));
+    initializedRelativeIdRef.current = relativeId;
+  }, [relative, relativeId, relatives]);
+
+  useEffect(() => {
+    initializedRelativeIdRef.current = null;
     loadedChildRoleKey.current = null;
     setLinkedChildIds([]);
+    setForm(null);
   }, [relativeId]);
 
   useEffect(() => {
@@ -64,7 +95,7 @@ export default function EditRelativeScreen() {
 
     const parentRole = resolveParentLinkRole(form.gender, form.relationship);
     const roleKey =
-      parentRole && shouldShowChildrenLinkSection(form.relationship)
+      parentRole && resolveFamilyLinkFormLayout(form.relationship).showChildrenPicker
         ? `${relativeId}:${parentRole}`
         : null;
 
@@ -101,8 +132,32 @@ export default function EditRelativeScreen() {
     });
   };
 
+  const handleSiblingParentSync = async (
+    siblingId: string,
+    patch: Partial<CreateRelativeInput>,
+  ) => {
+    if (!familyId) {
+      return;
+    }
+
+    await relativesService.patchRelativeLinks(
+      siblingId,
+      {
+        fatherId: patch.fatherId,
+        motherId: patch.motherId,
+      },
+      familyId,
+    );
+    await invalidateRelatives({ silent: true });
+    showToast({
+      type: 'success',
+      title: 'Байланыстар синхрондалды 🌿',
+      message: 'Ата-ана деректері бауырға көшірілді',
+    });
+  };
+
   const handleSubmit = async () => {
-    if (!form || !relativeId) {
+    if (!form || !relativeId || saving || submitting) {
       return;
     }
 
@@ -118,79 +173,72 @@ export default function EditRelativeScreen() {
       return;
     }
 
-    const { pendingPhotoUri, clearPhoto, ...relativeInput } = prepared;
-    let nextPhotoUrl = relativeInput.photoUrl;
+    setSubmitting(true);
 
-    if (familyId) {
-      try {
-        if (clearPhoto) {
-          if (relative?.photoUrl) {
-            await removeRelativePhoto(relativeId, familyId, relative.photoUrl);
+    try {
+      const { pendingPhotoUri, clearPhoto, ...relativeInput } = prepared;
+      let nextPhotoUrl = relativeInput.photoUrl;
+
+      if (familyId) {
+        try {
+          if (clearPhoto) {
+            if (relative?.photoUrl) {
+              await removeRelativePhoto(relativeId, familyId, relative.photoUrl);
+            }
+            nextPhotoUrl = undefined;
+          } else if (pendingPhotoUri) {
+            nextPhotoUrl = await saveAndSyncPhotoUrl(relativeId, pendingPhotoUri, familyId);
           }
-          nextPhotoUrl = undefined;
-        } else if (pendingPhotoUri) {
-          nextPhotoUrl = await saveAndSyncPhotoUrl(relativeId, pendingPhotoUri, familyId);
+        } catch {
+          Alert.alert(
+            'Фото · Photo',
+            'Данные сохранены, но фото не обновилось. Попробуйте ещё раз.',
+          );
         }
-      } catch {
-        Alert.alert(
-          'Фото · Photo',
-          'Данные сохранены, но фото не обновилось. Попробуйте ещё раз.',
-        );
-      }
-    }
-
-    const updated = await updateRelative({
-      ...relativeInput,
-      photoUrl: nextPhotoUrl,
-    });
-    let linksSynced = false;
-
-    if (updated && familyId) {
-      const parentRole = resolveParentLinkRole(updated.gender, updated.relationship);
-
-      if (
-        parentRole &&
-        hasChildLinkChanges(linkedChildIds, relativeId, relatives, parentRole)
-      ) {
-        await relativesService.syncParentChildLinks(
-          relativeId,
-          linkedChildIds,
-          parentRole,
-          familyId,
-          relatives,
-        );
-        await refetch({ silent: true });
-        linksSynced = true;
-      } else if (pendingPhotoUri || clearPhoto) {
-        await refetch({ silent: true });
-      }
-    }
-
-    if (updated) {
-      if (linksSynced) {
-        showToast({
-          type: 'success',
-          title: 'Байланыстар сақталды 🌿',
-          message: 'Связи между родственниками обновлены',
-        });
       }
 
-      Alert.alert(
-        'Сәтті жаңартылды!',
-        `${getRelativeDisplayName(updated)} успешно обновлён.`,
-        [
-          {
-            text: 'Жарайды',
-            onPress: () =>
-              router.replace({
-                pathname: '/relative/[id]',
-                params: { id: relativeId },
-              }),
-          },
-        ],
-      );
+      const updated = await updateRelative({
+        ...relativeInput,
+        photoUrl: nextPhotoUrl,
+      });
+
+      if (!updated) {
+        return;
+      }
+
+      if (familyId) {
+        const parentRole = resolveParentLinkRole(updated.gender, updated.relationship);
+
+        if (
+          parentRole &&
+          hasChildLinkChanges(linkedChildIds, relativeId, relatives, parentRole)
+        ) {
+          await relativesService.syncParentChildLinks(
+            relativeId,
+            linkedChildIds,
+            parentRole,
+            familyId,
+            relatives,
+          );
+          await invalidateRelatives({ silent: true });
+        } else if (pendingPhotoUri || clearPhoto) {
+          await invalidateRelatives({ silent: true });
+        }
+      }
+
+      showToast({
+        type: 'success',
+        title: 'Өзгерістер сақталды 🌿',
+        message: 'Изменения сохранены',
+      });
+
+      navigateAfterEditSave(router, relativeId, returnTo);
+    } finally {
+      setSubmitting(false);
     }
   };
+
+  const isSaving = saving || submitting;
 
   if (!relativeId) {
     return null;
@@ -238,18 +286,22 @@ export default function EditRelativeScreen() {
             saveError={saveError}
             relatives={relatives}
             editingRelativeId={relativeId}
+            referenceRootId={referenceRootId}
             linkedChildIds={linkedChildIds}
             onLinkedChildIdsChange={setLinkedChildIds}
             onChange={updateForm}
             onPatch={patchForm}
+            onSiblingParentSync={(siblingId, patch) => {
+              void handleSiblingParentSync(siblingId, patch);
+            }}
           />
 
           <View style={styles.saveWrap}>
             <PrimaryButton
-              label={saving ? 'Сохранение...' : 'Сохранить изменения'}
-              sublabel="Жаңарту · Update relative"
+              label={isSaving ? 'Сақталуда...' : 'Сохранить изменения'}
+              sublabel={isSaving ? 'Saving...' : 'Жаңарту · Update relative'}
               variant="green"
-              onPress={saving ? undefined : handleSubmit}
+              onPress={isSaving ? undefined : () => void handleSubmit()}
             />
           </View>
         </ScrollView>
