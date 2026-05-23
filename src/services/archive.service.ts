@@ -1,6 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { CreateMemoryInput, FamilyMemory } from '@/types/archive';
+import {
+  CreateMemoryInput,
+  FamilyMemory,
+  normalizeMemoryType,
+  StoredMemoryCategory,
+} from '@/types/archive';
 
 function storageKey(familyId: string): string {
   return `@shanyraq/family-archive:${familyId}`;
@@ -8,6 +13,20 @@ function storageKey(familyId: string): string {
 
 function createId(): string {
   return `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+type RawStoredMemory = Omit<FamilyMemory, 'category'> & {
+  category: StoredMemoryCategory;
+};
+
+function normalizeMemory(raw: RawStoredMemory): FamilyMemory {
+  const storedCategory = raw.category;
+  return {
+    ...raw,
+    category: normalizeMemoryType(storedCategory),
+    hasVoice: raw.hasVoice ?? (storedCategory === 'legacy' || storedCategory === 'voice'),
+    hasDocument: raw.hasDocument ?? (storedCategory === 'documents' || storedCategory === 'document'),
+  };
 }
 
 export const archiveService = {
@@ -18,8 +37,12 @@ export const archiveService = {
         return [];
       }
 
-      const parsed = JSON.parse(raw) as FamilyMemory[];
-      return Array.isArray(parsed) ? parsed : [];
+      const parsed = JSON.parse(raw) as RawStoredMemory[];
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+
+      return parsed.map(normalizeMemory);
     } catch {
       return [];
     }
@@ -30,6 +53,9 @@ export const archiveService = {
     const memory: FamilyMemory = {
       ...input,
       id: createId(),
+      category: normalizeMemoryType(input.category),
+      hasVoice: input.hasVoice ?? input.category === 'voice',
+      hasDocument: input.hasDocument ?? input.category === 'document',
       createdAt: new Date().toISOString(),
     };
 

@@ -10,55 +10,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { RelativeLinkPicker } from '@/components/relatives/RelativeLinkPicker';
 import { Card } from '@/components/ui/Card';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { AvatarPlaceholder } from '@/components/ui/RelativeCard';
 import { useConnectParents, useRelative, useRelatives } from '@/hooks/useRelatives';
-import { Relative } from '@/types/relative';
-import { getAllParentCandidates } from '@/utils/family-tree';
-import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
-
-type ParentPickerProps = {
-  label: string;
-  sublabel: string;
-  selectedId: string | null;
-  candidates: Relative[];
-  onSelect: (id: string | null) => void;
-};
-
-function ParentPicker({ label, sublabel, selectedId, candidates, onSelect }: ParentPickerProps) {
-  return (
-    <Card style={styles.pickerCard}>
-      <Text style={styles.pickerLabel}>{label}</Text>
-      <Text style={styles.pickerSub}>{sublabel}</Text>
-      <Pressable onPress={() => onSelect(null)} style={styles.noneChip}>
-        <Text style={[styles.chipText, selectedId === null && styles.chipTextSelected]}>
-          Не выбрано
-        </Text>
-      </Pressable>
-      <View style={styles.chipGrid}>
-        {candidates.map((candidate) => {
-          const selected = selectedId === candidate.id;
-          return (
-            <Pressable
-              key={candidate.id}
-              onPress={() => onSelect(candidate.id)}
-              style={[styles.chip, selected && styles.chipSelected]}>
-              <AvatarPlaceholder name={candidate.fullName} color={candidate.avatarColor} size={36} />
-              <Text style={[styles.chipName, selected && styles.chipNameSelected]} numberOfLines={2}>
-                {candidate.fullName}
-              </Text>
-              <Text style={[styles.chipRole, selected && styles.chipRoleSelected]}>
-                {candidate.relationship}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </Card>
-  );
-}
+import {
+  buildFamilyLinkCandidates,
+  validateFamilyLinksFull,
+} from '@/utils/family-link-validation';
+import { Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function ConnectRelativeScreen() {
   const router = useRouter();
@@ -70,6 +32,10 @@ export default function ConnectRelativeScreen() {
 
   const [fatherId, setFatherId] = useState<string | null>(null);
   const [motherId, setMotherId] = useState<string | null>(null);
+  const [linkErrors, setLinkErrors] = useState<{
+    fatherId?: string;
+    motherId?: string;
+  }>({});
 
   useEffect(() => {
     if (relative) {
@@ -78,27 +44,75 @@ export default function ConnectRelativeScreen() {
     }
   }, [relative]);
 
-  const candidates = useMemo(() => {
-    if (!relativeId) {
-      return [];
+  const linkValues = useMemo(
+    () => ({
+      fatherId,
+      motherId,
+    }),
+    [fatherId, motherId],
+  );
+
+  const fatherCandidates = useMemo(
+    () =>
+      buildFamilyLinkCandidates(relatives, 'father', {
+        subjectId: relativeId,
+        subjectGender: relative?.gender,
+        links: linkValues,
+      }),
+    [relatives, relativeId, relative?.gender, linkValues],
+  );
+
+  const motherCandidates = useMemo(
+    () =>
+      buildFamilyLinkCandidates(relatives, 'mother', {
+        subjectId: relativeId,
+        subjectGender: relative?.gender,
+        links: linkValues,
+      }),
+    [relatives, relativeId, relative?.gender, linkValues],
+  );
+
+  const linkValidation = useMemo(() => {
+    if (!relativeId || !relative) {
+      return { errors: {}, warnings: {} };
     }
-    return getAllParentCandidates(relatives, relativeId);
-  }, [relatives, relativeId]);
+
+    return validateFamilyLinksFull(linkValues, {
+      relativeId,
+      relatives,
+      subjectGender: relative.gender,
+    });
+  }, [linkValues, relative, relativeId, relatives]);
 
   const handleSave = async () => {
-    if (!relativeId) {
+    if (!relativeId || !relative) {
       return;
     }
 
-    if (fatherId === relativeId || motherId === relativeId) {
-      Alert.alert('Қате', 'Нельзя выбрать того же человека.');
+    const { errors: nextErrors } = validateFamilyLinksFull(linkValues, {
+      relativeId,
+      relatives,
+      subjectGender: relative.gender,
+    });
+
+    setLinkErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      return;
+    }
+
+    if (!fatherId && !motherId) {
+      Alert.alert(
+        'Байланыс жоқ',
+        'Кем дегенде әke немесе ana таңдаңыз · Select at least one parent.',
+      );
       return;
     }
 
     const updated = await connectParents({ fatherId, motherId });
 
     if (updated) {
-      Alert.alert('Сохранено', 'Связи обновлены.', [
+      Alert.alert('Сақталды · Saved', 'Байланыс жаңартылды · Links updated.', [
         { text: 'Жарайды', onPress: () => router.back() },
       ]);
     }
@@ -119,7 +133,7 @@ export default function ConnectRelativeScreen() {
   if (!relative) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <Text style={styles.errorText}>Родственник не найден</Text>
+        <Text style={styles.errorText}>Туыс табылмады · Relative not found</Text>
       </SafeAreaView>
     );
   }
@@ -131,36 +145,66 @@ export default function ConnectRelativeScreen() {
           <Text style={styles.backText}>← Артқа</Text>
         </Pressable>
 
-        <Text style={styles.title}>Связать родственника</Text>
-        <Text style={styles.subtitle}>Туыс байлау · Connect to parents</Text>
+        <Text style={styles.title}>Туыс байлау</Text>
+        <Text style={styles.subtitle}>Connect to parents · ата-ана таңдау</Text>
+
+        <Card goldBorder style={styles.helperCard}>
+          <Text style={styles.helperText}>
+            Балаға әke мен ana таңдаңыз — шежіреде отбасы блогы автоматты түрде пайда болады.
+          </Text>
+        </Card>
 
         <Card goldBorder style={styles.childCard}>
-          <AvatarPlaceholder name={relative.fullName} color={relative.avatarColor} size={64} />
+          <AvatarPlaceholder
+            name={relative.fullName}
+            color={relative.avatarColor}
+            photoUrl={relative.photoUrl}
+            size={64}
+          />
           <Text style={styles.childName}>{relative.fullName}</Text>
           <Text style={styles.childRole}>{relative.relationship}</Text>
         </Card>
 
-        <ParentPicker
-          label="Әke · Отец"
-          sublabel="Выберите отца"
-          selectedId={fatherId}
-          candidates={candidates}
-          onSelect={setFatherId}
-        />
-
-        <ParentPicker
-          label="Ана · Мать"
-          sublabel="Выберите мать"
-          selectedId={motherId}
-          candidates={candidates}
-          onSelect={setMotherId}
-        />
+        <Card style={styles.linkCard}>
+          <RelativeLinkPicker
+            label="Әke · Отец"
+            linkType="father"
+            selectedId={fatherId}
+            candidates={fatherCandidates}
+            relatives={relatives}
+            subjectId={relativeId}
+            subjectGender={relative.gender}
+            links={linkValues}
+            error={linkErrors.fatherId}
+            warning={!linkErrors.fatherId ? linkValidation.warnings.fatherId : undefined}
+            onSelect={(id) => {
+              setFatherId(id);
+              setLinkErrors((current) => ({ ...current, fatherId: undefined }));
+            }}
+          />
+          <RelativeLinkPicker
+            label="Ana · Мать"
+            linkType="mother"
+            selectedId={motherId}
+            candidates={motherCandidates}
+            relatives={relatives}
+            subjectId={relativeId}
+            subjectGender={relative.gender}
+            links={linkValues}
+            error={linkErrors.motherId}
+            warning={!linkErrors.motherId ? linkValidation.warnings.motherId : undefined}
+            onSelect={(id) => {
+              setMotherId(id);
+              setLinkErrors((current) => ({ ...current, motherId: undefined }));
+            }}
+          />
+        </Card>
 
         {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
 
         <PrimaryButton
-          label={saving ? 'Сохранение...' : 'Сохранить связи'}
-          sublabel="Supabase-қа сақтау"
+          label={saving ? 'Сақталуда...' : 'Байланысты сақтау · Save links'}
+          sublabel="Шежіреге қосу"
           variant="green"
           onPress={saving ? undefined : () => void handleSave()}
         />
@@ -178,9 +222,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xxl,
     gap: Spacing.lg,
-    maxWidth: 480,
-    alignSelf: 'center',
-    width: '100%',
   },
   backButton: {
     alignSelf: 'flex-start',
@@ -199,6 +240,15 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Palette.textSecondary,
   },
+  helperCard: {
+    backgroundColor: Palette.creamDark,
+  },
+  helperText: {
+    ...Typography.bodySmall,
+    color: Palette.textSecondary,
+    lineHeight: 24,
+    textAlign: 'center',
+  },
   childCard: {
     alignItems: 'center',
     gap: Spacing.sm,
@@ -210,74 +260,15 @@ const styles = StyleSheet.create({
   },
   childRole: {
     ...Typography.bodySmall,
-    color: Palette.gold,
-    fontWeight: '700',
-  },
-  pickerCard: {
-    gap: Spacing.sm,
-  },
-  pickerLabel: {
-    ...Typography.bodySmall,
-    color: Palette.textPrimary,
-    fontWeight: '700',
-  },
-  pickerSub: {
-    ...Typography.caption,
     color: Palette.textSecondary,
   },
-  noneChip: {
-    alignSelf: 'flex-start',
-    paddingVertical: Spacing.xs,
-  },
-  chipGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-  },
-  chip: {
-    width: '48%',
-    backgroundColor: Palette.cream,
-    borderRadius: Radius.lg,
-    borderWidth: 1.5,
-    borderColor: Palette.creamDark,
-    padding: Spacing.sm,
-    alignItems: 'center',
-    gap: Spacing.xs,
-    minHeight: 100,
-  },
-  chipSelected: {
-    backgroundColor: Palette.greenDeep,
-    borderColor: Palette.gold,
-  },
-  chipText: {
-    ...Typography.bodySmall,
-    color: Palette.textSecondary,
-    fontWeight: '600',
-  },
-  chipTextSelected: {
-    color: Palette.greenDeep,
-    fontWeight: '700',
-  },
-  chipName: {
-    ...Typography.caption,
-    color: Palette.textPrimary,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  chipNameSelected: {
-    color: Palette.white,
-  },
-  chipRole: {
-    ...Typography.caption,
-    color: Palette.textSecondary,
-    textAlign: 'center',
-  },
-  chipRoleSelected: {
-    color: Palette.goldLight,
+  linkCard: {
+    gap: Spacing.lg,
   },
   errorText: {
-    ...Typography.bodySmall,
+    ...Typography.caption,
     color: Palette.danger,
+    fontWeight: '600',
     textAlign: 'center',
   },
 });

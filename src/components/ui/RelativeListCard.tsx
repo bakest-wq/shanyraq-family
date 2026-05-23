@@ -106,6 +106,7 @@ export function RelativeListCard({ relative, highlighted = false }: RelativeList
         <AvatarPlaceholder
           name={relative.fullName}
           color={relative.avatarColor}
+          photoUrl={relative.photoUrl}
           size={72}
           deceased={relative.isDeceased}
         />

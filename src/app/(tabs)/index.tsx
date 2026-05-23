@@ -62,7 +62,12 @@ export default function HomeScreen() {
         ) : todayBirthdays.length > 0 ? (
           todayBirthdays.map((person) => (
             <View key={person.id} style={styles.todayRow}>
-              <AvatarPlaceholder name={person.fullName} color={person.avatarColor} size={52} />
+              <AvatarPlaceholder
+                name={person.fullName}
+                color={person.avatarColor}
+                photoUrl={person.photoUrl}
+                size={52}
+              />
               <View style={styles.todayInfo}>
                 <Text style={styles.todayHighlight}>🎂 Туған күн · День рождения!</Text>
                 <Text style={styles.todayName}>{person.fullName}</Text>
@@ -87,6 +92,7 @@ export default function HomeScreen() {
             <AvatarPlaceholder
               name={upcoming.relative.fullName}
               color={upcoming.relative.avatarColor}
+              photoUrl={upcoming.relative.photoUrl}
               size={56}
             />
             <View style={styles.upcomingInfo}>

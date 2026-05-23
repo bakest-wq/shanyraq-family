@@ -33,11 +33,11 @@ export default function JoinFamilyScreen() {
     const nextErrors: { inviteCode?: string; memberName?: string } = {};
 
     if (!inviteCode.trim()) {
-      nextErrors.inviteCode = 'Введите код приглашения.';
+      nextErrors.inviteCode = 'Шақыру кодын енгізіңіз.';
     }
 
     if (!memberName.trim()) {
-      nextErrors.memberName = 'Введите ваше имя.';
+      nextErrors.memberName = 'Атыңызды жазыңыз.';
     }
 
     setErrors(nextErrors);
@@ -71,26 +71,27 @@ export default function JoinFamilyScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.successContainer}>
           <View style={styles.successIconWrap}>
-            <Text style={styles.successIcon}>🤲</Text>
+            <Text style={styles.successIcon}>🌿</Text>
           </View>
           <Text style={styles.successTitle}>Қош келдіңіз!</Text>
-          <Text style={styles.successSubtitle}>Вы присоединились к семье</Text>
+          <Text style={styles.successSubtitle}>Сіз отбасы орнына қосылдыңыз</Text>
 
           <Card goldBorder style={styles.successCard}>
+            <Text style={styles.successFamilyLabel}>Отбасы орны</Text>
             <Text style={styles.successFamilyName}>{joinedSession.familyName}</Text>
             <Text style={styles.successMeta}>
-              Код: {formatInviteCodeDisplay(joinedSession.inviteCode)}
+              Шақыру коды: {formatInviteCodeDisplay(joinedSession.inviteCode)}
             </Text>
             <Text style={styles.successMeta}>Сіз: {joinedSession.ownerName}</Text>
           </Card>
 
           <Text style={styles.successMessage}>
-            Ассалаумағалейкум! Теперь вы в семейном шежире — родственники, календарь и архив
-            доступны только для вашей семьи.
+            Ассалаумағалейкум! Біз отбасымыздың шежіресін жинап жатырмыз — туған күндер мен
+            туыстық байланыстарды бірге сақтайық.
           </Text>
 
           <PrimaryButton
-            label="Кіру · Открыть семью"
+            label="Кіру · Открыть отбасы"
             sublabel="Shanyraq Family"
             variant="green"
             onPress={() => router.replace('/(tabs)')}
@@ -109,23 +110,27 @@ export default function JoinFamilyScreen() {
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <Text style={styles.backText}>← Артқа</Text>
           </Pressable>
-          <Text style={styles.title}>Присоединиться к семье</Text>
-          <Text style={styles.subtitle}>Шақыру коды · Invite code</Text>
+          <Text style={styles.title}>Отбасыға қосылу</Text>
+          <Text style={styles.subtitle}>Join family · шақыру коды</Text>
         </View>
 
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          <Card style={styles.noteCard}>
+          <Card goldBorder style={styles.noteCard}>
             <Text style={styles.noteGreeting}>Ассалаумағалейкум!</Text>
             <Text style={styles.noteText}>
-              Попросите код у владельца семьи. Пример: SHA123, ATA777, URP456.
+              Біз отбасымыздың шежіресін жинап жатырмыз 🌿 Қосылып, туған күндер мен туыстық
+              байланыстарды бірге сақтайық.
+            </Text>
+            <Text style={styles.noteHint}>
+              Отбасы иесінен шақыру кодын сұраңыз. Мысалы: SHA123, ATA777.
             </Text>
           </Card>
 
           <FormField
-            label="Код приглашения *"
+            label="Шақыру коды · Invite code *"
             placeholder="SHA123"
             value={inviteCode}
             onChangeText={(value) => {
@@ -135,12 +140,12 @@ export default function JoinFamilyScreen() {
             }}
             error={errors.inviteCode}
             autoCapitalize="characters"
-            hint="6 символов · буквы и цифры"
+            hint="6 таңба · әріптер мен сандар"
           />
 
           <FormField
             label="Сіздің атыңыз · Ваше имя *"
-            placeholder="Мысалы: Айгуль"
+            placeholder="Мысалы: Айгүл"
             value={memberName}
             onChangeText={(value) => {
               setMemberName(value);
@@ -148,21 +153,22 @@ export default function JoinFamilyScreen() {
             }}
             error={errors.memberName}
             autoCapitalize="words"
+            hint="Email немесе пароль керек емес · MVP"
           />
 
           {notFound ? (
             <Card style={styles.errorCard}>
-              <Text style={styles.errorTitle}>Код не найден</Text>
+              <Text style={styles.errorTitle}>Код табылмады</Text>
               <Text style={styles.errorText}>
-                Проверьте код и попробуйте снова. Если семья создана на другом телефоне, код
-                должен совпадать с тем, что отправил владелец.
+                Кодты қайта тексеріңіз. Отбасы басқа телефонда құрылған болса, ие жіберген код
+                дәл сондай болуы керек.
               </Text>
             </Card>
           ) : null}
 
           <PrimaryButton
-            label={saving ? 'Подключение...' : 'Присоединиться'}
-            sublabel="Отбасыға қосылу"
+            label={saving ? 'Қосылуда...' : 'Қосылу · Присоединиться'}
+            sublabel="Аты + шақыру коды · AsyncStorage"
             variant="gold"
             onPress={saving ? undefined : () => void handleJoin()}
           />
@@ -220,6 +226,11 @@ const styles = StyleSheet.create({
     color: Palette.textSecondary,
     lineHeight: 24,
   },
+  noteHint: {
+    ...Typography.caption,
+    color: Palette.greenMid,
+    lineHeight: 20,
+  },
   errorCard: {
     backgroundColor: '#FFF1E8',
     gap: Spacing.xs,
@@ -269,6 +280,11 @@ const styles = StyleSheet.create({
   successCard: {
     alignItems: 'center',
     gap: Spacing.sm,
+  },
+  successFamilyLabel: {
+    ...Typography.caption,
+    color: Palette.textSecondary,
+    fontWeight: '600',
   },
   successFamilyName: {
     ...Typography.subtitle,

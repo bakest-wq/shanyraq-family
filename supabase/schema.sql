@@ -37,6 +37,7 @@ create table if not exists public.relatives (
   birthday_year integer check (birthday_year >= 1900),
   phone text,
   avatar_color text not null default '#2D6A4F',
+  photo_url text,
   is_deceased boolean not null default false,
   death_year integer,
   dua_text text,

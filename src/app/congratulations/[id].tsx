@@ -121,6 +121,7 @@ export default function CongratulationsScreen() {
           <AvatarPlaceholder
             name={relative.fullName}
             color={relative.avatarColor}
+            photoUrl={relative.photoUrl}
             size={72}
           />
           <View style={styles.personInfo}>

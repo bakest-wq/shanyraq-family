@@ -66,6 +66,24 @@ async function saveLocalFamilyAndSession(session: FamilySession): Promise<void> 
   await persistSession(session);
 }
 
+async function saveJoinedFamilyLocally(session: FamilySession): Promise<void> {
+  const families = await readLocalFamilies();
+  const existing = families.find((family) => family.id === session.familyId);
+
+  if (!existing) {
+    const storedFamily: StoredFamily = {
+      id: session.familyId,
+      name: session.familyName,
+      inviteCode: session.inviteCode,
+      ownerName: session.role === 'owner' ? session.ownerName : '—',
+      createdAt: new Date().toISOString(),
+    };
+    await writeLocalFamilies([storedFamily, ...families]);
+  }
+
+  await persistSession(session);
+}
+
 async function syncMemberToSupabase(session: FamilySession): Promise<void> {
   if (!isSupabaseReady()) {
     return;
@@ -190,7 +208,7 @@ export const familyService = {
         role: 'member',
       };
 
-      await persistSession(session);
+      await saveJoinedFamilyLocally(session);
       await syncMemberToSupabase(session);
       return session;
     }
@@ -208,7 +226,7 @@ export const familyService = {
             role: 'member',
           };
 
-          await persistSession(session);
+          await saveJoinedFamilyLocally(session);
           await syncMemberToSupabase(session);
           return session;
         }

@@ -4,6 +4,7 @@ import { syncBirthdayFields } from '@/utils/birthday-parts';
 import {
   composeDisplayName,
   composeFullName,
+  getRelativeDisplayName,
   parseLegacyFullName,
 } from '@/utils/relative-names';
 
@@ -47,6 +48,7 @@ export function mapRelativeRow(row: RelativeRow): Relative {
     birthdayYearUnknown: birthdayFields.birthdayYearUnknown,
     phone: row.phone ?? '',
     avatarColor: row.avatar_color,
+    photoUrl: row.photo_url ?? undefined,
     isDeceased: row.is_deceased,
     deathYear: row.death_year ?? undefined,
     duaText: row.dua_text ?? undefined,
@@ -93,6 +95,7 @@ function mapRelativePayload(input: CreateRelativeInput, familyId?: string): Rela
     birthday_year: birthdayFields.birthdayYear,
     phone: input.phone?.trim() || null,
     avatar_color: input.avatarColor ?? pickAvatarColor(seedName),
+    photo_url: input.photoUrl ?? null,
     is_deceased: input.isDeceased ?? false,
     death_year: input.deathYear ?? null,
     dua_text: input.duaText?.trim() || null,

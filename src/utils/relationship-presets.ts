@@ -127,6 +127,26 @@ export function findRelationshipOption(value: string): RelationshipOption | unde
   return RELATIONSHIP_OPTIONS.find((option) => option.value === value);
 }
 
+const PARENT_RELATIONSHIPS = new Set(['Әке', 'Ана']);
+
+const SPOUSE_RELATIONSHIPS = new Set(['Жұбайы', 'Күйеуі']);
+
+const CHILD_RELATIONSHIPS = new Set(
+  RELATIONSHIP_OPTIONS.filter((option) => option.group === 'children').map((option) => option.value),
+);
+
+export function isParentRelationship(value: string): boolean {
+  return PARENT_RELATIONSHIPS.has(value);
+}
+
+export function isSpouseRelationship(value: string): boolean {
+  return SPOUSE_RELATIONSHIPS.has(value);
+}
+
+export function isChildRelationship(value: string): boolean {
+  return CHILD_RELATIONSHIPS.has(value);
+}
+
 /** Legacy alias kept for older imports. */
 export const RELATIONSHIP_PRESET_RU: Record<string, string> = Object.fromEntries(
   RELATIONSHIP_OPTIONS.map((option) => [option.value, option.russian]),

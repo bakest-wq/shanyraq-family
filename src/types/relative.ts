@@ -19,6 +19,7 @@ export type Relative = {
   birthdayYearUnknown?: boolean;
   phone: string;
   avatarColor: string;
+  photoUrl?: string;
   isDeceased: boolean;
   deathYear?: number;
   duaText?: string;
@@ -56,6 +57,11 @@ export type CreateRelativeInput = {
   birthdayYearUnknown?: boolean;
   phone?: string;
   avatarColor?: string;
+  photoUrl?: string;
+  /** Local picker URI — saved after create/update, not sent to DB directly */
+  pendingPhotoUri?: string;
+  /** Form flag: user removed an existing photo */
+  clearPhoto?: boolean;
   isDeceased?: boolean;
   deathYear?: number;
   duaText?: string;

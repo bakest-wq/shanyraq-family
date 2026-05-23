@@ -5,11 +5,7 @@ import { PhotoPlaceholderUpload } from '@/components/archive/PhotoPlaceholderUpl
 import { Card } from '@/components/ui/Card';
 import { FormField } from '@/components/ui/FormField';
 import { Relative } from '@/types/relative';
-import {
-  ARCHIVE_CATEGORIES,
-  ArchiveCategoryId,
-  CreateMemoryInput,
-} from '@/types/archive';
+import { CreateMemoryInput, MEMORY_TYPES, MemoryType } from '@/types/archive';
 import { MemoryFormErrors } from '@/utils/archive-validation';
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
 
@@ -36,23 +32,39 @@ export function MemoryFormFields({
     onChange('relativeName', relative.fullName);
   };
 
+  const handleTypeChange = (type: MemoryType) => {
+    onChange('category', type);
+    onChange('hasVoice', type === 'voice');
+    onChange('hasDocument', type === 'document');
+    if (type !== 'photo') {
+      onChange('hasPhoto', false);
+    }
+  };
+
   return (
     <>
-      <PhotoPlaceholderUpload
-        hasPhoto={form.hasPhoto}
-        onChange={(hasPhoto) => onChange('hasPhoto', hasPhoto)}
-      />
+      <Card goldBorder style={styles.sectionCard}>
+        <Text style={styles.sectionLabel}>Түрі · Type</Text>
+        <ArchiveCategoryChips
+          options={MEMORY_TYPES.map((type) => ({
+            id: type.id,
+            label: `${type.icon} ${type.labelKz}`,
+          }))}
+          value={form.category}
+          onChange={(value) => handleTypeChange(value as MemoryType)}
+        />
+      </Card>
 
       <FormField
-        label="Атауы · Название *"
-        placeholder="Мысалы: Наурыз 2024"
+        label="Атауы · Title *"
+        placeholder="Мысалы: Ата-ананың насихаты"
         value={form.title}
         onChangeText={(value) => onChange('title', value)}
         error={errors.title}
       />
 
       <Card goldBorder style={styles.sectionCard}>
-        <Text style={styles.sectionLabel}>Туыс · Родственник *</Text>
+        <Text style={styles.sectionLabel}>Туыс · Relative *</Text>
         <View style={styles.relativeGrid}>
           {relatives.map((relative) => {
             const selected = form.relativeId === relative.id;
@@ -85,25 +97,48 @@ export function MemoryFormFields({
           })}
         </View>
         {relatives.length === 0 ? (
-          <Text style={styles.hint}>Сначала добавьте родственников в списке «Туыстар».</Text>
+          <Text style={styles.hint}>Алдымен «Туыстар» тізіміне туыс қосыңыз.</Text>
         ) : null}
         {errors.relativeName ? <Text style={styles.errorText}>{errors.relativeName}</Text> : null}
       </Card>
 
-      <FormField
-        label="Жыл · Год"
-        placeholder="2024"
-        value={form.year}
-        onChangeText={(value) => onChange('year', value)}
-        keyboardType="number-pad"
-        error={errors.year}
-        hint="Необязательно · Формат YYYY"
-      />
+      <View style={styles.dateRow}>
+        <View style={styles.dateField}>
+          <FormField
+            label="Жыл · Year"
+            placeholder="1998"
+            value={form.year}
+            onChangeText={(value) => onChange('year', value)}
+            keyboardType="number-pad"
+            error={errors.year}
+          />
+        </View>
+        <View style={styles.dateField}>
+          <FormField
+            label="Ай · Month"
+            placeholder="5"
+            value={form.month ?? ''}
+            onChangeText={(value) => onChange('month', value)}
+            keyboardType="number-pad"
+            error={errors.month}
+          />
+        </View>
+        <View style={styles.dateField}>
+          <FormField
+            label="Күн · Day"
+            placeholder="12"
+            value={form.day ?? ''}
+            onChangeText={(value) => onChange('day', value)}
+            keyboardType="number-pad"
+            error={errors.day}
+          />
+        </View>
+      </View>
 
       <View style={styles.storyField}>
-        <Text style={styles.sectionLabel}>Тарих · История *</Text>
+        <Text style={styles.sectionLabel}>Сипаттама · Description *</Text>
         <TextInput
-          placeholder="Короткая семейная история..."
+          placeholder="Отбасы естeliгі, насихат немесе қысқа тарих..."
           placeholderTextColor={Palette.textMuted}
           value={form.story}
           onChangeText={(value) => onChange('story', value)}
@@ -114,14 +149,28 @@ export function MemoryFormFields({
         {errors.story ? <Text style={styles.errorText}>{errors.story}</Text> : null}
       </View>
 
-      <Card style={styles.sectionCard}>
-        <Text style={styles.sectionLabel}>Санат · Категория</Text>
-        <ArchiveCategoryChips
-          options={ARCHIVE_CATEGORIES}
-          value={form.category}
-          onChange={(value) => onChange('category', value as ArchiveCategoryId)}
+      {form.category === 'photo' || form.category === 'story' ? (
+        <PhotoPlaceholderUpload
+          hasPhoto={form.hasPhoto}
+          onChange={(hasPhoto) => onChange('hasPhoto', hasPhoto)}
         />
-      </Card>
+      ) : null}
+
+      {form.category === 'voice' ? (
+        <Card style={styles.mockCard}>
+          <Text style={styles.mockIcon}>🎙️</Text>
+          <Text style={styles.mockTitle}>Дауыс жазба · Voice note</Text>
+          <Text style={styles.hint}>Mock · настоящая запись аудио будет позже</Text>
+        </Card>
+      ) : null}
+
+      {form.category === 'document' ? (
+        <Card style={styles.mockCard}>
+          <Text style={styles.mockIcon}>📄</Text>
+          <Text style={styles.mockTitle}>Құжат · Document</Text>
+          <Text style={styles.hint}>Mock · загрузка файлов будет позже</Text>
+        </Card>
+      ) : null}
 
       {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
     </>
@@ -136,6 +185,13 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     color: Palette.textPrimary,
     fontWeight: '700',
+  },
+  dateRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  dateField: {
+    flex: 1,
   },
   relativeGrid: {
     flexDirection: 'row',
@@ -192,9 +248,24 @@ const styles = StyleSheet.create({
   storyInputError: {
     borderColor: Palette.danger,
   },
+  mockCard: {
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.lg,
+    backgroundColor: Palette.cream,
+  },
+  mockIcon: {
+    fontSize: 34,
+  },
+  mockTitle: {
+    ...Typography.body,
+    color: Palette.greenDeep,
+    fontWeight: '700',
+  },
   hint: {
     ...Typography.caption,
     color: Palette.textSecondary,
+    textAlign: 'center',
   },
   errorText: {
     ...Typography.caption,

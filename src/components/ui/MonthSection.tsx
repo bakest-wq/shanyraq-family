@@ -15,7 +15,12 @@ type BirthdayRowProps = {
 export function BirthdayRow({ relative, daysUntil, highlight = false }: BirthdayRowProps) {
   return (
     <View style={[styles.row, highlight && styles.highlight]}>
-      <AvatarPlaceholder name={relative.fullName} color={relative.avatarColor} size={48} />
+      <AvatarPlaceholder
+        name={relative.fullName}
+        color={relative.avatarColor}
+        photoUrl={relative.photoUrl}
+        size={48}
+      />
       <View style={styles.info}>
         <Text style={styles.name}>{relative.fullName}</Text>
         <Text style={styles.role}>

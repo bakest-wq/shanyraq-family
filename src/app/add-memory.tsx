@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -28,17 +28,39 @@ const EMPTY_MEMORY_FORM: CreateMemoryInput = {
   relativeId: null,
   relativeName: '',
   year: '',
+  month: '',
+  day: '',
   story: '',
-  category: 'stories',
+  category: 'story',
   hasPhoto: false,
+  hasVoice: false,
+  hasDocument: false,
 };
 
 export default function AddMemoryScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ relativeId?: string }>();
   const { relatives } = useRelatives();
   const { saveMemory, saving, error: saveError } = useAddMemory();
   const [form, setForm] = useState<CreateMemoryInput>(EMPTY_MEMORY_FORM);
   const [errors, setErrors] = useState<ReturnType<typeof validateMemoryForm>>({});
+
+  const presetRelative = useMemo(
+    () => relatives.find((relative) => relative.id === params.relativeId) ?? null,
+    [params.relativeId, relatives],
+  );
+
+  useEffect(() => {
+    if (!presetRelative) {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      relativeId: presetRelative.id,
+      relativeName: presetRelative.fullName,
+    }));
+  }, [presetRelative]);
 
   const updateForm = <K extends keyof CreateMemoryInput>(
     key: K,
@@ -61,13 +83,17 @@ export default function AddMemoryScreen() {
       title: form.title.trim(),
       relativeName: form.relativeName.trim(),
       year: form.year.trim() || new Date().getFullYear().toString(),
+      month: form.month?.trim() ?? '',
+      day: form.day?.trim() ?? '',
       story: form.story.trim(),
+      hasVoice: form.category === 'voice',
+      hasDocument: form.category === 'document',
     });
 
     if (created) {
       Alert.alert(
-        'Сақталды!',
-        'История добавлена в семейный архив.\n\nMock · без облачного хранилища.',
+        'Сақталды 🌿',
+        'Естелік отбасы жадына қосылды.\n\nЛокально · Supabase Storage кейін',
         [
           {
             text: 'Жарайды',
@@ -87,8 +113,8 @@ export default function AddMemoryScreen() {
           <Pressable onPress={() => router.back()} style={styles.backButton}>
             <Text style={styles.backText}>← Артқа</Text>
           </Pressable>
-          <Text style={styles.title}>Тарих қосу</Text>
-          <Text style={styles.subtitle}>Добавить семейную историю</Text>
+          <Text style={styles.title}>Естелік қосу</Text>
+          <Text style={styles.subtitle}>Add memory · Отбасы естелігі</Text>
         </View>
 
         <ScrollView
@@ -105,8 +131,8 @@ export default function AddMemoryScreen() {
 
           <View style={styles.saveWrap}>
             <PrimaryButton
-              label={saving ? 'Сохранение...' : 'Сохранить историю'}
-              sublabel="Локально · Mock без облака"
+              label={saving ? 'Сақталуда...' : 'Естелікті сақтау'}
+              sublabel="Save memory · Локально"
               variant="green"
               onPress={saving ? undefined : () => void handleSubmit()}
             />

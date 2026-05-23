@@ -16,6 +16,7 @@ export function relativeToFormInput(relative: Relative): CreateRelativeInput {
     ...birthdayFields,
     phone: relative.phone,
     avatarColor: relative.avatarColor,
+    photoUrl: relative.photoUrl,
     isDeceased: relative.isDeceased,
     deathYear: relative.deathYear,
     duaText: relative.duaText ?? '',

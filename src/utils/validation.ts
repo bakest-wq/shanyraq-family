@@ -4,11 +4,42 @@ import {
   syncBirthdayFields,
   validateBirthdayPartsInput,
 } from '@/utils/birthday-parts';
+import {
+  ValidateFamilyLinksContext,
+  FamilyLinkWarnings,
+  validateRelativeFamilyLinks,
+  validateRelativeFamilyLinksFull,
+} from '@/utils/family-link-validation';
 import { syncNameFields } from '@/utils/relative-names';
 
 export type RelativeFormErrors = Partial<
   Record<keyof CreateRelativeInput | 'deathYear', string>
 >;
+
+export type ValidateRelativeFormContext = ValidateFamilyLinksContext;
+
+export type RelativeFormValidation = {
+  errors: RelativeFormErrors;
+  warnings: FamilyLinkWarnings;
+};
+
+export function validateRelativeFormWithWarnings(
+  input: CreateRelativeInput,
+  context?: ValidateRelativeFormContext,
+): RelativeFormValidation {
+  const errors = validateRelativeForm(input, context);
+  const warnings =
+    context != null ? validateRelativeFamilyLinksFull(input, context).warnings : {};
+
+  return { errors, warnings };
+}
+
+export function getRelativeFormLinkWarnings(
+  input: CreateRelativeInput,
+  context: ValidateRelativeFormContext,
+): FamilyLinkWarnings {
+  return validateRelativeFamilyLinksFull(input, context).warnings;
+}
 
 export function normalizeKazakhPhone(input: string): string {
   const digits = input.replace(/\D/g, '');
@@ -36,17 +67,20 @@ export function isValidKazakhPhone(phone: string): boolean {
   return /^\+7\d{10}$/.test(normalizeKazakhPhone(phone));
 }
 
-export function validateRelativeForm(input: CreateRelativeInput): RelativeFormErrors {
+export function validateRelativeForm(
+  input: CreateRelativeInput,
+  context?: ValidateRelativeFormContext,
+): RelativeFormErrors {
   const errors: RelativeFormErrors = {};
   const synced = syncNameFields(input);
   const birthdayFields = syncBirthdayFields(input);
 
   if (!synced.firstName.trim() && !synced.fullName.trim()) {
-    errors.firstName = 'Введите имя · Атын жазыңыз';
+    errors.firstName = 'Атын жазыңыз · Введите имя';
   }
 
   if (!input.relationship.trim()) {
-    errors.relationship = 'Выберите родство · Туыстықты таңдаңыз';
+    errors.relationship = 'Туыстықты таңдаңыз · Выберите родство';
   }
 
   const birthdayError = validateBirthdayPartsInput(birthdayFields);
@@ -60,15 +94,20 @@ export function validateRelativeForm(input: CreateRelativeInput): RelativeFormEr
 
   if (input.isDeceased) {
     if (!input.deathYear) {
-      errors.deathYear = 'Укажите год смерти · 4 цифры';
+      errors.deathYear = 'Қайтыс болған жыл · 4 цифры';
     } else if (!/^\d{4}$/.test(String(input.deathYear))) {
-      errors.deathYear = 'Год смерти — 4 цифры (например 2015)';
+      errors.deathYear = 'Жыл — 4 цифра (мысалы 2015)';
     } else {
       const birthYear = getBirthYearForValidation(birthdayFields);
       if (birthYear && input.deathYear < birthYear) {
-        errors.deathYear = 'Год смерти не может быть раньше рождения';
+        errors.deathYear = 'Қайтыс жылы туған жылдан бұрын болмауы керек';
       }
     }
+  }
+
+  if (context) {
+    const linkErrors = validateRelativeFamilyLinks(input, context);
+    Object.assign(errors, linkErrors);
   }
 
   return errors;

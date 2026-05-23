@@ -30,6 +30,7 @@ export function DeceasedCard({ relative }: DeceasedCardProps) {
         <AvatarPlaceholder
           name={relative.fullName}
           color={relative.avatarColor}
+          photoUrl={relative.photoUrl}
           size={56}
           deceased
         />

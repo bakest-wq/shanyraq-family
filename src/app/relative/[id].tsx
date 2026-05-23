@@ -1,14 +1,24 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { Alert, Animated, Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Card } from '@/components/ui/Card';
-import { DetailField } from '@/components/ui/DetailField';
+import {
+  RelativeProfileActions,
+  RelativeProfileFamilySection,
+  RelativeProfileHeader,
+  RelativeProfileInfoSection,
+  RelativeProfileMemorialSection,
+  RelativeProfileMemoriesSection,
+  RelativeProfileNotesSection,
+  RelativeProfileShezhireSection,
+  RelativeProfileTopBar,
+} from '@/components/relatives/profile';
+import { SuggestedLinksSection } from '@/components/relatives/SuggestedLinksSection';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { LoadingState } from '@/components/ui/LoadingState';
-import { PrimaryButton } from '@/components/ui/PrimaryButton';
-import { AvatarPlaceholder } from '@/components/ui/RelativeCard';
 import { useDeleteRelative, useRelative, useRelatives } from '@/hooks/useRelatives';
-import { calculateAge, formatBirthdayKzRu, getAgeLabel } from '@/utils/dates';
+import { useRelativePhoto } from '@/hooks/useRelativePhoto';
 import {
   findFamilyAnchor,
   formatRelationshipPath,
@@ -16,7 +26,8 @@ import {
   getRelationshipPath,
 } from '@/utils/kinship-path';
 import { getRelativeDisplayName } from '@/utils/relative-names';
-import { Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { getKinshipPathSubtitle } from '@/utils/relative-profile';
+import { MaxContentWidth, Palette, Spacing } from '@/constants/theme';
 
 export default function RelativeDetailsScreen() {
   const router = useRouter();
@@ -25,71 +36,78 @@ export default function RelativeDetailsScreen() {
   const { relative, loading, error } = useRelative(relativeId ?? '');
   const { relatives } = useRelatives();
   const { deleteRelativeAndLeave, deleting } = useDeleteRelative();
+  const { uploading: photoUploading, pickAndUploadPhoto, removePhoto } = useRelativePhoto(relative);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  if (!relativeId) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>Родственник не найден</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const displayName = relative ? getRelativeDisplayName(relative) : '';
+  const kinshipSubtitle = useMemo(() => {
+    if (!relative) {
+      return null;
+    }
 
-  if (loading && !relative) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <LoadingState message="Жүктелуде · Загрузка..." />
-      </SafeAreaView>
-    );
-  }
+    const anchor = findFamilyAnchor(relatives);
+    const path = formatRelationshipPath(getRelationshipPath(relative, relatives, anchor));
+    return getKinshipPathSubtitle(path, relative.relationship);
+  }, [relative, relatives]);
 
-  if (error || !relative) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>{error ?? 'Родственник не найден'}</Text>
-          <PrimaryButton label="Назад" variant="gold" onPress={() => router.back()} />
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const children = useMemo(() => {
+    if (!relative) {
+      return [];
+    }
 
-  const age = calculateAge(relative);
-  const anchor = findFamilyAnchor(relatives);
-  const relationshipPath = formatRelationshipPath(
-    getRelationshipPath(relative, relatives, anchor),
-  );
-  const children = getChildrenOf(relative.id, relatives);
-  const displayName = getRelativeDisplayName(relative);
+    return getChildrenOf(relative.id, relatives);
+  }, [relative, relatives]);
 
-  const handleCall = () => {
-    if (!relative.phone) {
-      Alert.alert('Телефон жоқ', 'Номер телефона не указан.');
+  useEffect(() => {
+    if (!relative) {
+      fadeAnim.setValue(0);
       return;
     }
-    Linking.openURL(`tel:${relative.phone}`);
-  };
 
-  const handleWhatsApp = () => {
-    if (!relative.phone) {
-      Alert.alert('Телефон жоқ', 'Номер телефона не указан.');
+    fadeAnim.setValue(0);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 320,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim, relative?.id]);
+
+  const handleOpenRelative = (targetId: string) => {
+    if (!targetId || targetId === relativeId) {
       return;
     }
-    const digits = relative.phone.replace(/\D/g, '');
-    Linking.openURL(
-      `https://wa.me/${digits}?text=${encodeURIComponent(`Ассалаумағалейкум, ${displayName}!`)}`,
-    );
+
+    router.push({
+      pathname: '/relative/[id]',
+      params: { id: targetId },
+    });
   };
 
   const handleEdit = () => {
+    if (!relative) {
+      return;
+    }
+
     router.push({
       pathname: '/edit-relative/[id]',
       params: { id: relative.id },
     });
   };
 
+  const handleCall = () => {
+    if (!relative?.phone) {
+      Alert.alert('Телефон жоқ', 'Номер телефона не указан.');
+      return;
+    }
+
+    Linking.openURL(`tel:${relative.phone}`);
+  };
+
   const handleCongratulations = () => {
+    if (!relative) {
+      return;
+    }
+
     router.push({
       pathname: '/congratulations/[id]',
       params: { id: relative.id },
@@ -97,6 +115,10 @@ export default function RelativeDetailsScreen() {
   };
 
   const handleDelete = () => {
+    if (!relative) {
+      return;
+    }
+
     Alert.alert(
       'Удалить родственника?',
       'Вы точно хотите удалить этого родственника?',
@@ -111,102 +133,94 @@ export default function RelativeDetailsScreen() {
     );
   };
 
-  return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backText}>← Артқа · Назад</Text>
-        </Pressable>
-
-        <Card goldBorder style={styles.heroCard}>
-          <AvatarPlaceholder
-            name={displayName}
-            color={relative.avatarColor}
-            size={96}
-            deceased={relative.isDeceased}
-          />
-          <Text style={styles.relationship}>{relationshipPath}</Text>
-          <Text style={styles.name}>{displayName}</Text>
-          {relative.isDeceased ? (
-            <View style={styles.deceasedBadge}>
-              <Text style={styles.deceasedBadgeText}>🕊️ Марқұм</Text>
-            </View>
-          ) : null}
-        </Card>
-
-        <Card style={styles.detailsCard}>
-          <DetailField label="Аты · Имя" value={relative.firstName || '—'} />
-          {relative.middleName ? (
-            <DetailField label="Әke аты · Отчество" value={relative.middleName} />
-          ) : null}
-          {relative.currentSurname ? (
-            <DetailField label="Тегі · Фамилия" value={relative.currentSurname} />
-          ) : null}
-          {relative.birthSurname ? (
-            <DetailField label="Туған тегі · Birth surname" value={relative.birthSurname} />
-          ) : null}
-          <DetailField label="Туған күні · Дата рождения" value={formatBirthdayKzRu(relative)} />
-          <DetailField
-            label="Жасы · Возраст"
-            value={age !== null ? getAgeLabel(age) : '—'}
-          />
-          <DetailField label="Телефон · Phone" value={relative.phone || '—'} />
-          <DetailField
-            label="Марқұм · Ушедший"
-            value={relative.isDeceased ? 'Иә · Да' : 'Жоқ · Нет'}
-          />
-          {relative.isDeceased ? (
-            <>
-              <DetailField
-                label="Жыл · Год смерти"
-                value={relative.deathYear ? String(relative.deathYear) : '—'}
-              />
-              <DetailField
-                label="Дұға · Dua text"
-                value={relative.duaText || '—'}
-                multiline
-              />
-            </>
-          ) : null}
-          <DetailField
-            label="Ескертпе · Notes"
-            value={relative.notes || '—'}
-            multiline
-          />
-          {children.length > 0 ? (
-            <DetailField
-              label="Балалар · Дети"
-              value={children.map((child) => getRelativeDisplayName(child)).join(', ')}
-              multiline
-            />
-          ) : null}
-        </Card>
-
-        <Card goldBorder style={styles.detailsCard}>
-          <Text style={styles.shezhireSectionTitle}>Шежіре деректері · Shezhire</Text>
-          <DetailField label="Жүз · Zhuz" value={relative.zhuz || '—'} />
-          <DetailField label="Ру · Ru" value={relative.ru || '—'} />
-          <DetailField label="Ата тегі · Ata line" value={relative.ataLine || '—'} />
-          <DetailField label="Тармақ · Branch" value={relative.tribeBranch || '—'} />
-        </Card>
-
-        <View style={styles.actionsGrid}>
-          <PrimaryButton label="Позвонить" variant="green" onPress={handleCall} />
-          <PrimaryButton label="WhatsApp" variant="gold" onPress={handleWhatsApp} />
-          {!relative.isDeceased ? (
-            <PrimaryButton
-              label="AI поздравление"
-              variant="gold"
-              onPress={handleCongratulations}
-            />
-          ) : null}
-          <PrimaryButton label="Редактировать" variant="gold" onPress={handleEdit} />
-          <PrimaryButton
-            label={deleting ? 'Удаление...' : 'Удалить'}
-            variant="danger"
-            onPress={deleting ? undefined : handleDelete}
+  if (!relativeId) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.stateWrap}>
+          <EmptyState
+            icon="👤"
+            title="Родственник не найден"
+            subtitle="Туыс табылмады · Проверьте ссылку"
+            actionLabel="Артқа · Назад"
+            onAction={() => router.back()}
           />
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (loading && !relative) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <RelativeProfileTopBar onBack={() => router.back()} editDisabled />
+        <LoadingState message="Жүктелуде · Загрузка профиля..." />
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !relative) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <RelativeProfileTopBar onBack={() => router.back()} editDisabled />
+        <View style={styles.stateWrap}>
+          <EmptyState
+            icon="⚠️"
+            title="Профиль жүктелмеді"
+            subtitle={error ?? 'Родственник не найден'}
+            actionLabel="Артқа · Назад"
+            onAction={() => router.back()}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <RelativeProfileTopBar onBack={() => router.back()} onEdit={handleEdit} />
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
+        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+          <RelativeProfileHeader
+            relative={relative}
+            relatives={relatives}
+            displayName={displayName}
+            kinshipSubtitle={kinshipSubtitle}
+            uploading={photoUploading}
+            onPickPhoto={() => void pickAndUploadPhoto()}
+            onRemovePhoto={removePhoto}
+          />
+
+          <SuggestedLinksSection subjectId={relative.id} limit={4} />
+
+          <RelativeProfileInfoSection relative={relative} onCallPhone={handleCall} />
+
+          <RelativeProfileFamilySection
+            relative={relative}
+            relatives={relatives}
+            children={children}
+            onOpenRelative={handleOpenRelative}
+          />
+
+          <RelativeProfileShezhireSection relative={relative} />
+
+          <RelativeProfileNotesSection notes={relative.notes} />
+
+          <RelativeProfileMemoriesSection relative={relative} />
+
+          {relative.isDeceased ? <RelativeProfileMemorialSection relative={relative} /> : null}
+
+          <RelativeProfileActions
+            relative={relative}
+            displayName={displayName}
+            deleting={deleting}
+            onCongratulations={handleCongratulations}
+            onDelete={handleDelete}
+          />
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -220,72 +234,18 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xxl,
+  },
+  content: {
     gap: Spacing.lg,
-    maxWidth: 480,
+    maxWidth: MaxContentWidth,
     alignSelf: 'center',
     width: '100%',
+    paddingTop: Spacing.sm,
   },
-  centered: {
+  stateWrap: {
     flex: 1,
     justifyContent: 'center',
     padding: Spacing.lg,
     gap: Spacing.lg,
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: Spacing.sm,
-  },
-  backText: {
-    ...Typography.body,
-    color: Palette.greenDeep,
-    fontWeight: '700',
-  },
-  heroCard: {
-    alignItems: 'center',
-    gap: Spacing.sm,
-    ...Shadow.card,
-  },
-  relationship: {
-    ...Typography.caption,
-    color: Palette.gold,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginTop: Spacing.sm,
-  },
-  name: {
-    ...Typography.hero,
-    color: Palette.greenDeep,
-    textAlign: 'center',
-  },
-  deceasedBadge: {
-    marginTop: Spacing.sm,
-    backgroundColor: Palette.creamDark,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-  },
-  deceasedBadgeText: {
-    ...Typography.caption,
-    color: Palette.textSecondary,
-    fontWeight: '700',
-  },
-  detailsCard: {
-    gap: 0,
-    ...Shadow.soft,
-  },
-  shezhireSectionTitle: {
-    ...Typography.bodySmall,
-    color: Palette.greenDeep,
-    fontWeight: '700',
-    marginBottom: Spacing.sm,
-  },
-  actionsGrid: {
-    gap: Spacing.sm,
-  },
-  errorText: {
-    ...Typography.body,
-    color: Palette.danger,
-    textAlign: 'center',
   },
 });

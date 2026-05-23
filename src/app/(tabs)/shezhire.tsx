@@ -1,9 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { FamilyUnitBlock } from '@/components/shezhire/FamilyUnitBlock';
 import { FamilyTreeCard } from '@/components/shezhire/FamilyTreeCard';
+import { ShezhireHelperBanner } from '@/components/shezhire/ShezhireHelperBanner';
+import { SuggestedLinksSection } from '@/components/relatives/SuggestedLinksSection';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/EmptyState';
@@ -12,8 +14,13 @@ import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenShell } from '@/components/ui/ScreenShell';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { useRelatives } from '@/hooks/useRelatives';
-import { buildFamilyTree } from '@/utils/family-tree';
-import { Spacing } from '@/constants/theme';
+import {
+  buildFamilyTree,
+  getFamilyUnitAddChildParams,
+  isShezhireTreeBuilt,
+  type FamilyUnit,
+} from '@/utils/family-tree';
+import { MaxContentWidth, Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function ShezhireScreen() {
   const router = useRouter();
@@ -21,6 +28,7 @@ export default function ShezhireScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const tree = useMemo(() => buildFamilyTree(relatives), [relatives]);
+  const treeBuilt = isShezhireTreeBuilt(tree);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -42,6 +50,18 @@ export default function ShezhireScreen() {
     });
   };
 
+  const openAddChild = (unit: FamilyUnit) => {
+    const { fatherId, motherId } = getFamilyUnitAddChildParams(unit);
+
+    router.push({
+      pathname: '/add-relative',
+      params: {
+        ...(fatherId ? { fatherId } : {}),
+        ...(motherId ? { motherId } : {}),
+      },
+    });
+  };
+
   return (
     <ScreenShell
       refreshing={refreshing}
@@ -49,52 +69,83 @@ export default function ShezhireScreen() {
       header={
         <AppHeader
           title="Шежіре"
-          subtitle="Семейное дерево · Shanyraq"
+          subtitle="Отбасы ағашы · Family tree"
           badge="🌳"
         />
       }
       contentStyle={styles.content}>
       {loading ? (
-        <LoadingState message="Шежіре жүктелуде..." />
+        <LoadingState message="Шежіре жүктелуде · Загрузка..." />
       ) : error ? (
         <ErrorState message={error} onRetry={() => void refetch()} />
       ) : isEmpty ? (
         <View style={styles.emptyWrap}>
           <EmptyState
             icon="🌳"
-            title="Добавьте родственников, чтобы построить шежире."
-            subtitle="Туыс қосу · Add relatives first"
-            actionLabel="Добавить родственника"
+            title="Туыс қосыңыз"
+            subtitle="Добавьте родственников, чтобы построить шежіре"
+            actionLabel="Туыс қосу · Add relative"
             onAction={() => router.push('/add-relative')}
           />
         </View>
       ) : (
-        <>
-          {tree.units.length > 0 ? (
+        <View style={styles.main}>
+          <ShezhireHelperBanner />
+
+          <PrimaryButton
+            label="Туыстықты анықтау"
+            sublabel="Relationship · Compare two relatives"
+            variant="gold"
+            onPress={() => router.push('/relationship')}
+          />
+
+          <SuggestedLinksSection limit={4} compact />
+
+          {treeBuilt ? (
             <View style={styles.section}>
               <SectionTitle
-                title="Отбасы ағашы"
-                subtitle="Родители сверху · дети снизу"
+                title="Отбасы блоктары"
+                subtitle="Family units · жұбай жұбы және балалар"
               />
               <View style={styles.unitsList}>
                 {tree.units.map((unit) => (
-                  <FamilyUnitBlock key={unit.key} unit={unit} />
+                  <FamilyUnitBlock
+                    key={unit.key}
+                    unit={unit}
+                    onOpenRelative={openRelative}
+                    onAddChild={openAddChild}
+                  />
                 ))}
               </View>
             </View>
-          ) : null}
+          ) : (
+            <View style={styles.treeEmptyWrap}>
+              <Text style={styles.treeEmptyIcon}>🌿</Text>
+              <Text style={styles.treeEmptyTitle}>Шежіре әлі құрылмаған</Text>
+              <Text style={styles.treeEmptySubtitle}>
+                Әke, ana немесе жұбай байланыстарын қосыңыз — отбасы блоктары автоматты түрде құрылады.
+              </Text>
+              <Text style={styles.treeEmptyHint}>
+                Бір отбасы = ата-ана жоғарыда, балалар төменде · No duplicate blocks.
+              </Text>
+            </View>
+          )}
 
           {tree.unlinked.length > 0 ? (
             <View style={styles.section}>
               <SectionTitle
                 title="Байланыссыз туыстар"
-                subtitle="Unlinked relatives · свяжите с родителями"
+                subtitle="Unlinked · әke / ana / жұбай қосу керек"
               />
+              <Text style={styles.unlinkedHint}>
+                «Байлау» батырмасын басып, ата-ана таңдаңыз · Tap Connect to link parents.
+              </Text>
               <View style={styles.unlinkedGrid}>
                 {tree.unlinked.map((relative) => (
                   <FamilyTreeCard
                     key={relative.id}
                     relative={relative}
+                    gridItem
                     onPress={() => openRelative(relative.id)}
                     onConnect={() => openConnect(relative.id)}
                   />
@@ -103,25 +154,13 @@ export default function ShezhireScreen() {
             </View>
           ) : null}
 
-          {tree.units.length === 0 && tree.unlinked.length === 0 ? (
-            <View style={styles.emptyWrap}>
-              <EmptyState
-                icon="🔗"
-                title="Свяжите родственников"
-                subtitle="Нажмите «Связать» и выберите отца и мать"
-                actionLabel="Добавить родственника"
-                onAction={() => router.push('/add-relative')}
-              />
-            </View>
-          ) : null}
-
           <PrimaryButton
-            label="Добавить родственника"
-            sublabel="Жаңа туыс · New relative"
+            label="Туыс қосу"
+            sublabel="Добавить родственника · New relative"
             variant="green"
             onPress={() => router.push('/add-relative')}
           />
-        </>
+        </View>
       )}
     </ScreenShell>
   );
@@ -131,6 +170,12 @@ const styles = StyleSheet.create({
   content: {
     gap: Spacing.lg,
   },
+  main: {
+    gap: Spacing.lg,
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+    width: '100%',
+  },
   emptyWrap: {
     paddingVertical: Spacing.xl,
   },
@@ -138,11 +183,51 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   unitsList: {
-    gap: Spacing.xl,
+    gap: Spacing.lg,
+  },
+  treeEmptyWrap: {
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Palette.white,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: Palette.goldLight,
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+  },
+  treeEmptyIcon: {
+    fontSize: 36,
+  },
+  treeEmptyTitle: {
+    ...Typography.subtitle,
+    color: Palette.greenDeep,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  treeEmptySubtitle: {
+    ...Typography.bodySmall,
+    color: Palette.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  treeEmptyHint: {
+    ...Typography.caption,
+    color: Palette.greenMid,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  unlinkedHint: {
+    ...Typography.caption,
+    color: Palette.textSecondary,
+    lineHeight: 20,
+    marginBottom: Spacing.xs,
   },
   unlinkedGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.sm,
+    justifyContent: 'space-between',
+    rowGap: Spacing.sm,
+    columnGap: Spacing.sm,
   },
 });

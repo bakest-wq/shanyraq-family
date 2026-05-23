@@ -55,6 +55,7 @@ export function BirthdayCalendarCard({ entry, compact = false }: BirthdayCalenda
         <AvatarPlaceholder
           name={relative.fullName}
           color={relative.avatarColor}
+          photoUrl={relative.photoUrl}
           size={compact ? 56 : 64}
         />
         <View style={styles.info}>

@@ -49,6 +49,7 @@ export type RelativeRow = {
   birthday_year: number | null;
   phone: string | null;
   avatar_color: string;
+  photo_url: string | null;
   is_deceased: boolean;
   death_year: number | null;
   dua_text: string | null;
@@ -82,6 +83,7 @@ export type RelativeInsert = {
   birthday_year?: number | null;
   phone?: string | null;
   avatar_color?: string;
+  photo_url?: string | null;
   is_deceased?: boolean;
   death_year?: number | null;
   dua_text?: string | null;

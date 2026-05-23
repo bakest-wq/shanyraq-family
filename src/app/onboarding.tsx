@@ -57,8 +57,8 @@ export default function OnboardingScreen() {
             onPress={() => router.push('/create-family')}
           />
           <PrimaryButton
-            label="Присоединиться к семье"
-            sublabel="Код шақыру · Join with invite code"
+            label="Отбасыға қосылу · Присоединиться"
+            sublabel="Шақыру коды + аты · no password"
             variant="gold"
             onPress={() => router.push('/join-family')}
           />

@@ -26,12 +26,14 @@ export function buildFamilyInviteMessage(familyName: string, inviteCode: string)
   const code = formatInviteCodeDisplay(inviteCode);
 
   return [
-    'Ассалаумағалейкум! Присоединяйтесь к нашему семейному шежире…',
+    'Ассалаумағалейкум! Біз отбасымыздың шежіресін жинап жатырмыз 🌿',
+    'Қосылып, туған күндер мен туыстық байланыстарды бірге сақтайық.',
     '',
-    `Отбасы: ${familyName}`,
-    `Код приглашения: ${code}`,
+    `Отбасы орны: ${familyName}`,
+    `Шақыру коды: ${code}`,
     '',
-    'Откройте Shanyraq Family → «Присоединиться к семье» и введите код.',
+    'Shanyraq Family → «Отбасыға қосылу · Присоединиться»',
+    'Кодты енгізіп, атыңызды жазыңыз.',
   ].join('\n');
 }
 

@@ -24,17 +24,17 @@ export default function SettingsScreen() {
 
   const handleCopyCode = async () => {
     if (!inviteCode) {
-      Alert.alert('Код жоқ', 'Код приглашения недоступен.');
+      Alert.alert('Код жоқ', 'Шақыру коды әлі қолжетімсіз.');
       return;
     }
 
     await copyTextToClipboard(formatInviteCodeDisplay(inviteCode));
-    Alert.alert('Скопировано', `Код ${formatInviteCodeDisplay(inviteCode)} скопирован.`);
+    Alert.alert('Код көшірілді', `${formatInviteCodeDisplay(inviteCode)} — туыстарыңызға жіберуге дайын.`);
   };
 
   const handleWhatsAppShare = () => {
     if (!session?.familyName || !inviteCode) {
-      Alert.alert('Қате', 'Не удалось подготовить приглашение.');
+      Alert.alert('Қате', 'Шақыру дайындалмады.');
       return;
     }
 
@@ -45,11 +45,11 @@ export default function SettingsScreen() {
   const handleLeave = () => {
     Alert.alert(
       'Шығу · Выйти',
-      'Выйти из семьи на этом устройстве? Данные семьи останутся в облаке.',
+      'Бұл құрылғыдан отбасынан шығасыз ба? Деректер сақталады.',
       [
-        { text: 'Отмена', style: 'cancel' },
+        { text: 'Болдырмау', style: 'cancel' },
         {
-          text: 'Выйти',
+          text: 'Шығу',
           style: 'destructive',
           onPress: () => {
             void (async () => {
@@ -64,12 +64,12 @@ export default function SettingsScreen() {
 
   const handleSwitchFamily = () => {
     Alert.alert(
-      'Сменить семью',
-      'Выйдите из текущей семьи и присоединитесь к другой по коду приглашения.',
+      'Отбасын ауыстыру',
+      'Алдымен шығып, жаңа шақыру кодымен қосыла аласыз.',
       [
-        { text: 'Отмена', style: 'cancel' },
+        { text: 'Болдырмау', style: 'cancel' },
         {
-          text: 'Выйти и сменить',
+          text: 'Шығу және қосылу',
           onPress: () => {
             void (async () => {
               await leaveFamily();
@@ -89,15 +89,15 @@ export default function SettingsScreen() {
         </Pressable>
 
         <Text style={styles.title}>Баптаулар</Text>
-        <Text style={styles.subtitle}>Settings · Семья и приглашения</Text>
+        <Text style={styles.subtitle}>Settings · Отбасы және шақыру</Text>
 
         <Card goldBorder style={styles.card}>
           <Text style={styles.sectionLabel}>Отбасы · Семья</Text>
-          <DetailField label="Название семьи" value={session?.familyName ?? '—'} />
-          <DetailField label="Вы" value={session?.ownerName ?? '—'} />
+          <DetailField label="Отбасы орны · Название" value={session?.familyName ?? '—'} />
+          <DetailField label="Сіз · Вы" value={session?.ownerName ?? '—'} />
           <DetailField
             label="Роль"
-            value={session?.role === 'owner' ? 'Владелец · ие' : 'Участник · мүше'}
+            value={session?.role === 'owner' ? 'Ие · Владелец' : 'Мүше · Участник'}
           />
         </Card>
 
@@ -108,7 +108,7 @@ export default function SettingsScreen() {
           </Text>
           <QuickActionButton
             icon="🔔"
-            label="Настройки уведомлений"
+            label="Хабарландыру баптаулары"
             sublabel="Туған күн · дұға · тест"
             variant="green"
             onPress={() => router.push('/notification-settings')}
@@ -118,17 +118,22 @@ export default function SettingsScreen() {
         <Card goldBorder style={styles.card}>
           <Text style={styles.sectionLabel}>Шақыру · Пригласить родных</Text>
           <Text style={styles.inviteIntro}>
-            Отправьте код родным — они смогут присоединиться к вашему семейному пространству.
+            Туыстарыңызға код жіберіңіз — олар отбасы орнына қосыла алады.
           </Text>
 
+          <View style={styles.familyNameBox}>
+            <Text style={styles.familyNameLabel}>Отбасы орны</Text>
+            <Text style={styles.familyName}>{session?.familyName ?? '—'}</Text>
+          </View>
+
           <View style={styles.inviteBox}>
-            <Text style={styles.inviteLabel}>Код приглашения</Text>
+            <Text style={styles.inviteLabel}>Шақыру коды · Invite code</Text>
             <Text style={styles.inviteCode} accessibilityLabel={`Код ${inviteDisplay}`}>
               {inviteDisplay}
             </Text>
           </View>
 
-          <Text style={styles.messagePreview} numberOfLines={4}>
+          <Text style={styles.messagePreview} numberOfLines={6}>
             {session?.familyName
               ? buildFamilyInviteMessage(session.familyName, inviteCode)
               : '—'}
@@ -137,15 +142,13 @@ export default function SettingsScreen() {
           <View style={styles.inviteActions}>
             <QuickActionButton
               icon="📋"
-              label="Скопировать код"
-              sublabel="Copy invite code"
+              label="Кодты көшіру · Скопировать код"
               variant="green"
               onPress={() => void handleCopyCode()}
             />
             <QuickActionButton
               icon="💬"
-              label="Поделиться в WhatsApp"
-              sublabel="Share invite message"
+              label="WhatsApp арқылы шақыру · Пригласить через WhatsApp"
               variant="gold"
               onPress={handleWhatsAppShare}
             />
@@ -154,13 +157,13 @@ export default function SettingsScreen() {
 
         <View style={styles.actions}>
           <PrimaryButton
-            label="Сменить семью"
-            sublabel="Join another family"
+            label="Отбасын ауыстыру"
+            sublabel="Switch family · join with code"
             variant="gold"
             onPress={handleSwitchFamily}
           />
           <PrimaryButton
-            label="Выйти из семьи"
+            label="Отбасынан шығу"
             sublabel="Logout · локальный выход"
             variant="green"
             onPress={handleLeave}
@@ -213,6 +216,23 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     color: Palette.textSecondary,
     lineHeight: 24,
+  },
+  familyNameBox: {
+    backgroundColor: Palette.white,
+    borderRadius: 16,
+    padding: Spacing.md,
+    gap: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Palette.creamDark,
+  },
+  familyNameLabel: {
+    ...Typography.caption,
+    color: Palette.textSecondary,
+    fontWeight: '600',
+  },
+  familyName: {
+    ...Typography.subtitle,
+    color: Palette.greenDeep,
   },
   inviteBox: {
     backgroundColor: Palette.creamDark,

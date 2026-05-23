@@ -108,10 +108,8 @@ export function syncBirthdayFields<T extends BirthdayPartsInput>(input: T): T & 
 
   if (day && month) {
     day = clampBirthdayDay(day, month, year);
-  } else {
-    day = null;
-    month = null;
-    year = null;
+  } else if (day) {
+    day = Math.min(Math.max(day, 1), 31);
   }
 
   const birthday =

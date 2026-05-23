@@ -6,6 +6,7 @@ import { ArchiveProvider } from '@/providers/ArchiveProvider';
 import { FamilyProvider } from '@/providers/FamilyProvider';
 import { NotificationsProvider } from '@/providers/NotificationsProvider';
 import { RelativesProvider } from '@/providers/RelativesProvider';
+import { TimelineProvider } from '@/providers/TimelineProvider';
 import { ToastProvider } from '@/providers/ToastProvider';
 
 function AppProviders({ children }: { children: React.ReactNode }) {
@@ -13,7 +14,9 @@ function AppProviders({ children }: { children: React.ReactNode }) {
     <ToastProvider>
       <RelativesProvider>
         <ArchiveProvider>
-          <NotificationsProvider>{children}</NotificationsProvider>
+          <TimelineProvider>
+            <NotificationsProvider>{children}</NotificationsProvider>
+          </TimelineProvider>
         </ArchiveProvider>
       </RelativesProvider>
     </ToastProvider>
@@ -34,12 +37,16 @@ export default function RootLayout() {
           <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="notification-settings" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="archive" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="family-memories" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="timeline" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="add-memory" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="add-timeline-event" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="add-relative" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="relative/[id]" options={{ animation: 'slide_from_right' }} />
           <Stack.Screen name="edit-relative/[id]" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="congratulations/[id]" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="connect-relative/[id]" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="relationship" options={{ animation: 'slide_from_right' }} />
         </Stack>
       </AppProviders>
     </FamilyProvider>

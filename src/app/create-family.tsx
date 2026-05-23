@@ -96,8 +96,8 @@ export default function CreateFamilyScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <FormField
-            label="Отбасы атауы · Название семьи *"
-            placeholder="Мысалы: Қасымовтар"
+            label="Отбасы орны · Название семьи *"
+            placeholder="Мысалы: Сүндет ата ұрпақтары"
             value={familyName}
             onChangeText={(value) => {
               setFamilyName(value);
@@ -105,6 +105,7 @@ export default function CreateFamilyScreen() {
             }}
             error={errors.familyName}
             autoCapitalize="words"
+            hint="Тегі емес — отбасы орнының атауы · не surname"
           />
 
           <FormField

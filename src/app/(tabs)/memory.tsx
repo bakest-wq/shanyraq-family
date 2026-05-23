@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { ArchiveMemoryCard } from '@/components/archive/ArchiveMemoryCard';
+import { FamilyMemoryCard } from '@/components/family-memories/FamilyMemoryCard';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { DeceasedCard, DuaBanner } from '@/components/ui/MemoryCard';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
@@ -13,6 +13,7 @@ import { SectionTitle } from '@/components/ui/SectionTitle';
 import { DUA_REMINDER } from '@/data/mockData';
 import { useArchive } from '@/hooks/useArchive';
 import { useRelatives } from '@/hooks/useRelatives';
+import { sortMemoriesNewestFirst } from '@/utils/archive-filters';
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function MemoryScreen() {
@@ -22,7 +23,10 @@ export default function MemoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const isDeceasedEmpty = !loading && !error && deceasedRelatives.length === 0;
 
-  const previewMemories = useMemo(() => memories.slice(0, 2), [memories]);
+  const previewMemories = useMemo(
+    () => sortMemoriesNewestFirst(memories).slice(0, 2),
+    [memories],
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -37,7 +41,7 @@ export default function MemoryScreen() {
       header={
         <AppHeader
           title="Еске алу"
-          subtitle="Память · Марқұмдар мен отбасы тарихы"
+          subtitle="Память · Марқұмдар мен отбасы естеліктері"
         />
       }>
       <DuaBanner text={DUA_REMINDER} />
@@ -65,39 +69,53 @@ export default function MemoryScreen() {
 
       <View style={styles.section}>
         <SectionTitle
-          title="Отбасы архиві"
-          subtitle="Семейный архив · фото, рецепты, истории"
+          title="Отбасы хронологиясы"
+          subtitle="Семейная хронология · туған күн, оқиғалар"
+        />
+        <QuickActionButton
+          icon="🕰️"
+          label="Хронологияны ашу"
+          sublabel="Отбасы тарихы осында жиналады 🌿"
+          variant="gold"
+          onPress={() => router.push('/timeline')}
+        />
+      </View>
+
+      <View style={styles.section}>
+        <SectionTitle
+          title="Отбасы естеліктері"
+          subtitle="Family memories · фото, тарих, насихат"
         />
         {previewMemories.length > 0 ? (
           <View style={styles.list}>
             {previewMemories.map((memory) => (
-              <ArchiveMemoryCard key={memory.id} memory={memory} compact />
+              <FamilyMemoryCard key={memory.id} memory={memory} compact />
             ))}
           </View>
         ) : (
           <Pressable
-            onPress={() => router.push('/archive')}
-            style={({ pressed }) => [styles.archivePrompt, pressed && styles.pressed]}>
-            <Text style={styles.archivePromptIcon}>📚</Text>
-            <Text style={styles.archivePromptTitle}>
-              Здесь будут храниться семейные воспоминания.
+            onPress={() => router.push('/family-memories')}
+            style={({ pressed }) => [styles.memoryPrompt, pressed && styles.pressed]}>
+            <Text style={styles.memoryPromptIcon}>🌿</Text>
+            <Text style={styles.memoryPromptTitle}>
+              Отбасының естеліктері осында сақталады 🌿
             </Text>
-            <Text style={styles.archivePromptSub}>Открыть архив · Архивті ашу</Text>
+            <Text style={styles.memoryPromptSub}>Естеліктер · Open memories</Text>
           </Pressable>
         )}
 
         <QuickActionButton
-          icon="📚"
-          label="Открыть архив"
-          sublabel="Барлық естеліктер"
+          icon="🌿"
+          label="Естеліктерді ашу"
+          sublabel="All family memories"
           variant="gold"
-          onPress={() => router.push('/archive')}
+          onPress={() => router.push('/family-memories')}
         />
       </View>
 
       <PrimaryButton
-        label="Добавить историю"
-        sublabel="Тарих қосу · Новая семейная запись"
+        label="Естелік қосу"
+        sublabel="Add memory · Жаңа отбасы естелігі"
         variant="green"
         onPress={() => router.push('/add-memory')}
       />
@@ -112,7 +130,7 @@ const styles = StyleSheet.create({
   list: {
     gap: Spacing.md,
   },
-  archivePrompt: {
+  memoryPrompt: {
     backgroundColor: Palette.white,
     borderRadius: 20,
     padding: Spacing.lg,
@@ -124,16 +142,16 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.92,
   },
-  archivePromptIcon: {
+  memoryPromptIcon: {
     fontSize: 32,
   },
-  archivePromptTitle: {
+  memoryPromptTitle: {
     ...Typography.body,
     color: Palette.textPrimary,
     fontWeight: '700',
     textAlign: 'center',
   },
-  archivePromptSub: {
+  memoryPromptSub: {
     ...Typography.caption,
     color: Palette.gold,
     fontWeight: '700',
