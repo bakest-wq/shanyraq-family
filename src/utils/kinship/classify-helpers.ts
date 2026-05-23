@@ -162,3 +162,5 @@ export const PARTIAL_PARENT_HINT =
   'Бұл байланыс әke/ана арқылы толықтырылады';
 
 export const INCOMPLETE_LINK_HINT = 'Байланыс толық анықталмады';
+
+export const UNKNOWN_KINSHIP_LABEL = INCOMPLETE_LINK_HINT;

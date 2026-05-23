@@ -11,7 +11,9 @@ import { QuickActionButton } from '@/components/ui/QuickActionButton';
 import { GRAPH_INTEGRITY_COPY } from '@/constants/graph-integrity-content';
 import { USER_IDENTITY_COPY } from '@/constants/user-identity-content';
 import { useFamily } from '@/hooks/useFamily';
+import { useFamilyPermissions } from '@/hooks/useFamilyPermissions';
 import { useUserIdentity } from '@/hooks/useUserIdentity';
+import { FAMILY_SPACE_COPY } from '@/constants/family-space-content';
 import {
   buildFamilyInviteMessage,
   copyTextToClipboard,
@@ -23,6 +25,7 @@ import { Palette, Spacing, Typography } from '@/constants/theme';
 export default function SettingsScreen() {
   const router = useRouter();
   const { session, leaveFamily } = useFamily();
+  const { canEdit } = useFamilyPermissions();
   const { myRelative, hasLinkedRelative } = useUserIdentity();
 
   const inviteCode = session?.inviteCode ?? '';
@@ -105,6 +108,9 @@ export default function SettingsScreen() {
             label="Роль"
             value={session?.role === 'owner' ? 'Ие · Владелец' : 'Мүше · Участник'}
           />
+          <Text style={styles.roleHint}>
+            {canEdit ? FAMILY_SPACE_COPY.ownerCanEditHint : FAMILY_SPACE_COPY.memberReadOnlyHint}
+          </Text>
         </Card>
 
         <Card style={styles.card}>
@@ -252,6 +258,11 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     color: Palette.textPrimary,
     fontWeight: '700',
+  },
+  roleHint: {
+    ...Typography.caption,
+    color: Palette.textSecondary,
+    lineHeight: 20,
   },
   inviteIntro: {
     ...Typography.bodySmall,

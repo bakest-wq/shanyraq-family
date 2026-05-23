@@ -1,5 +1,6 @@
 import type { Relative } from '@/types/relative';
 import { classifyKinship } from '@/utils/kinship/classify';
+import { explainKinship } from '@/utils/kinship/explainKinship';
 import { formatKinshipBadge, formatKinshipCardLine } from '@/utils/kinship/labels.kz';
 import type { KinshipResult } from '@/utils/kinship/types';
 
@@ -17,6 +18,14 @@ export function getKinshipCardLine(
   allRelatives: Relative[],
 ): string {
   return formatKinshipCardLine(getKinshipLabel(rootPerson, targetPerson, allRelatives));
+}
+
+export function getKinshipShortExplanation(
+  rootPerson: Relative,
+  targetPerson: Relative,
+  allRelatives: Relative[],
+): string {
+  return explainKinship(rootPerson, targetPerson, allRelatives).summary;
 }
 
 export function getKinshipBadge(

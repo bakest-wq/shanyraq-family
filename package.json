@@ -55,7 +55,8 @@
     "test:parent-side-add": "npx tsx src/utils/parent-side-sibling-add.test.ts",
     "test:parent-side-quality": "npx tsx src/utils/parent-side-quality.test.ts",
     "test:graph-integrity": "npx tsx src/services/graph-integrity.service.test.ts",
-    "test:user-identity": "npx tsx src/utils/user-identity.test.ts"
+    "test:user-identity": "npx tsx src/utils/user-identity.test.ts",
+    "test:family-space": "npx tsx src/utils/family-permissions.test.ts"
   },
   "private": true
 }

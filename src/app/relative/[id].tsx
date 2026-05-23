@@ -19,6 +19,7 @@ import { SuggestedLinksSection } from '@/components/relatives/SuggestedLinksSect
 import { EmptyState } from '@/components/ui/EmptyState';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { useDeleteRelative, useRelative, useRelatives } from '@/hooks/useRelatives';
+import { useFamilyPermissions } from '@/hooks/useFamilyPermissions';
 import { useRelativePhoto } from '@/hooks/useRelativePhoto';
 import { useUserIdentity } from '@/hooks/useUserIdentity';
 import {
@@ -28,6 +29,7 @@ import { getKinshipCardLine } from '@/utils/kinship/getKinshipLabel';
 import { buildEditRelativeHref } from '@/utils/edit-relative-navigation';
 import { getRelativeDisplayName } from '@/utils/relative-names';
 import { GRAPH_INTEGRITY_COPY } from '@/constants/graph-integrity-content';
+import { FAMILY_SPACE_COPY } from '@/constants/family-space-content';
 import { MaxContentWidth, Palette, Spacing } from '@/constants/theme';
 
 export default function RelativeDetailsScreen() {
@@ -39,6 +41,7 @@ export default function RelativeDetailsScreen() {
   const { myRelative } = useUserIdentity();
   const { deleteRelativeAndLeave, clearRelativeReferences, assessSafeDelete, deleting } =
     useDeleteRelative();
+  const { canEdit, canDelete } = useFamilyPermissions();
   const { uploading: photoUploading, pickAndUploadPhoto, removePhoto } = useRelativePhoto(relative);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -86,7 +89,8 @@ export default function RelativeDetailsScreen() {
   };
 
   const handleEdit = () => {
-    if (!relative) {
+    if (!relative || !canEdit) {
+      Alert.alert('', FAMILY_SPACE_COPY.suggestEditInstead);
       return;
     }
 
@@ -115,6 +119,11 @@ export default function RelativeDetailsScreen() {
 
   const handleDelete = () => {
     if (!relative) {
+      return;
+    }
+
+    if (!canDelete) {
+      Alert.alert('', FAMILY_SPACE_COPY.suggestDeleteInstead);
       return;
     }
 
@@ -213,7 +222,11 @@ export default function RelativeDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <RelativeProfileTopBar onBack={() => router.back()} onEdit={handleEdit} />
+      <RelativeProfileTopBar
+        onBack={() => router.back()}
+        onEdit={canEdit ? handleEdit : undefined}
+        editDisabled={!canEdit}
+      />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -259,6 +272,8 @@ export default function RelativeDetailsScreen() {
             relative={relative}
             displayName={displayName}
             deleting={deleting}
+            canEdit={canEdit}
+            canDelete={canDelete}
             onEdit={handleEdit}
             onCongratulations={handleCongratulations}
             onDelete={handleDelete}

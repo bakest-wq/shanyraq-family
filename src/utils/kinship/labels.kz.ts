@@ -4,8 +4,8 @@ export const GENDER_HINT_KZ =
   'Жынысын көрсетсеңіз, байланыс дәлірек анықталады';
 
 export const UNKNOWN_KINSHIP: KinshipLabel = {
-  kazakh: 'Байланыс анықталмады',
-  russian: 'Связь не определена',
+  kazakh: 'Байланыс толық анықталмады',
+  russian: 'Связь не определена полностью',
 };
 
 export const KINSHIP_LABELS: Record<KinshipType, KinshipLabel> = {
@@ -20,7 +20,7 @@ export const KINSHIP_LABELS: Record<KinshipType, KinshipLabel> = {
   aga: { kazakh: 'Аға', russian: 'Старший брат' },
   ini: { kazakh: 'Іні', russian: 'Младший брат' },
   apke: { kazakh: 'Әпке', russian: 'Старшая сестра' },
-  singli: { kazakh: 'Сіңлі', russian: 'Младшая сестра' },
+  singli: { kazakh: 'Қарындас', russian: 'Младшая сестра' },
   sibling_neutral: {
     kazakh: 'Бауыр',
     russian: 'Брат / сестра',
@@ -153,14 +153,36 @@ export function getKinshipLabelText(type: KinshipType): KinshipLabel {
 export function formatKinshipCardLine(result: {
   label: KinshipLabel;
   uncertain: boolean;
+  resolved?: boolean;
+  type?: string;
 }): string {
-  const primary = result.uncertain ? `${result.label.kazakh} (мүмкін)` : result.label.kazakh;
-  return `${primary} · ${result.label.russian}`;
+  if (result.type === 'unknown' || result.resolved === false) {
+    return UNKNOWN_KINSHIP.kazakh;
+  }
+
+  return result.uncertain ? `${result.label.kazakh} (мүмкін)` : result.label.kazakh;
+}
+
+export function formatKinshipCardSubtitle(result: {
+  label: KinshipLabel;
+  uncertain: boolean;
+  resolved?: boolean;
+  type?: string;
+}): string | null {
+  if (result.type === 'unknown' || result.resolved === false) {
+    return null;
+  }
+
+  return result.label.russian;
 }
 
 export function formatKinshipBadge(result: {
   label: KinshipLabel;
   uncertain: boolean;
+  resolved?: boolean;
+  type?: string;
 }): string {
-  return formatKinshipCardLine(result);
+  const kazakh = formatKinshipCardLine(result);
+  const russian = formatKinshipCardSubtitle(result);
+  return russian ? `${kazakh} · ${russian}` : kazakh;
 }

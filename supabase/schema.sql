@@ -6,20 +6,19 @@ create extension if not exists "pgcrypto";
 create table if not exists public.families (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  owner_name text,
   invite_code text not null unique,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.family_members (
+create table if not exists public.invite_codes (
   id uuid primary key default gen_random_uuid(),
   family_id uuid not null references public.families(id) on delete cascade,
-  display_name text not null,
-  role text not null default 'member' check (role in ('owner', 'member')),
-  created_at timestamptz not null default now()
+  code text not null unique,
+  created_at timestamptz not null default now(),
+  is_active boolean not null default true
 );
-
-create index if not exists family_members_family_id_idx on public.family_members (family_id);
 
 create table if not exists public.relatives (
   id uuid primary key default gen_random_uuid(),
@@ -61,6 +60,21 @@ create index if not exists relatives_father_id_idx on public.relatives (father_i
 create index if not exists relatives_mother_id_idx on public.relatives (mother_id);
 create index if not exists relatives_spouse_id_idx on public.relatives (spouse_id);
 
+create table if not exists public.family_members (
+  id uuid primary key default gen_random_uuid(),
+  family_id uuid not null references public.families(id) on delete cascade,
+  relative_id uuid references public.relatives(id) on delete set null,
+  display_name text not null,
+  role text not null default 'member' check (role in ('owner', 'member')),
+  joined_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists family_members_family_id_idx on public.family_members (family_id);
+create index if not exists family_members_relative_id_idx on public.family_members (relative_id);
+create index if not exists invite_codes_family_id_idx on public.invite_codes (family_id);
+create index if not exists invite_codes_code_idx on public.invite_codes (code);
+
 alter table public.families enable row level security;
 alter table public.family_members enable row level security;
 alter table public.relatives enable row level security;
@@ -80,6 +94,32 @@ create policy "family_members_select_public"
 create policy "family_members_insert_public"
   on public.family_members for insert
   with check (true);
+
+create policy "family_members_update_public"
+  on public.family_members for update
+  using (true);
+
+create policy "family_members_delete_public"
+  on public.family_members for delete
+  using (true);
+
+alter table public.invite_codes enable row level security;
+
+create policy "invite_codes_select_public"
+  on public.invite_codes for select
+  using (true);
+
+create policy "invite_codes_insert_public"
+  on public.invite_codes for insert
+  with check (true);
+
+create policy "invite_codes_update_public"
+  on public.invite_codes for update
+  using (true);
+
+create policy "invite_codes_delete_public"
+  on public.invite_codes for delete
+  using (true);
 
 create policy "relatives_select_public"
   on public.relatives for select

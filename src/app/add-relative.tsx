@@ -138,7 +138,9 @@ export default function AddRelativeScreen() {
 
     try {
       const { pendingPhotoUri, clearPhoto: _clearPhoto, ...relativeInput } = prepared;
-      const created = await createRelative(relativeInput);
+      const created = await createRelative(relativeInput, {
+        allowMemberSelfAdd: shouldLinkAsUser && !hasLinkedRelative,
+      });
 
       if (!created) {
         throw new Error(saveError ?? 'Не удалось сохранить родственника.');

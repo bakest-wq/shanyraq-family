@@ -50,6 +50,8 @@ type FamilyTreeCardProps = {
   hideRelationship?: boolean;
   /** Calculated kinship from current Shezhire root */
   kinshipLine?: string | null;
+  kinshipHint?: string | null;
+  onKinshipPress?: () => void;
   /** Stored preset relationship label from profile */
   structuralRole?: string;
 };
@@ -68,6 +70,8 @@ export function FamilyTreeCard({
   placeholderLabel = '—',
   hideRelationship = false,
   kinshipLine = null,
+  kinshipHint = null,
+  onKinshipPress,
   structuralRole,
 }: FamilyTreeCardProps) {
   if (placeholder || !relative) {
@@ -131,11 +135,23 @@ export function FamilyTreeCard({
           {displayName}
         </Text>
         {!hideRelationship && showKinship ? (
-          <Text
-            style={[styles.relationship, mini && styles.relationshipMini]}
-            numberOfLines={2}>
-            {kinshipLine}
-          </Text>
+          <Pressable
+            onPress={onKinshipPress}
+            disabled={!onKinshipPress}
+            style={({ pressed }) => [styles.kinshipPress, pressed && onKinshipPress && styles.pressed]}
+            accessibilityRole={onKinshipPress ? 'button' : undefined}
+            accessibilityLabel={kinshipLine ?? undefined}>
+            <Text
+              style={[styles.relationship, mini && styles.relationshipMini]}
+              numberOfLines={2}>
+              {kinshipLine}
+            </Text>
+            {kinshipHint ? (
+              <Text style={[styles.kinshipHint, mini && styles.kinshipHintMini]} numberOfLines={2}>
+                {kinshipHint}
+              </Text>
+            ) : null}
+          </Pressable>
         ) : null}
         {fallbackRelationship ? (
           <Text
@@ -256,6 +272,22 @@ const styles = StyleSheet.create({
   relationshipMini: {
     fontSize: 11,
     lineHeight: 14,
+  },
+  kinshipPress: {
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: 2,
+  },
+  kinshipHint: {
+    ...Typography.caption,
+    color: Palette.textSecondary,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  kinshipHintMini: {
+    fontSize: 10,
+    lineHeight: 13,
   },
   structuralRole: {
     ...Typography.caption,

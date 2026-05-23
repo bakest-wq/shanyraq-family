@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 
+import { FAMILY_SPACE_COPY } from '@/constants/family-space-content';
 import { useFamilyContext } from '@/providers/FamilyProvider';
 import { useRelativesContext } from '@/providers/RelativesProvider';
 import { relativesService } from '@/services/relatives.service';
@@ -10,6 +11,7 @@ import {
 } from '@/services/graph-integrity.service';
 import { CreateRelativeInput, ConnectParentsInput, Relative } from '@/types/relative';
 import { findRelativeByLinkId } from '@/utils/family-link-picker';
+import { canEditFamilyData, canDeleteFamilyData } from '@/utils/family-permissions';
 
 export function useRelatives() {
   const context = useRelativesContext();
@@ -53,19 +55,26 @@ export function useRefreshRelativesOnFocus() {
 }
 
 export function useCreateRelative() {
-  const { familyId } = useFamilyContext();
+  const { familyId, session } = useFamilyContext();
   const { invalidateRelatives, upsertRelative } = useRelativesContext();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const createRelative = useCallback(
-    async (input: CreateRelativeInput): Promise<Relative | null> => {
+    async (
+      input: CreateRelativeInput,
+      options?: { allowMemberSelfAdd?: boolean },
+    ): Promise<Relative | null> => {
       setSaving(true);
       setError(null);
 
       try {
         if (!familyId) {
           throw new Error('Сначала создайте или выберите семью.');
+        }
+
+        if (!canEditFamilyData(session?.role) && !options?.allowMemberSelfAdd) {
+          throw new Error(FAMILY_SPACE_COPY.suggestEditInstead);
         }
 
         const created = await relativesService.create(input, familyId);
@@ -80,7 +89,7 @@ export function useCreateRelative() {
         setSaving(false);
       }
     },
-    [familyId, invalidateRelatives, upsertRelative],
+    [familyId, invalidateRelatives, session?.role, upsertRelative],
   );
 
   return {
@@ -91,7 +100,7 @@ export function useCreateRelative() {
 }
 
 export function useUpdateRelative(relativeId: string) {
-  const { familyId } = useFamilyContext();
+  const { familyId, session } = useFamilyContext();
   const { upsertRelative, invalidateRelatives } = useRelativesContext();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +113,10 @@ export function useUpdateRelative(relativeId: string) {
       try {
         if (!familyId) {
           throw new Error('Сначала создайте или выберите семью.');
+        }
+
+        if (!canEditFamilyData(session?.role)) {
+          throw new Error(FAMILY_SPACE_COPY.suggestEditInstead);
         }
 
         const updated = await relativesService.update(relativeId, input, familyId);
@@ -120,7 +133,7 @@ export function useUpdateRelative(relativeId: string) {
         setSaving(false);
       }
     },
-    [familyId, invalidateRelatives, relativeId, upsertRelative],
+    [familyId, invalidateRelatives, relativeId, session?.role, upsertRelative],
   );
 
   return {
@@ -131,7 +144,7 @@ export function useUpdateRelative(relativeId: string) {
 }
 
 export function useConnectParents(relativeId: string) {
-  const { familyId } = useFamilyContext();
+  const { familyId, session } = useFamilyContext();
   const { invalidateRelatives, upsertRelative } = useRelativesContext();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,6 +157,10 @@ export function useConnectParents(relativeId: string) {
       try {
         if (!familyId) {
           throw new Error('Сначала создайте или выберите семью.');
+        }
+
+        if (!canEditFamilyData(session?.role)) {
+          throw new Error(FAMILY_SPACE_COPY.suggestEditInstead);
         }
 
         const updated = await relativesService.connectParents(relativeId, input, familyId);
@@ -160,7 +177,7 @@ export function useConnectParents(relativeId: string) {
         setSaving(false);
       }
     },
-    [familyId, invalidateRelatives, relativeId, upsertRelative],
+    [familyId, invalidateRelatives, relativeId, session?.role, upsertRelative],
   );
 
   return {
@@ -172,7 +189,7 @@ export function useConnectParents(relativeId: string) {
 
 export function useDeleteRelative() {
   const router = useRouter();
-  const { familyId } = useFamilyContext();
+  const { familyId, session } = useFamilyContext();
   const { invalidateRelatives } = useRelativesContext();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -185,6 +202,10 @@ export function useDeleteRelative() {
       try {
         if (!familyId) {
           throw new Error('Сначала создайте или выберите семью.');
+        }
+
+        if (!canDeleteFamilyData(session?.role)) {
+          throw new Error(FAMILY_SPACE_COPY.suggestDeleteInstead);
         }
 
         await relativesService.delete(relativeId, familyId);
@@ -203,7 +224,7 @@ export function useDeleteRelative() {
         setDeleting(false);
       }
     },
-    [familyId, invalidateRelatives],
+    [familyId, invalidateRelatives, session?.role],
   );
 
   const clearRelativeReferences = useCallback(
@@ -212,11 +233,15 @@ export function useDeleteRelative() {
         return 0;
       }
 
+      if (!canEditFamilyData(session?.role)) {
+        throw new Error(FAMILY_SPACE_COPY.suggestEditInstead);
+      }
+
       const applied = await relativesService.clearRelativeReferences(relativeId, familyId);
       await invalidateRelatives({ silent: true });
       return applied;
     },
-    [familyId, invalidateRelatives],
+    [familyId, invalidateRelatives, session?.role],
   );
 
   const deleteRelativeAndLeave = useCallback(

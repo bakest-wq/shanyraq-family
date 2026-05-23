@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import type { Relative } from '@/types/relative';
 import { getKinshipLabel } from '@/utils/kinship/getKinshipLabel';
-import { explainKinshipToMe } from '@/utils/kinship/explainKinship';
+import { explainKinship, explainKinshipToMe } from '@/utils/kinship/explainKinship';
 
 function mockRelative(
   id: string,
@@ -301,11 +301,64 @@ test('bole explanation mentions apaly-singli', () => {
   assert.match(explanation.summary, /апалы-сіңлі/i);
 });
 
-test('unknown kinship includes confidence hint when parents missing', () => {
+test('jenge explanation matches user example pattern', () => {
+  const father = mockRelative('f', 'Ғалымжан', { gender: 'male' });
+  const mother = mockRelative('m', 'Фирдаус', { gender: 'female' });
+  const root = mockRelative('root', 'Бауыржан', {
+    gender: 'male',
+    fatherId: 'f',
+    motherId: 'm',
+    birthdayYear: 1990,
+  });
+  const brother = mockRelative('bro', 'Алимжан', {
+    gender: 'male',
+    fatherId: 'f',
+    motherId: 'm',
+    birthdayYear: 1988,
+  });
+  const wife = mockRelative('wife', 'Эльмира', {
+    gender: 'female',
+    spouseId: 'bro',
+  });
+
+  const relatives = [father, mother, root, brother, wife];
+  const explanation = explainKinship(root, wife, relatives);
+
+  assert.match(explanation.summary, /Эльмира — Алимжан ағаңыздың жұбайы/);
+  assert.match(explanation.summary, /Сізге жеңге болады/);
+});
+
+test('zhien explanation matches user example pattern', () => {
+  const father = mockRelative('f', 'Ғалымжан', { gender: 'male' });
+  const mother = mockRelative('m', 'Фирдаус', { gender: 'female' });
+  const root = mockRelative('root', 'Бауыржан', {
+    gender: 'male',
+    fatherId: 'f',
+    motherId: 'm',
+    birthdayYear: 1990,
+  });
+  const sister = mockRelative('sis', 'Айжан', {
+    gender: 'female',
+    fatherId: 'f',
+    motherId: 'm',
+    birthdayYear: 1988,
+  });
+  const zhien = mockRelative('zh', 'Мұрат', {
+    gender: 'male',
+    motherId: 'sis',
+  });
+
+  const explanation = explainKinship(root, zhien, [father, mother, root, sister, zhien]);
+  assert.match(explanation.summary, /Мұрат — .*әпкеңіздің ұлы/);
+  assert.match(explanation.summary, /Сізге жиен болады/);
+});
+
+test('unknown kinship shows incomplete link message', () => {
   const root = mockRelative('root', 'Бауыржан', { gender: 'male' });
   const stranger = mockRelative('s', 'Бейтаныс', { gender: 'male' });
 
   const result = getKinshipLabel(root, stranger, [root, stranger]);
   assert.equal(result.type, 'unknown');
+  assert.equal(result.label.kazakh, 'Байланыс толық анықталмады');
   assert.match(result.confidenceHint ?? '', /әke\/ана/i);
 });

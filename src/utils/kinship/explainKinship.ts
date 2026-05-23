@@ -1,7 +1,12 @@
 import type { Relative } from '@/types/relative';
 import { getRelativeDisplayName } from '@/utils/relative-names';
 import { classifyKinship } from '@/utils/kinship/classify';
-import { GENDER_HINT_KZ } from '@/utils/kinship/labels.kz';
+import { GENDER_HINT_KZ, UNKNOWN_KINSHIP } from '@/utils/kinship/labels.kz';
+import {
+  childRoleWord,
+  siblingPossessivePhrase,
+  siblingRoleLabel,
+} from '@/utils/kinship/possessive.kz';
 import { findKinshipPath } from '@/utils/kinship/path';
 import type { KinshipExplanation, KinshipResult } from '@/utils/kinship/types';
 
@@ -52,10 +57,16 @@ function buildConclusion(result: KinshipResult, rootName: string): string {
       return `${targetName} — ${rootName} үшін немере.`;
     case 'shobere':
       return `${targetName} — ${rootName} үшін шөбере.`;
-    case 'jenge':
-      return `${targetName} — ${stepName(first)} ${stepLabel(first, 'бауыр')}ыңыздың жұбайы. Сізге жеңге болады.`;
-    case 'jezde':
-      return `${targetName} — ${stepName(first)} ${stepLabel(first, 'апа-сіңлі')}іңіздің жұбайы. Сізге жезде болады.`;
+    case 'jenge': {
+      const siblingName = stepName(first);
+      const siblingRole = stepLabel(first, siblingRoleLabel('aga'));
+      return `${targetName} — ${siblingPossessivePhrase(siblingRole, siblingName)} жұбайы. Сізге жеңге болады.`;
+    }
+    case 'jezde': {
+      const siblingName = stepName(first);
+      const siblingRole = stepLabel(first, siblingRoleLabel('apke'));
+      return `${targetName} — ${siblingPossessivePhrase(siblingRole, siblingName)} жұбайы. Сізге жезде болады.`;
+    }
     case 'kelin':
       return `${targetName} — ${stepName(first)} ${stepLabel(first, 'ұлы')}ыңыздың жұбайы. Сізге келін болады.`;
     case 'kuyeu_bala':
@@ -92,8 +103,11 @@ function buildConclusion(result: KinshipResult, rootName: string): string {
     case 'paternal_singli':
     case 'paternal_neutral':
       return `${targetName} — ${result.label.kazakh}. Сізге ${result.label.kazakh.toLowerCase()} болады.`;
-    case 'zhien':
-      return `${targetName} — ${stepName(first)} ${stepLabel(first, 'бауыр')}ыңыздың бала. Сізге жиен болады. Бұл адам анаңыздың немесе әкеңіздің жағынан жиен болып келеді.`;
+    case 'zhien': {
+      const siblingRole = stepLabel(first, siblingRoleLabel('apke'));
+      const childWord = childRoleWord(result.pathSteps.at(-1)?.person.gender);
+      return `${targetName} — ${siblingPossessivePhrase(siblingRole)} ${childWord}. Сізге жиен болады.`;
+    }
     case 'bole':
       if (second?.stepLabel.includes('апалы')) {
         return `${targetName} — ${rootName} екеуіңіздің аналарыңыз апалы-сіңлі. Сондықтан бөле боласыздар.`;
@@ -109,13 +123,13 @@ function buildConclusion(result: KinshipResult, rootName: string): string {
     case 'relative_neutral':
       return `${targetName} — ${rootName} үшін туыс, бірақ жыныс нақтыланбаған.`;
     case 'unknown':
-      return `${rootName} пен ${targetName} арасындағы байланыс толық анықталмады.`;
+      return UNKNOWN_KINSHIP.kazakh;
     default:
       if (result.resolved) {
         return `${targetName} — ${rootName} үшін «${result.label.kazakh}» ретінде анықталады.`;
       }
 
-      return `${rootName} пен ${targetName} арасындағы байланыс толық анықталмады.`;
+      return UNKNOWN_KINSHIP.kazakh;
   }
 }
 

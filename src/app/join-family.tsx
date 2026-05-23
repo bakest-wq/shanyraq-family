@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -11,62 +11,142 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { JoinFamilyIdentityStep } from '@/components/identity/JoinFamilyIdentityStep';
 import { Card } from '@/components/ui/Card';
 import { FormField } from '@/components/ui/FormField';
+import { LoadingState } from '@/components/ui/LoadingState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useFamily } from '@/hooks/useFamily';
-import { FamilySession } from '@/types/family';
+import { useUserIdentity } from '@/hooks/useUserIdentity';
+import { isSupabaseReady } from '@/lib/supabase';
+import { relativesService } from '@/services/relatives.service';
+import { userIdentityService } from '@/services/user-identity.service';
+import type { JoinFamilyPreview } from '@/types/family';
+import type { Relative } from '@/types/relative';
 import { formatInviteCodeDisplay, normalizeInviteCode } from '@/utils/family-invite';
+import { getRelativeDisplayName } from '@/utils/relative-names';
 import { Palette, Spacing, Typography } from '@/constants/theme';
+
+type JoinStep = 'code' | 'identity' | 'success';
 
 export default function JoinFamilyScreen() {
   const router = useRouter();
-  const { joinFamily } = useFamily();
+  const { resolveInviteCode, finalizeJoin } = useFamily();
+  const { linkRelative } = useUserIdentity();
+  const [step, setStep] = useState<JoinStep>('code');
   const [inviteCode, setInviteCode] = useState('');
-  const [memberName, setMemberName] = useState('');
-  const [errors, setErrors] = useState<{ inviteCode?: string; memberName?: string }>({});
+  const [errors, setErrors] = useState<{ inviteCode?: string }>({});
   const [saving, setSaving] = useState(false);
-  const [joinedSession, setJoinedSession] = useState<FamilySession | null>(null);
+  const [loadingRelatives, setLoadingRelatives] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [preview, setPreview] = useState<JoinFamilyPreview | null>(null);
+  const [relatives, setRelatives] = useState<Relative[]>([]);
+  const [joinedFamilyName, setJoinedFamilyName] = useState('');
 
-  const handleJoin = async () => {
-    const nextErrors: { inviteCode?: string; memberName?: string } = {};
+  useEffect(() => {
+    if (!preview || !isSupabaseReady()) {
+      setRelatives([]);
+      return;
+    }
 
+    setLoadingRelatives(true);
+    void relativesService
+      .getAll(preview.familyId)
+      .then(setRelatives)
+      .catch(() => setRelatives([]))
+      .finally(() => setLoadingRelatives(false));
+  }, [preview]);
+
+  const handleResolveCode = async () => {
     if (!inviteCode.trim()) {
-      nextErrors.inviteCode = 'Шақыру кодын енгізіңіз.';
+      setErrors({ inviteCode: 'Шақыру кодын енгізіңіз.' });
+      return;
     }
 
-    if (!memberName.trim()) {
-      nextErrors.memberName = 'Атыңызды жазыңыз.';
-    }
-
-    setErrors(nextErrors);
+    setSaving(true);
     setNotFound(false);
+    setErrors({});
 
-    if (Object.keys(nextErrors).length > 0) {
+    try {
+      const nextPreview = await resolveInviteCode({ inviteCode: inviteCode.trim() });
+
+      if (!nextPreview) {
+        setNotFound(true);
+        return;
+      }
+
+      setPreview(nextPreview);
+      setStep('identity');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const completeJoin = async (relative: Relative | null, displayName: string) => {
+    if (!preview || saving) {
       return;
     }
 
     setSaving(true);
 
     try {
-      const session = await joinFamily({
-        inviteCode: inviteCode.trim(),
-        memberName: memberName.trim(),
+      const session = await finalizeJoin({
+        familyId: preview.familyId,
+        familyName: preview.familyName,
+        inviteCode: preview.inviteCode,
+        displayName,
+        relativeId: relative?.id ?? null,
       });
 
-      if (!session) {
-        setNotFound(true);
-        return;
+      if (relative) {
+        await userIdentityService.saveProfile({
+          familyId: session.familyId,
+          relativeId: relative.id,
+          userName: displayName,
+        });
+        await linkRelative(relative.id, displayName);
       }
 
-      setJoinedSession(session);
+      setJoinedFamilyName(session.familyName);
+      setStep('success');
     } finally {
       setSaving(false);
     }
   };
 
-  if (joinedSession) {
+  const handleSelectExisting = (relative: Relative) => {
+    void completeJoin(relative, getRelativeDisplayName(relative));
+  };
+
+  const handleAddSelf = async () => {
+    if (!preview || saving) {
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await finalizeJoin({
+        familyId: preview.familyId,
+        familyName: preview.familyName,
+        inviteCode: preview.inviteCode,
+        displayName: 'Мен',
+      });
+
+      router.replace({
+        pathname: '/add-relative',
+        params: {
+          relationship: 'Мен',
+          linkAsUser: '1',
+          fromSetup: '1',
+        },
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (step === 'success') {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.successContainer}>
@@ -78,11 +158,7 @@ export default function JoinFamilyScreen() {
 
           <Card goldBorder style={styles.successCard}>
             <Text style={styles.successFamilyLabel}>Отбасы орны</Text>
-            <Text style={styles.successFamilyName}>{joinedSession.familyName}</Text>
-            <Text style={styles.successMeta}>
-              Шақыру коды: {formatInviteCodeDisplay(joinedSession.inviteCode)}
-            </Text>
-            <Text style={styles.successMeta}>Сіз: {joinedSession.ownerName}</Text>
+            <Text style={styles.successFamilyName}>{joinedFamilyName}</Text>
           </Card>
 
           <Text style={styles.successMessage}>
@@ -97,6 +173,44 @@ export default function JoinFamilyScreen() {
             onPress={() => router.replace('/setup-onboarding')}
           />
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (step === 'identity' && preview) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <Pressable
+            onPress={() => {
+              setStep('code');
+              setPreview(null);
+            }}
+            style={styles.backButton}>
+            <Text style={styles.backText}>← Артқа</Text>
+          </Pressable>
+          <Text style={styles.title}>Сіз кімсіз?</Text>
+          <Text style={styles.subtitle}>{preview.familyName} · шежіре профилі</Text>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <Card goldBorder style={styles.noteCard}>
+            <Text style={styles.noteGreeting}>Отбасы табылды</Text>
+            <Text style={styles.noteText}>
+              Шақыру коды: {formatInviteCodeDisplay(preview.inviteCode)}
+            </Text>
+          </Card>
+
+          {loadingRelatives ? <LoadingState message="Шежіре жүктелуде..." /> : null}
+
+          <JoinFamilyIdentityStep
+            relatives={relatives}
+            loadingRelatives={loadingRelatives}
+            saving={saving}
+            onSelectExisting={handleSelectExisting}
+            onAddSelf={() => void handleAddSelf()}
+          />
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -143,19 +257,6 @@ export default function JoinFamilyScreen() {
             hint="6 таңба · әріптер мен сандар"
           />
 
-          <FormField
-            label="Сіздің атыңыз · Ваше имя *"
-            placeholder="Мысалы: Айгүл"
-            value={memberName}
-            onChangeText={(value) => {
-              setMemberName(value);
-              setErrors((current) => ({ ...current, memberName: undefined }));
-            }}
-            error={errors.memberName}
-            autoCapitalize="words"
-            hint="Email немесе пароль керек емес · MVP"
-          />
-
           {notFound ? (
             <Card style={styles.errorCard}>
               <Text style={styles.errorTitle}>Код табылмады</Text>
@@ -167,10 +268,10 @@ export default function JoinFamilyScreen() {
           ) : null}
 
           <PrimaryButton
-            label={saving ? 'Қосылуда...' : 'Қосылу · Присоединиться'}
-            sublabel="Аты + шақыру коды · AsyncStorage"
+            label={saving ? 'Тексерілуде...' : 'Кодты тексеру · Continue'}
+            sublabel="Код табылса, «Сіз кімсіз?» қадамына өтесіз"
             variant="gold"
-            onPress={saving ? undefined : () => void handleJoin()}
+            onPress={saving ? undefined : () => void handleResolveCode()}
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -289,12 +390,6 @@ const styles = StyleSheet.create({
   successFamilyName: {
     ...Typography.subtitle,
     color: Palette.textPrimary,
-    textAlign: 'center',
-  },
-  successMeta: {
-    ...Typography.bodySmall,
-    color: Palette.gold,
-    fontWeight: '700',
     textAlign: 'center',
   },
   successMessage: {

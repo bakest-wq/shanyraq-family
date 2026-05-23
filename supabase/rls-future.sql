@@ -1,0 +1,40 @@
+-- Future production RLS (NOT applied in development MVP)
+-- Enable after Supabase Auth is wired and family_members.user_id is populated.
+
+-- alter table public.families enable row level security;
+-- alter table public.family_members enable row level security;
+-- alter table public.relatives enable row level security;
+-- alter table public.invite_codes enable row level security;
+
+-- Example policies (sketch):
+--
+-- create policy "members_read_own_family"
+--   on public.families for select
+--   using (
+--     exists (
+--       select 1 from public.family_members m
+--       where m.family_id = families.id
+--         and m.user_id = auth.uid()
+--     )
+--   );
+--
+-- create policy "members_read_family_relatives"
+--   on public.relatives for select
+--   using (
+--     exists (
+--       select 1 from public.family_members m
+--       where m.family_id = relatives.family_id
+--         and m.user_id = auth.uid()
+--     )
+--   );
+--
+-- create policy "owners_mutate_relatives"
+--   on public.relatives for all
+--   using (
+--     exists (
+--       select 1 from public.family_members m
+--       where m.family_id = relatives.family_id
+--         and m.user_id = auth.uid()
+--         and m.role = 'owner'
+--     )
+--   );

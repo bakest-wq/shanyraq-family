@@ -9,15 +9,28 @@ import {
 } from 'react';
 
 import { familyService } from '@/services/family.service';
-import { CreateFamilyInput, FamilySession, JoinFamilyInput } from '@/types/family';
+import {
+  CreateFamilyInput,
+  FamilySession,
+  FinalizeJoinInput,
+  JoinFamilyInput,
+  JoinFamilyPreview,
+} from '@/types/family';
+import { isFamilyOwner } from '@/utils/family-permissions';
 
 type FamilyContextValue = {
   session: FamilySession | null;
   familyId: string | null;
   isReady: boolean;
   hasFamily: boolean;
+  isOwner: boolean;
   createFamily: (input: CreateFamilyInput) => Promise<FamilySession>;
-  joinFamily: (input: JoinFamilyInput) => Promise<FamilySession | null>;
+  resolveInviteCode: (input: JoinFamilyInput) => Promise<JoinFamilyPreview | null>;
+  finalizeJoin: (input: FinalizeJoinInput) => Promise<FamilySession>;
+  updateMemberIdentity: (input: {
+    displayName?: string;
+    relativeId?: string | null;
+  }) => Promise<FamilySession | null>;
   leaveFamily: () => Promise<void>;
 };
 
@@ -43,13 +56,28 @@ export function FamilyProvider({ children }: PropsWithChildren) {
     return created;
   }, []);
 
-  const joinFamily = useCallback(async (input: JoinFamilyInput) => {
-    const joined = await familyService.joinFamily(input);
-    if (joined) {
-      setSession(joined);
-    }
+  const resolveInviteCode = useCallback(async (input: JoinFamilyInput) => {
+    return familyService.resolveInviteCode(input);
+  }, []);
+
+  const finalizeJoin = useCallback(async (input: FinalizeJoinInput) => {
+    const joined = await familyService.finalizeJoin(input);
+    setSession(joined);
     return joined;
   }, []);
+
+  const updateMemberIdentity = useCallback(
+    async (input: { displayName?: string; relativeId?: string | null }) => {
+      if (!session) {
+        return null;
+      }
+
+      const next = await familyService.updateMemberIdentity(session, input);
+      setSession(next);
+      return next;
+    },
+    [session],
+  );
 
   const leaveFamily = useCallback(async () => {
     await familyService.clearSession();
@@ -62,11 +90,22 @@ export function FamilyProvider({ children }: PropsWithChildren) {
       familyId: session?.familyId ?? null,
       isReady,
       hasFamily: Boolean(session?.familyId),
+      isOwner: isFamilyOwner(session?.role),
       createFamily,
-      joinFamily,
+      resolveInviteCode,
+      finalizeJoin,
+      updateMemberIdentity,
       leaveFamily,
     }),
-    [session, isReady, createFamily, joinFamily, leaveFamily],
+    [
+      session,
+      isReady,
+      createFamily,
+      resolveInviteCode,
+      finalizeJoin,
+      updateMemberIdentity,
+      leaveFamily,
+    ],
   );
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>;

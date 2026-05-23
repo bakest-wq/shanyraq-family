@@ -5,7 +5,9 @@ import { familiesService } from '@/services/families.service';
 import {
   CreateFamilyInput,
   FamilySession,
+  FinalizeJoinInput,
   JoinFamilyInput,
+  JoinFamilyPreview,
 } from '@/types/family';
 import { generateInviteCode, normalizeInviteCode } from '@/utils/family-invite';
 
@@ -84,23 +86,26 @@ async function saveJoinedFamilyLocally(session: FamilySession): Promise<void> {
   await persistSession(session);
 }
 
-async function syncMemberToSupabase(session: FamilySession): Promise<void> {
-  if (!isSupabaseReady()) {
-    return;
-  }
-
-  try {
-    await familiesService.addMember({
-      family_id: session.familyId,
-      display_name: session.ownerName,
-      role: session.role,
-    });
-  } catch {
-    // Local session is already saved.
-  }
-}
-
 const SUPABASE_CREATE_TIMEOUT_MS = 8000;
+
+function buildSession(
+  familyId: string,
+  familyName: string,
+  displayName: string,
+  inviteCode: string,
+  role: FamilySession['role'],
+  options?: { memberId?: string; relativeId?: string | null },
+): FamilySession {
+  return {
+    familyId,
+    familyName,
+    ownerName: displayName,
+    inviteCode,
+    role,
+    memberId: options?.memberId,
+    relativeId: options?.relativeId ?? null,
+  };
+}
 
 async function createFamilyOnSupabase(
   familyName: string,
@@ -109,14 +114,17 @@ async function createFamilyOnSupabase(
 ): Promise<FamilySession | null> {
   const createTask = (async () => {
     const familyId = createUuid();
-    const remote = await familiesService.create(familyName, inviteCode, familyId);
-    await familiesService.addMember({
+    const remote = await familiesService.create(familyName, inviteCode, ownerName, familyId);
+    const member = await familiesService.addMember({
       family_id: remote.id,
       display_name: ownerName,
       role: 'owner',
     });
 
-    return buildSession(remote.id, remote.name, ownerName, remote.inviteCode);
+    return buildSession(remote.id, remote.name, ownerName, remote.inviteCode, 'owner', {
+      memberId: member.id,
+      relativeId: member.relativeId,
+    });
   })();
 
   const timeoutTask = new Promise<never>((_, reject) => {
@@ -130,18 +138,55 @@ async function createFamilyOnSupabase(
   }
 }
 
-function buildSession(
-  familyId: string,
-  familyName: string,
-  ownerName: string,
-  inviteCode: string,
-): FamilySession {
+async function syncMemberToSupabase(
+  session: FamilySession,
+  displayName: string,
+  relativeId?: string | null,
+): Promise<FamilySession> {
+  if (!isSupabaseReady()) {
+    return session;
+  }
+
+  try {
+    if (session.memberId) {
+      const updated = await familiesService.updateMember({
+        memberId: session.memberId,
+        familyId: session.familyId,
+        displayName,
+        relativeId: relativeId ?? session.relativeId ?? null,
+      });
+
+      return {
+        ...session,
+        ownerName: updated.displayName,
+        relativeId: updated.relativeId,
+      };
+    }
+
+    const member = await familiesService.addMember({
+      family_id: session.familyId,
+      display_name: displayName,
+      role: session.role,
+      relative_id: relativeId ?? null,
+    });
+
+    return {
+      ...session,
+      memberId: member.id,
+      ownerName: member.displayName,
+      relativeId: member.relativeId,
+    };
+  } catch {
+    return session;
+  }
+}
+
+function mapStoredFamilyToPreview(family: StoredFamily): JoinFamilyPreview {
   return {
-    familyId,
-    familyName,
-    ownerName,
-    inviteCode,
-    role: 'owner',
+    familyId: family.id,
+    familyName: family.name,
+    inviteCode: family.inviteCode,
+    ownerName: family.ownerName,
   };
 }
 
@@ -180,37 +225,24 @@ export const familyService = {
       }
     }
 
-    const session = buildSession(createUuid(), familyName, ownerName, inviteCode);
+    const session = buildSession(createUuid(), familyName, ownerName, inviteCode, 'owner');
     await saveLocalFamilyAndSession(session);
     return session;
   },
 
-  /** Join by invite code — local registry first, then Supabase if configured. */
-  async joinFamily(input: JoinFamilyInput): Promise<FamilySession | null> {
+  /** Resolve invite code to a family preview before identity selection. */
+  async resolveInviteCode(input: JoinFamilyInput): Promise<JoinFamilyPreview | null> {
     const code = normalizeInviteCode(input.inviteCode);
-    const memberName = input.memberName.trim();
 
-    if (!code || !memberName) {
+    if (!code) {
       return null;
     }
 
     const families = await readLocalFamilies();
-    const localMatch = families.find(
-      (family) => normalizeInviteCode(family.inviteCode) === code,
-    );
+    const localMatch = families.find((family) => normalizeInviteCode(family.inviteCode) === code);
 
     if (localMatch) {
-      const session: FamilySession = {
-        familyId: localMatch.id,
-        familyName: localMatch.name,
-        ownerName: memberName,
-        inviteCode: localMatch.inviteCode,
-        role: 'member',
-      };
-
-      await saveJoinedFamilyLocally(session);
-      await syncMemberToSupabase(session);
-      return session;
+      return mapStoredFamilyToPreview(localMatch);
     }
 
     if (isSupabaseReady()) {
@@ -218,24 +250,67 @@ export const familyService = {
         const remoteFamily = await familiesService.getByInviteCode(code);
 
         if (remoteFamily) {
-          const session: FamilySession = {
+          return {
             familyId: remoteFamily.id,
             familyName: remoteFamily.name,
-            ownerName: memberName,
             inviteCode: remoteFamily.inviteCode,
-            role: 'member',
+            ownerName: remoteFamily.ownerName,
           };
-
-          await saveJoinedFamilyLocally(session);
-          await syncMemberToSupabase(session);
-          return session;
         }
       } catch {
-        // Fall through to not found.
+        return null;
       }
     }
 
     return null;
+  },
+
+  /** Complete join after the user picks or creates their shezhire profile. */
+  async finalizeJoin(input: FinalizeJoinInput): Promise<FamilySession> {
+    const displayName = input.displayName.trim();
+
+    let session = buildSession(
+      input.familyId,
+      input.familyName,
+      displayName,
+      input.inviteCode,
+      'member',
+      { relativeId: input.relativeId ?? null },
+    );
+
+    session = await syncMemberToSupabase(session, displayName, input.relativeId ?? null);
+    await saveJoinedFamilyLocally(session);
+    return session;
+  },
+
+  /** @deprecated Use resolveInviteCode + finalizeJoin for the join flow. */
+  async joinFamily(input: JoinFamilyInput & { memberName: string }): Promise<FamilySession | null> {
+    const preview = await this.resolveInviteCode(input);
+
+    if (!preview) {
+      return null;
+    }
+
+    return this.finalizeJoin({
+      familyId: preview.familyId,
+      familyName: preview.familyName,
+      inviteCode: preview.inviteCode,
+      displayName: input.memberName.trim(),
+    });
+  },
+
+  async updateMemberIdentity(
+    session: FamilySession,
+    input: { displayName?: string; relativeId?: string | null },
+  ): Promise<FamilySession> {
+    const nextSession = await syncMemberToSupabase(
+      session,
+      input.displayName ?? session.ownerName,
+      input.relativeId,
+    );
+
+    await persistSession(nextSession);
+    return nextSession;
   },
 
   async clearSession(): Promise<void> {

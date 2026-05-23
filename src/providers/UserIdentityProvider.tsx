@@ -30,7 +30,7 @@ type UserIdentityContextValue = {
 const UserIdentityContext = createContext<UserIdentityContextValue | null>(null);
 
 export function UserIdentityProvider({ children }: PropsWithChildren) {
-  const { familyId, session } = useFamilyContext();
+  const { familyId, session, updateMemberIdentity } = useFamilyContext();
   const { relatives, loading: relativesLoading } = useRelativesContext();
   const [profile, setProfile] = useState<UserIdentityProfile | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -71,15 +71,21 @@ export function UserIdentityProvider({ children }: PropsWithChildren) {
         throw new Error('Family is not selected.');
       }
 
+      const displayName = userName ?? session?.ownerName ?? 'Мен';
       const nextProfile = await userIdentityService.saveProfile({
         familyId,
         relativeId,
-        userName: userName ?? session?.ownerName ?? 'Мен',
+        userName: displayName,
+      });
+
+      await updateMemberIdentity({
+        displayName,
+        relativeId,
       });
 
       setProfile(nextProfile);
     },
-    [familyId, session?.ownerName],
+    [familyId, session?.ownerName, updateMemberIdentity],
   );
 
   const clearLinkedRelative = useCallback(async () => {
@@ -89,8 +95,9 @@ export function UserIdentityProvider({ children }: PropsWithChildren) {
     }
 
     await userIdentityService.clearProfile(familyId);
+    await updateMemberIdentity({ relativeId: null });
     setProfile(null);
-  }, [familyId]);
+  }, [familyId, updateMemberIdentity]);
 
   const myRelative = useMemo(
     () => resolveMyRelative(relatives, profile?.relativeId ?? null),
@@ -100,9 +107,9 @@ export function UserIdentityProvider({ children }: PropsWithChildren) {
   const value = useMemo(
     () => ({
       profile,
-      myRelativeId: profile?.relativeId ?? null,
+      myRelativeId: profile?.relativeId ?? session?.relativeId ?? null,
       myRelative,
-      hasLinkedRelative: Boolean(profile?.relativeId && myRelative),
+      hasLinkedRelative: Boolean((profile?.relativeId ?? session?.relativeId) && myRelative),
       isReady,
       userName: profile?.userName ?? session?.ownerName ?? null,
       linkRelative,
@@ -117,6 +124,7 @@ export function UserIdentityProvider({ children }: PropsWithChildren) {
       profile,
       refreshProfile,
       session?.ownerName,
+      session?.relativeId,
     ],
   );
 

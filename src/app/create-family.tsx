@@ -123,7 +123,7 @@ export default function CreateFamilyScreen() {
 
           <PrimaryButton
             label={saving ? 'Создаём...' : 'Создать семью'}
-            sublabel="Локально · AsyncStorage"
+            sublabel="Supabase + локаль кэш · invite_codes"
             variant="green"
             onPress={saving ? undefined : () => void handleCreate()}
           />

@@ -26,15 +26,18 @@ type ParentSideRelativesPanelProps = {
   onSelectRoot: (relativeId: string) => void;
   onEditRelative: (relativeId: string) => void;
   onAddParentSideSibling: (params: ParentSideSiblingAddParams) => void;
+  onShowKinshipDetail?: (relative: Relative) => void;
 };
 
 function buildKinshipCardProps(
   rootPerson: Relative,
   relative: Relative,
   relatives: Relative[],
-): { kinshipLine: string } {
+  onShowKinshipDetail?: (relative: Relative) => void,
+): { kinshipLine: string; onKinshipPress?: () => void } {
   return {
     kinshipLine: getKinshipCardLine(rootPerson, relative, relatives),
+    onKinshipPress: onShowKinshipDetail ? () => onShowKinshipDetail(relative) : undefined,
   };
 }
 
@@ -48,6 +51,7 @@ function CollapsibleSideSection({
   onSelectRoot,
   onEditRelative,
   onAddParentSideSibling,
+  onShowKinshipDetail,
 }: {
   branch: ParentSideBranch;
   title: string;
@@ -58,6 +62,7 @@ function CollapsibleSideSection({
   onSelectRoot: (relativeId: string) => void;
   onEditRelative: (relativeId: string) => void;
   onAddParentSideSibling: (params: ParentSideSiblingAddParams) => void;
+  onShowKinshipDetail?: (relative: Relative) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const relativeCount = countParentSideRelatives(branch);
@@ -133,6 +138,7 @@ function CollapsibleSideSection({
                 resolveRelative={resolveRelative}
                 onSelectRoot={onSelectRoot}
                 onEditRelative={onEditRelative}
+                onShowKinshipDetail={onShowKinshipDetail}
               />
             ))
           )}
@@ -149,6 +155,7 @@ function ParentSideRelativeEntryCard({
   resolveRelative,
   onSelectRoot,
   onEditRelative,
+  onShowKinshipDetail,
 }: {
   entry: ParentSideRelativeEntry;
   rootPerson: Relative;
@@ -156,6 +163,7 @@ function ParentSideRelativeEntryCard({
   resolveRelative: (relative: Relative) => Relative;
   onSelectRoot: (relativeId: string) => void;
   onEditRelative: (relativeId: string) => void;
+  onShowKinshipDetail?: (relative: Relative) => void;
 }) {
   const [childrenExpanded, setChildrenExpanded] = useState(false);
   const person = resolveRelative(entry.person);
@@ -168,7 +176,7 @@ function ParentSideRelativeEntryCard({
         relative={person}
         visualTier="peer"
         compact
-        {...buildKinshipCardProps(rootPerson, person, relatives)}
+        {...buildKinshipCardProps(rootPerson, person, relatives, onShowKinshipDetail)}
         onPress={() => onSelectRoot(person.id)}
         onLongPress={() => onEditRelative(person.id)}
       />
@@ -202,7 +210,7 @@ function ParentSideRelativeEntryCard({
                   compact
                   mini
                   gridItem
-                  {...buildKinshipCardProps(rootPerson, child, relatives)}
+                  {...buildKinshipCardProps(rootPerson, child, relatives, onShowKinshipDetail)}
                   onPress={() => onSelectRoot(child.id)}
                   onLongPress={() => onEditRelative(child.id)}
                 />
@@ -223,6 +231,7 @@ export function ParentSideRelativesPanel({
   onSelectRoot,
   onEditRelative,
   onAddParentSideSibling,
+  onShowKinshipDetail,
 }: ParentSideRelativesPanelProps) {
   const copy = SHEZHIRE_FOCUSED_ROOT.parentSide;
 
@@ -244,6 +253,7 @@ export function ParentSideRelativesPanel({
         onSelectRoot={onSelectRoot}
         onEditRelative={onEditRelative}
         onAddParentSideSibling={onAddParentSideSibling}
+        onShowKinshipDetail={onShowKinshipDetail}
       />
 
       <View style={styles.sectionDivider} />
@@ -258,6 +268,7 @@ export function ParentSideRelativesPanel({
         onSelectRoot={onSelectRoot}
         onEditRelative={onEditRelative}
         onAddParentSideSibling={onAddParentSideSibling}
+        onShowKinshipDetail={onShowKinshipDetail}
       />
     </View>
   );

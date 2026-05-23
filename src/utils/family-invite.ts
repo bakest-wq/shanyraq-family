@@ -33,7 +33,7 @@ export function buildFamilyInviteMessage(familyName: string, inviteCode: string)
     `Шақыру коды: ${code}`,
     '',
     'Shanyraq Family → «Отбасыға қосылу · Присоединиться»',
-    'Кодты енгізіп, атыңызды жазыңыз.',
+    'Кодты енгізіп, шежіреде өзіңізді таңдаңыз.',
   ].join('\n');
 }
 

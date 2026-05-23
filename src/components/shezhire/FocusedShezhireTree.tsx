@@ -6,6 +6,7 @@ import {
   FamilyTreeCard,
   getCompactChildrenLayout,
 } from '@/components/shezhire/FamilyTreeCard';
+import { KinshipExplanationModal } from '@/components/shezhire/KinshipExplanationModal';
 import { ParentSideRelativesPanel } from '@/components/shezhire/ParentSideRelativesPanel';
 import { ShezhireFocusBreadcrumb } from '@/components/shezhire/ShezhireFocusBreadcrumb';
 import { Card } from '@/components/ui/Card';
@@ -59,26 +60,28 @@ type CollapsibleTreeSectionProps = TreeSectionProps & {
   defaultCollapsed?: boolean;
 };
 
-function getStructuralRoleLabel(relative: Relative): string | undefined {
-  const role = relative.relationship?.trim();
-  return role || undefined;
-}
+type KinshipCardProps = {
+  kinshipLine: string;
+  onKinshipPress?: () => void;
+};
+
+type KinshipCardPropsFn = (relative: Relative) => KinshipCardProps;
 
 function buildKinshipCardProps(
   rootPerson: Relative,
   relative: Relative,
   relatives: Relative[],
-): { kinshipLine: string; structuralRole?: string } {
+  onShowKinshipDetail?: (relative: Relative) => void,
+): KinshipCardProps {
   if (relativeLinkIdsMatch(rootPerson.id, relative.id)) {
     return {
       kinshipLine: 'Орталық тұлға',
-      structuralRole: getStructuralRoleLabel(relative),
     };
   }
 
   return {
     kinshipLine: getKinshipCardLine(rootPerson, relative, relatives),
-    structuralRole: getStructuralRoleLabel(relative),
+    onKinshipPress: onShowKinshipDetail ? () => onShowKinshipDetail(relative) : undefined,
   };
 }
 
@@ -172,16 +175,14 @@ function ParentSlotCard({
   role,
   linkId,
   relative,
-  rootPerson,
-  relatives,
+  kinshipCardProps,
   onSelectRoot,
   onEditRelative,
 }: {
   role: 'father' | 'mother';
   linkId: string | null;
   relative: Relative | null;
-  rootPerson: Relative;
-  relatives: Relative[];
+  kinshipCardProps: KinshipCardPropsFn;
   onSelectRoot: (id: string) => void;
   onEditRelative: (id: string) => void;
 }) {
@@ -222,7 +223,7 @@ function ParentSlotCard({
       visualTier="parent"
       compact
       mini
-      {...buildKinshipCardProps(rootPerson, relative, relatives)}
+      {...kinshipCardProps(relative)}
       onPress={() => onSelectRoot(relative.id)}
       onLongPress={() => onEditRelative(relative.id)}
     />
@@ -230,21 +231,19 @@ function ParentSlotCard({
 }
 
 function ParentSlotsRow({
-  rootPerson,
-  relatives,
   fatherLinkId,
   motherLinkId,
   father,
   mother,
+  kinshipCardProps,
   onSelectRoot,
   onEditRelative,
 }: {
-  rootPerson: Relative;
-  relatives: Relative[];
   fatherLinkId: string | null;
   motherLinkId: string | null;
   father: Relative | null;
   mother: Relative | null;
+  kinshipCardProps: KinshipCardPropsFn;
   onSelectRoot: (id: string) => void;
   onEditRelative: (id: string) => void;
 }) {
@@ -255,8 +254,7 @@ function ParentSlotsRow({
           role="father"
           linkId={fatherLinkId}
           relative={father}
-          rootPerson={rootPerson}
-          relatives={relatives}
+          kinshipCardProps={kinshipCardProps}
           onSelectRoot={onSelectRoot}
           onEditRelative={onEditRelative}
         />
@@ -271,8 +269,7 @@ function ParentSlotsRow({
           role="mother"
           linkId={motherLinkId}
           relative={mother}
-          rootPerson={rootPerson}
-          relatives={relatives}
+          kinshipCardProps={kinshipCardProps}
           onSelectRoot={onSelectRoot}
           onEditRelative={onEditRelative}
         />
@@ -284,14 +281,14 @@ function ParentSlotsRow({
 function CoreCoupleRow({
   root,
   spouse,
-  relatives,
+  kinshipCardProps,
   resolveRelative,
   onSelectRoot,
   onEditRelative,
 }: {
   root: Relative;
   spouse: Relative | null;
-  relatives: Relative[];
+  kinshipCardProps: KinshipCardPropsFn;
   resolveRelative: (relative: Relative) => Relative;
   onSelectRoot: (id: string) => void;
   onEditRelative: (id: string) => void;
@@ -307,7 +304,7 @@ function CoreCoupleRow({
           visualTier="core"
           compact
           highlighted
-          {...buildKinshipCardProps(freshRoot, freshRoot, relatives)}
+          {...kinshipCardProps(freshRoot)}
           onPress={() => onSelectRoot(freshRoot.id)}
           onLongPress={() => onEditRelative(freshRoot.id)}
         />
@@ -324,7 +321,7 @@ function CoreCoupleRow({
           visualTier="core"
           compact
           highlighted
-          {...buildKinshipCardProps(freshRoot, freshRoot, relatives)}
+          {...kinshipCardProps(freshRoot)}
           onPress={() => onSelectRoot(freshRoot.id)}
           onLongPress={() => onEditRelative(freshRoot.id)}
         />
@@ -337,7 +334,7 @@ function CoreCoupleRow({
           relative={freshSpouse}
           visualTier="peer"
           compact
-          {...buildKinshipCardProps(freshRoot, freshSpouse, relatives)}
+          {...kinshipCardProps(freshSpouse)}
           onPress={() => onSelectRoot(freshSpouse.id)}
           onLongPress={() => onEditRelative(freshSpouse.id)}
         />
@@ -361,6 +358,7 @@ export function FocusedShezhireTree({
   onAddParentSideSibling,
 }: FocusedShezhireTreeProps) {
   const { root, parents, siblings, spouse, children } = tree;
+  const [kinshipDetailTarget, setKinshipDetailTarget] = useState<Relative | null>(null);
   const fadeAnim = useMemo(() => new Animated.Value(1), []);
   const rootPerson = useMemo(
     () => resolveShezhireRootPerson(root, relatives),
@@ -415,6 +413,14 @@ export function FocusedShezhireTree({
   const siblingLayout = getCompactChildrenLayout(siblings.length);
   const freshSiblings = siblings.map((sibling) => resolveRelative(sibling));
   const rootFullName = freshRoot.fullName.trim() || getRelativeDisplayName(freshRoot);
+  const showKinshipDetail = useMemo(
+    () => (relative: Relative) => setKinshipDetailTarget(relative),
+    [],
+  );
+  const kinshipCardProps = useMemo(
+    () => (relative: Relative) => buildKinshipCardProps(freshRoot, relative, relatives, showKinshipDetail),
+    [freshRoot, relatives, showKinshipDetail],
+  );
 
   const parentSideTree = useMemo(() => {
     const excludeIds = getFocusedTreeRelativeIds(tree);
@@ -450,12 +456,11 @@ export function FocusedShezhireTree({
 
         <TreeSection generation="parents" label={SHEZHIRE_FOCUSED_ROOT.sections.parents}>
           <ParentSlotsRow
-            rootPerson={freshRoot}
-            relatives={relatives}
             fatherLinkId={parentSlots.father.linkId}
             motherLinkId={parentSlots.mother.linkId}
             father={parentSlots.father.parent ? resolveRelative(parentSlots.father.parent) : null}
             mother={parentSlots.mother.parent ? resolveRelative(parentSlots.mother.parent) : null}
+            kinshipCardProps={kinshipCardProps}
             onSelectRoot={onSelectRoot}
             onEditRelative={onEditRelative}
           />
@@ -483,7 +488,7 @@ export function FocusedShezhireTree({
                     compact
                     mini={siblingLayout.mini}
                     gridItem={siblingLayout.gridItem}
-                    {...buildKinshipCardProps(freshRoot, sibling, relatives)}
+                    {...kinshipCardProps(sibling)}
                     onPress={() => onSelectRoot(sibling.id)}
                     onLongPress={() => onEditRelative(sibling.id)}
                   />
@@ -501,7 +506,7 @@ export function FocusedShezhireTree({
           <CoreCoupleRow
             root={freshRoot}
             spouse={freshSpouse}
-            relatives={relatives}
+            kinshipCardProps={kinshipCardProps}
             resolveRelative={resolveRelative}
             onSelectRoot={onSelectRoot}
             onEditRelative={onEditRelative}
@@ -531,7 +536,7 @@ export function FocusedShezhireTree({
                   compact
                   mini={childLayout.mini}
                   gridItem={childLayout.gridItem}
-                  {...buildKinshipCardProps(freshRoot, child, relatives)}
+                  {...kinshipCardProps(child)}
                   onPress={() => onSelectRoot(child.id)}
                   onLongPress={() => onEditRelative(child.id)}
                 />
@@ -559,8 +564,17 @@ export function FocusedShezhireTree({
           onSelectRoot={onSelectRoot}
           onEditRelative={onEditRelative}
           onAddParentSideSibling={onAddParentSideSibling}
+          onShowKinshipDetail={showKinshipDetail}
         />
       </Card>
+
+      <KinshipExplanationModal
+        visible={kinshipDetailTarget !== null}
+        rootPerson={freshRoot}
+        targetPerson={kinshipDetailTarget}
+        relatives={relatives}
+        onClose={() => setKinshipDetailTarget(null)}
+      />
     </Animated.View>
   );
 }

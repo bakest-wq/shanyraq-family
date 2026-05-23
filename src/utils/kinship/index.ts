@@ -40,6 +40,7 @@ export {
   getKinshipBadge,
   getKinshipCardLine,
   getKinshipLabel,
+  getKinshipShortExplanation,
 } from '@/utils/kinship/getKinshipLabel';
 
 export { classifyKinship } from '@/utils/kinship/classify';

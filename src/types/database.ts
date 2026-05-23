@@ -3,6 +3,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type FamilyRow = {
   id: string;
   name: string;
+  owner_name: string | null;
   invite_code: string;
   created_at: string;
   updated_at: string;
@@ -11,6 +12,7 @@ export type FamilyRow = {
 export type FamilyInsert = {
   id?: string;
   name: string;
+  owner_name?: string | null;
   invite_code: string;
 };
 
@@ -19,19 +21,42 @@ export type FamilyUpdate = Partial<FamilyInsert>;
 export type FamilyMemberRow = {
   id: string;
   family_id: string;
+  relative_id: string | null;
   display_name: string;
   role: 'owner' | 'member';
+  joined_at: string | null;
   created_at: string;
 };
 
 export type FamilyMemberInsert = {
   id?: string;
   family_id: string;
+  relative_id?: string | null;
   display_name: string;
+  role?: 'owner' | 'member';
+  joined_at?: string;
+};
+
+export type FamilyMemberUpdate = {
+  relative_id?: string | null;
+  display_name?: string;
   role?: 'owner' | 'member';
 };
 
-export type FamilyMemberUpdate = Partial<FamilyMemberInsert>;
+export type InviteCodeRow = {
+  id: string;
+  family_id: string;
+  code: string;
+  created_at: string;
+  is_active: boolean;
+};
+
+export type InviteCodeInsert = {
+  id?: string;
+  family_id: string;
+  code: string;
+  is_active?: boolean;
+};
 
 export type RelativeRow = {
   id: string;
@@ -114,6 +139,12 @@ export type Database = {
         Row: FamilyMemberRow;
         Insert: FamilyMemberInsert;
         Update: FamilyMemberUpdate;
+        Relationships: [];
+      };
+      invite_codes: {
+        Row: InviteCodeRow;
+        Insert: InviteCodeInsert;
+        Update: Partial<InviteCodeInsert>;
         Relationships: [];
       };
       relatives: {
