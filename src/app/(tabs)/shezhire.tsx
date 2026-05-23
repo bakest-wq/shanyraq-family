@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   unitsList: {
-    gap: Spacing.lg,
+    gap: Spacing.xl,
   },
   unlinkedGrid: {
     flexDirection: 'row',

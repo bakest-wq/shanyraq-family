@@ -2,13 +2,14 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { RelativeLinkPicker } from '@/components/relatives/RelativeLinkPicker';
+import { BirthdayPicker } from '@/components/relatives/BirthdayPicker';
+import { RelationshipSelector } from '@/components/relatives/RelationshipSelector';
 import { Card } from '@/components/ui/Card';
 import { FormField } from '@/components/ui/FormField';
 import {
   CreateRelativeInput,
   GENDER_OPTIONS,
   MARITAL_STATUS_OPTIONS,
-  RELATIONSHIP_PRESETS,
   Relative,
 } from '@/types/relative';
 import { getAllParentCandidates } from '@/utils/family-tree';
@@ -65,6 +66,10 @@ export function RelativeFormFields({
       displayName: form.displayName ?? form.fullName ?? form.firstName,
       relationship: form.relationship,
       birthday: form.birthday,
+      birthdayDay: form.birthdayDay,
+      birthdayMonth: form.birthdayMonth,
+      birthdayYear: form.birthdayYear,
+      birthdayYearUnknown: form.birthdayYearUnknown,
       phone: form.phone ?? '',
       avatarColor: form.avatarColor ?? '#2D6A4F',
       isDeceased: form.isDeceased ?? false,
@@ -95,6 +100,19 @@ export function RelativeFormFields({
 
   const showBirthSurname = form.gender === 'female';
 
+  const handleBirthdayChange = (
+    patch: Pick<
+      CreateRelativeInput,
+      'birthday' | 'birthdayDay' | 'birthdayMonth' | 'birthdayYear' | 'birthdayYearUnknown'
+    >,
+  ) => {
+    onChange('birthdayDay', patch.birthdayDay ?? null);
+    onChange('birthdayMonth', patch.birthdayMonth ?? null);
+    onChange('birthdayYear', patch.birthdayYear ?? null);
+    onChange('birthdayYearUnknown', patch.birthdayYearUnknown ?? false);
+    onChange('birthday', patch.birthday);
+  };
+
   return (
     <>
       {relationshipPath ? (
@@ -106,32 +124,11 @@ export function RelativeFormFields({
 
       <Card goldBorder style={styles.sectionCard}>
         <Text style={styles.sectionLabel}>Туыстық · Родство</Text>
-        <View style={styles.relationshipGrid}>
-          {RELATIONSHIP_PRESETS.map((relationship) => {
-            const selected = form.relationship === relationship;
-            return (
-              <Pressable
-                key={relationship}
-                onPress={() => onChange('relationship', relationship)}
-                style={({ pressed }) => [
-                  styles.relationshipButton,
-                  selected && styles.relationshipButtonSelected,
-                  pressed && styles.relationshipButtonPressed,
-                ]}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}>
-                <Text
-                  style={[
-                    styles.relationshipButtonText,
-                    selected && styles.relationshipButtonTextSelected,
-                  ]}>
-                  {relationship}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        {errors.relationship ? <Text style={styles.errorText}>{errors.relationship}</Text> : null}
+        <RelationshipSelector
+          value={form.relationship}
+          error={errors.relationship}
+          onChange={(relationship) => onChange('relationship', relationship)}
+        />
       </Card>
 
       <Card style={styles.sectionCard}>
@@ -256,14 +253,46 @@ export function RelativeFormFields({
         </Card>
       ) : null}
 
-      <FormField
-        label="Туған күні · Дата рождения"
-        placeholder="YYYY-MM-DD"
-        value={form.birthday}
-        onChangeText={(value) => onChange('birthday', value)}
-        keyboardType="numbers-and-punctuation"
+      <Card goldBorder style={styles.sectionCard}>
+        <Text style={styles.sectionLabel}>Шежіре деректері · Shezhire</Text>
+        <Text style={styles.hint}>Міндетті емес · Необязательно</Text>
+        <FormField
+          label="Жүз · Zhuz"
+          placeholder="Мысалы: Орта жүз"
+          value={form.zhuz ?? ''}
+          onChangeText={(value) => onChange('zhuz', value)}
+          autoCapitalize="words"
+        />
+        <FormField
+          label="Ру · Ru"
+          placeholder="Мысалы: Аргын"
+          value={form.ru ?? ''}
+          onChangeText={(value) => onChange('ru', value)}
+          autoCapitalize="words"
+        />
+        <FormField
+          label="Ата тегі · Ata line"
+          placeholder="Мысалы: Қантық"
+          value={form.ataLine ?? ''}
+          onChangeText={(value) => onChange('ataLine', value)}
+          autoCapitalize="words"
+        />
+        <FormField
+          label="Тармақ · Branch"
+          placeholder="Мысалы: Торғай"
+          value={form.tribeBranch ?? ''}
+          onChangeText={(value) => onChange('tribeBranch', value)}
+          autoCapitalize="words"
+        />
+      </Card>
+
+      <BirthdayPicker
+        day={form.birthdayDay}
+        month={form.birthdayMonth}
+        year={form.birthdayYear}
+        yearUnknown={form.birthdayYearUnknown ?? false}
         error={errors.birthday}
-        hint="Необязательно · Формат YYYY-MM-DD"
+        onChange={handleBirthdayChange}
       />
 
       <FormField
@@ -352,40 +381,6 @@ const styles = StyleSheet.create({
     ...Typography.caption,
     color: Palette.danger,
     fontWeight: '600',
-  },
-  relationshipGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-  },
-  relationshipButton: {
-    width: '48%',
-    minHeight: 56,
-    borderRadius: Radius.lg,
-    backgroundColor: Palette.cream,
-    borderWidth: 2,
-    borderColor: Palette.creamDark,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.sm,
-    ...Shadow.soft,
-  },
-  relationshipButtonSelected: {
-    backgroundColor: Palette.greenDeep,
-    borderColor: Palette.gold,
-  },
-  relationshipButtonPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
-  },
-  relationshipButtonText: {
-    ...Typography.body,
-    color: Palette.textPrimary,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  relationshipButtonTextSelected: {
-    color: Palette.white,
   },
   optionRow: {
     flexDirection: 'row',

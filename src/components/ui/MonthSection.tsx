@@ -19,7 +19,7 @@ export function BirthdayRow({ relative, daysUntil, highlight = false }: Birthday
       <View style={styles.info}>
         <Text style={styles.name}>{relative.fullName}</Text>
         <Text style={styles.role}>
-          {relative.relationship} · {formatBirthdayKzRu(relative.birthday)}
+          {relative.relationship} · {formatBirthdayKzRu(relative)}
         </Text>
       </View>
       <Text style={[styles.days, highlight && styles.daysHighlight]}>{formatDaysUntil(daysUntil)}</Text>

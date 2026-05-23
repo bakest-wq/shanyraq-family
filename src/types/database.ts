@@ -44,6 +44,9 @@ export type RelativeRow = {
   display_name: string | null;
   relationship: string;
   birthday: string | null;
+  birthday_day: number | null;
+  birthday_month: number | null;
+  birthday_year: number | null;
   phone: string | null;
   avatar_color: string;
   is_deceased: boolean;
@@ -55,6 +58,10 @@ export type RelativeRow = {
   spouse_id: string | null;
   gender: 'male' | 'female' | null;
   marital_status: 'single' | 'married' | 'widowed' | 'divorced' | null;
+  zhuz: string | null;
+  ru: string | null;
+  ata_line: string | null;
+  tribe_branch: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -70,6 +77,9 @@ export type RelativeInsert = {
   display_name?: string | null;
   relationship: string;
   birthday?: string | null;
+  birthday_day?: number | null;
+  birthday_month?: number | null;
+  birthday_year?: number | null;
   phone?: string | null;
   avatar_color?: string;
   is_deceased?: boolean;
@@ -81,6 +91,10 @@ export type RelativeInsert = {
   spouse_id?: string | null;
   gender?: 'male' | 'female' | null;
   marital_status?: 'single' | 'married' | 'widowed' | 'divorced' | null;
+  zhuz?: string | null;
+  ru?: string | null;
+  ata_line?: string | null;
+  tribe_branch?: string | null;
 };
 
 export type RelativeUpdate = Partial<RelativeInsert>;

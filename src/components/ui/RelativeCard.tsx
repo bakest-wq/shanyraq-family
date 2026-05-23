@@ -39,7 +39,7 @@ type RelativeCardProps = {
 };
 
 export function RelativeCard({ relative, showActions = true }: RelativeCardProps) {
-  const age = calculateAge(relative.birthday);
+  const age = calculateAge(relative);
 
   return (
     <View style={styles.card}>
@@ -52,7 +52,7 @@ export function RelativeCard({ relative, showActions = true }: RelativeCardProps
         <View style={styles.info}>
           <Text style={styles.role}>{relative.relationship}</Text>
           <Text style={styles.name}>{relative.fullName}</Text>
-          <Text style={styles.meta}>{formatBirthdayKzRu(relative.birthday)}</Text>
+          <Text style={styles.meta}>{formatBirthdayKzRu(relative)}</Text>
           {age !== null ? <Text style={styles.age}>{getAgeLabel(age)}</Text> : null}
         </View>
       </View>

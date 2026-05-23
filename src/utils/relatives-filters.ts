@@ -1,5 +1,9 @@
 import { Relative } from '@/types/relative';
-import { daysUntilBirthday, hasBirthday } from '@/utils/dates';
+import {
+  daysUntilBirthdayForRelative,
+  hasBirthdayDayMonth,
+} from '@/utils/birthday-parts';
+import { getRelativeDisplayName } from '@/utils/relative-names';
 
 export type RelativeFilter = 'all' | 'birthday' | 'deceased';
 
@@ -19,27 +23,40 @@ export function filterRelatives(
     result = result.filter(
       (relative) =>
         !relative.isDeceased &&
-        hasBirthday(relative.birthday) &&
-        daysUntilBirthday(relative.birthday, referenceDate) <= UPCOMING_BIRTHDAY_WINDOW_DAYS,
+        hasBirthdayDayMonth(relative) &&
+        daysUntilBirthdayForRelative(relative, referenceDate) <= UPCOMING_BIRTHDAY_WINDOW_DAYS,
     );
+  } else {
+    result = result.filter((relative) => !relative.isDeceased);
   }
 
   const query = searchQuery.trim().toLowerCase();
   if (query) {
-    result = result.filter((relative) => relative.fullName.toLowerCase().includes(query));
+    result = result.filter((relative) => {
+      const haystack = [
+        relative.fullName,
+        relative.displayName,
+        relative.firstName,
+        relative.middleName,
+        relative.currentSurname,
+        relative.relationship,
+        getRelativeDisplayName(relative),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
   }
 
-  return sortRelatives(result, referenceDate);
-}
-
-function sortRelatives(relatives: Relative[], referenceDate: Date): Relative[] {
-  return [...relatives].sort((a, b) => {
-    if (a.isDeceased !== b.isDeceased) {
-      return a.isDeceased ? 1 : -1;
-    }
-
-    const daysA = hasBirthday(a.birthday) ? daysUntilBirthday(a.birthday, referenceDate) : 9999;
-    const daysB = hasBirthday(b.birthday) ? daysUntilBirthday(b.birthday, referenceDate) : 9999;
+  result.sort((a, b) => {
+    const daysA = hasBirthdayDayMonth(a)
+      ? daysUntilBirthdayForRelative(a, referenceDate)
+      : 9999;
+    const daysB = hasBirthdayDayMonth(b)
+      ? daysUntilBirthdayForRelative(b, referenceDate)
+      : 9999;
 
     if (daysA !== daysB) {
       return daysA - daysB;
@@ -47,10 +64,12 @@ function sortRelatives(relatives: Relative[], referenceDate: Date): Relative[] {
 
     return a.fullName.localeCompare(b.fullName, 'ru');
   });
+
+  return result;
 }
 
 export const RELATIVE_FILTERS: { id: RelativeFilter; label: string }[] = [
-  { id: 'all', label: 'Все' },
-  { id: 'birthday', label: 'Туған күн' },
-  { id: 'deceased', label: 'Марқұм' },
+  { id: 'all', label: 'Барлығы · Все' },
+  { id: 'birthday', label: 'Туған күн · ДР' },
+  { id: 'deceased', label: 'Марқұм · Умершие' },
 ];

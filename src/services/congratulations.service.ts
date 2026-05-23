@@ -2,7 +2,9 @@ import {
   CongratulationsInput,
   CongratulationsStyle,
 } from '@/types/congratulations';
-import { formatBirthdayKzRu, getAgeTurningOnNextBirthday, hasBirthday } from '@/utils/dates';
+import { Relative } from '@/types/relative';
+import { hasBirthdayDayMonth } from '@/utils/birthday-parts';
+import { formatBirthdayKzRu, getAgeTurningOnNextBirthday } from '@/utils/dates';
 
 function pickVariant(variants: string[], seed: number): string {
   return variants[seed % variants.length];
@@ -13,8 +15,8 @@ function getTurningAge(input: CongratulationsInput): number | null {
     return input.age;
   }
 
-  if (hasBirthday(input.birthday)) {
-    return getAgeTurningOnNextBirthday(input.birthday);
+  if (hasBirthdayDayMonth(input)) {
+    return getAgeTurningOnNextBirthday(input);
   }
 
   return null;
@@ -35,7 +37,7 @@ function relationshipPhrase(relationship: string): string {
 function generateWarmFamily(input: CongratulationsInput, seed: number): string {
   const variants = [
     `Ассалаумағалейкум, ${input.fullName}!\n\nОт всего сердца поздравляем нашего дорогого ${relationshipPhrase(input.relationship)} с ${agePhrase(input)}!\n\nПусть дом всегда будет полон смеха, тепла и заботы. Мы рядом и любим вас очень сильно.\n\nС любовью, ваша семья Shanyraq 💚`,
-    `Дорогой(ая) ${input.fullName}!\n\nСегодня особенный день — ${formatBirthdayKzRu(input.birthday)}. Спасибо, что ты — часть нашего шанырака.\n\nЖелаем здоровья, спокойствия и радости рядом с близкими.\n\nОбнимаем крепко!`,
+    `Дорогой(ая) ${input.fullName}!\n\nСегодня особенный день — ${formatBirthdayKzRu(input)}. Спасибо, что ты — часть нашего шанырака.\n\nЖелаем здоровья, спокойствия и радости рядом с близкими.\n\nОбнимаем крепко!`,
     `${input.fullName}, құттықтаймыз!\n\nБіздің отбасы сені мейлінше жақсы көреді. ${agePhrase(input)} — жаңа бақытты кезеңнің басы.\n\nДенсаулық, береке және махаббат болсын!\n\nShanyraq Family`,
   ];
 
@@ -55,7 +57,7 @@ function generateIslamic(input: CongratulationsInput, seed: number): string {
 function generateFormal(input: CongratulationsInput, seed: number): string {
   const variants = [
     `Уважаемый(ая) ${input.fullName}!\n\nПримите искренние поздравления с ${agePhrase(input)}.\n\nЖелаем Вам крепкого здоровья, благополучия и успехов во всех добрых начинаниях.\n\nС уважением, семья Shanyraq Family`,
-    `Дорогой(ая) ${input.fullName}!\n\nОт имени всей нашей семьи поздравляем Вас с днём рождения (${formatBirthdayKzRu(input.birthday)}).\n\nПусть каждый новый год приносит радость, стабильность и гармонию.\n\nС наилучшими пожеланиями.`,
+    `Дорогой(ая) ${input.fullName}!\n\nОт имени всей нашей семьи поздравляем Вас с днём рождения (${formatBirthdayKzRu(input)}).\n\nПусть каждый новый год приносит радость, стабильность и гармонию.\n\nС наилучшими пожеланиями.`,
     `${input.fullName}, поздравляем!\n\nВ этот знаменательный день желаем Вам благополучия, мира и семейного тепла.\n\nПусть ${agePhrase(input)} станет началом новых радостных событий.`,
   ];
 
@@ -103,19 +105,16 @@ export const congratulationsService = {
     return generator(input, Math.abs(seed));
   },
 
-  buildInputFromRelative(
-    relative: {
-      fullName: string;
-      relationship: string;
-      birthday: string;
-    },
-    age: number | null,
-  ): CongratulationsInput {
+  buildInputFromRelative(relative: Relative, age: number | null): CongratulationsInput {
     return {
       fullName: relative.fullName,
       relationship: relative.relationship,
       age,
       birthday: relative.birthday,
+      birthdayDay: relative.birthdayDay,
+      birthdayMonth: relative.birthdayMonth,
+      birthdayYear: relative.birthdayYear,
+      birthdayYearUnknown: relative.birthdayYearUnknown,
     };
   },
 };

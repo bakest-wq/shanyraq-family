@@ -1,5 +1,6 @@
 import { hasBirthday, parseBirthday } from '@/utils/dates';
 import { Relative } from '@/types/relative';
+import { resolveBirthdayParts } from '@/utils/birthday-parts';
 
 export function getYearlyReminderParts(
   birthdayIso: string,
@@ -15,7 +16,30 @@ export function getYearlyReminderParts(
   };
 }
 
+export function getYearlyReminderPartsForRelative(
+  relative: Relative,
+  daysBefore: number,
+): { month: number; day: number } | null {
+  const parts = resolveBirthdayParts(relative);
+  if (!parts) {
+    return null;
+  }
+
+  const reminder = new Date(2024, parts.month - 1, parts.day);
+  reminder.setDate(reminder.getDate() - daysBefore);
+
+  return {
+    month: reminder.getMonth() + 1,
+    day: reminder.getDate(),
+  };
+}
+
 export function getMemorialAnniversaryParts(relative: Relative): { month: number; day: number } {
+  const parts = getYearlyReminderPartsForRelative(relative, 0);
+  if (parts) {
+    return parts;
+  }
+
   if (hasBirthday(relative.birthday)) {
     return getYearlyReminderParts(relative.birthday, 0);
   }

@@ -20,7 +20,7 @@ export function BirthdayCalendarCard({ entry, compact = false }: BirthdayCalenda
   const router = useRouter();
   const { relative, daysUntil } = entry;
   const countdownLabel = formatBirthdayCountdownLabel(daysUntil);
-  const ageTurningLabel = getAgeTurningLabel(relative.birthday);
+  const ageTurningLabel = getAgeTurningLabel(relative);
   const isSoon = daysUntil <= 7;
 
   const handleCall = () => {
@@ -60,7 +60,7 @@ export function BirthdayCalendarCard({ entry, compact = false }: BirthdayCalenda
         <View style={styles.info}>
           <Text style={styles.relationship}>{relative.relationship}</Text>
           <Text style={styles.name}>{relative.fullName}</Text>
-          <Text style={styles.date}>{formatBirthdayKzRu(relative.birthday)}</Text>
+          <Text style={styles.date}>{formatBirthdayKzRu(relative)}</Text>
           {ageTurningLabel ? <Text style={styles.ageTurning}>{ageTurningLabel}</Text> : null}
         </View>
         <View style={[styles.countdownBadge, isSoon && styles.countdownBadgeSoon]}>

@@ -5,7 +5,9 @@ export type CongratulationsStyle =
   | 'short-kz'
   | 'humor';
 
-export type CongratulationsInput = {
+import type { BirthdayPartsInput } from '@/utils/birthday-parts';
+
+export type CongratulationsInput = BirthdayPartsInput & {
   fullName: string;
   relationship: string;
   age: number | null;

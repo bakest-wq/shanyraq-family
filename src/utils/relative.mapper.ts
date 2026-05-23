@@ -1,9 +1,9 @@
 import { AVATAR_COLORS, CreateRelativeInput, Relative } from '@/types/relative';
 import type { RelativeInsert, RelativeRow, RelativeUpdate } from '@/types/database';
+import { syncBirthdayFields } from '@/utils/birthday-parts';
 import {
   composeDisplayName,
   composeFullName,
-  getRelativeDisplayName,
   parseLegacyFullName,
 } from '@/utils/relative-names';
 
@@ -18,6 +18,17 @@ export function mapRelativeRow(row: RelativeRow): Relative {
   const displayName =
     row.display_name?.trim() ||
     composeDisplayName({ firstName, middleName, currentSurname, fullName });
+  const birthdayFields = syncBirthdayFields({
+    birthday: row.birthday ?? '',
+    birthdayDay: row.birthday_day,
+    birthdayMonth: row.birthday_month,
+    birthdayYear: row.birthday_year,
+    birthdayYearUnknown:
+      row.birthday_day != null &&
+      row.birthday_month != null &&
+      row.birthday_year == null &&
+      !row.birthday,
+  });
 
   return {
     id: row.id,
@@ -29,7 +40,11 @@ export function mapRelativeRow(row: RelativeRow): Relative {
     currentSurname,
     displayName,
     relationship: row.relationship,
-    birthday: row.birthday ?? '',
+    birthday: birthdayFields.birthday,
+    birthdayDay: birthdayFields.birthdayDay,
+    birthdayMonth: birthdayFields.birthdayMonth,
+    birthdayYear: birthdayFields.birthdayYear,
+    birthdayYearUnknown: birthdayFields.birthdayYearUnknown,
     phone: row.phone ?? '',
     avatarColor: row.avatar_color,
     isDeceased: row.is_deceased,
@@ -41,6 +56,10 @@ export function mapRelativeRow(row: RelativeRow): Relative {
     spouseId: row.spouse_id ?? undefined,
     gender: row.gender ?? undefined,
     maritalStatus: row.marital_status ?? undefined,
+    zhuz: row.zhuz ?? undefined,
+    ru: row.ru ?? undefined,
+    ataLine: row.ata_line ?? undefined,
+    tribeBranch: row.tribe_branch ?? undefined,
     createdAt: row.created_at,
   };
 }
@@ -57,6 +76,7 @@ function mapRelativePayload(input: CreateRelativeInput, familyId?: string): Rela
   const fullName = composeFullName(input);
   const displayName = composeDisplayName({ ...input, fullName });
   const seedName = displayName || fullName || input.firstName;
+  const birthdayFields = syncBirthdayFields(input);
 
   return {
     family_id: familyId ?? null,
@@ -67,7 +87,10 @@ function mapRelativePayload(input: CreateRelativeInput, familyId?: string): Rela
     current_surname: input.currentSurname?.trim() || null,
     display_name: displayName || null,
     relationship: input.relationship.trim(),
-    birthday: input.birthday.trim() || null,
+    birthday: birthdayFields.birthday.trim() || null,
+    birthday_day: birthdayFields.birthdayDay,
+    birthday_month: birthdayFields.birthdayMonth,
+    birthday_year: birthdayFields.birthdayYear,
     phone: input.phone?.trim() || null,
     avatar_color: input.avatarColor ?? pickAvatarColor(seedName),
     is_deceased: input.isDeceased ?? false,
@@ -79,6 +102,10 @@ function mapRelativePayload(input: CreateRelativeInput, familyId?: string): Rela
     spouse_id: input.spouseId ?? null,
     gender: input.gender ?? null,
     marital_status: input.maritalStatus ?? null,
+    zhuz: input.zhuz?.trim() || null,
+    ru: input.ru?.trim() || null,
+    ata_line: input.ataLine?.trim() || null,
+    tribe_branch: input.tribeBranch?.trim() || null,
   };
 }
 

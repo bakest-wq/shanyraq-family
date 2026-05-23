@@ -1,10 +1,10 @@
 import { Relative } from '@/types/relative';
 import {
-  daysUntilBirthday,
-  getMonthLabel,
-  hasBirthday,
-  parseBirthday,
-} from '@/utils/dates';
+  daysUntilBirthdayForRelative,
+  hasBirthdayDayMonth,
+  resolveBirthdayParts,
+} from '@/utils/birthday-parts';
+import { getMonthLabel } from '@/utils/dates';
 
 export type BirthdayEntry = {
   relative: Relative;
@@ -20,7 +20,9 @@ export type MonthBirthdayGroup = {
 const UPCOMING_HIGHLIGHT_DAYS = 14;
 
 export function getLivingWithBirthdays(relatives: Relative[]): Relative[] {
-  return relatives.filter((relative) => !relative.isDeceased && hasBirthday(relative.birthday));
+  return relatives.filter(
+    (relative) => !relative.isDeceased && hasBirthdayDayMonth(relative),
+  );
 }
 
 export function buildBirthdayEntries(
@@ -30,7 +32,7 @@ export function buildBirthdayEntries(
   return getLivingWithBirthdays(relatives)
     .map((relative) => ({
       relative,
-      daysUntil: daysUntilBirthday(relative.birthday, referenceDate),
+      daysUntil: daysUntilBirthdayForRelative(relative, referenceDate),
     }))
     .sort((a, b) => {
       if (a.daysUntil !== b.daysUntil) {
@@ -58,7 +60,12 @@ export function groupBirthdaysByMonth(
   const grouped = new Map<number, BirthdayEntry[]>();
 
   for (const entry of entries) {
-    const monthIndex = parseBirthday(entry.relative.birthday).getMonth();
+    const parts = resolveBirthdayParts(entry.relative);
+    if (!parts) {
+      continue;
+    }
+
+    const monthIndex = parts.month - 1;
     const bucket = grouped.get(monthIndex) ?? [];
     bucket.push(entry);
     grouped.set(monthIndex, bucket);
@@ -74,10 +81,10 @@ export function groupBirthdaysByMonth(
           return a.daysUntil - b.daysUntil;
         }
 
-        return (
-          parseBirthday(a.relative.birthday).getDate() -
-          parseBirthday(b.relative.birthday).getDate()
-        );
+        const partsA = resolveBirthdayParts(a.relative);
+        const partsB = resolveBirthdayParts(b.relative);
+
+        return (partsA?.day ?? 0) - (partsB?.day ?? 0);
       }),
     }));
 }

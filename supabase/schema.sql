@@ -32,6 +32,9 @@ create table if not exists public.relatives (
   display_name text,
   relationship text not null,
   birthday date,
+  birthday_day integer check (birthday_day between 1 and 31),
+  birthday_month integer check (birthday_month between 1 and 12),
+  birthday_year integer check (birthday_year >= 1900),
   phone text,
   avatar_color text not null default '#2D6A4F',
   is_deceased boolean not null default false,
@@ -43,6 +46,10 @@ create table if not exists public.relatives (
   spouse_id uuid references public.relatives(id) on delete set null,
   gender text check (gender in ('male', 'female')),
   marital_status text check (marital_status in ('single', 'married', 'widowed', 'divorced')),
+  zhuz text,
+  ru text,
+  ata_line text,
+  tribe_branch text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

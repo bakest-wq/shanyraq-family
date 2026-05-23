@@ -42,7 +42,7 @@ export default function CongratulationsScreen() {
       return null;
     }
 
-    return getAgeTurningOnNextBirthday(relative.birthday) ?? calculateAge(relative.birthday);
+    return getAgeTurningOnNextBirthday(relative) ?? calculateAge(relative);
   }, [relative]);
 
   const congratulationInput = useMemo(() => {
@@ -126,7 +126,7 @@ export default function CongratulationsScreen() {
           <View style={styles.personInfo}>
             <Text style={styles.personName}>{relative.fullName}</Text>
             <Text style={styles.personMeta}>{relative.relationship}</Text>
-            <Text style={styles.personMeta}>{formatBirthdayKzRu(relative.birthday)}</Text>
+            <Text style={styles.personMeta}>{formatBirthdayKzRu(relative)}</Text>
             {ageTurning !== null ? (
               <Text style={styles.personAge}>Исполнится {ageTurning} лет</Text>
             ) : null}

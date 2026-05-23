@@ -13,10 +13,10 @@ import {
 import {
   BIRTHDAY_OFFSETS,
   getMemorialAnniversaryParts,
-  getYearlyReminderParts,
+  getYearlyReminderPartsForRelative,
 } from '@/utils/notification-scheduling';
 import { filterDeceasedRelatives, filterLivingRelatives } from '@/utils/relative.mapper';
-import { hasBirthday } from '@/utils/dates';
+import { hasBirthdayDayMonth } from '@/utils/birthday-parts';
 
 const ANDROID_CHANNEL_ID = 'shanyraq-family-reminders';
 
@@ -133,7 +133,7 @@ export async function syncNotificationSchedule(
   const deceased = filterDeceasedRelatives(relatives);
 
   for (const relative of living) {
-    if (!hasBirthday(relative.birthday)) {
+    if (!hasBirthdayDayMonth(relative)) {
       continue;
     }
 
@@ -142,7 +142,12 @@ export async function syncNotificationSchedule(
         continue;
       }
 
-      const { month, day } = getYearlyReminderParts(relative.birthday, offset.daysBefore);
+      const reminderParts = getYearlyReminderPartsForRelative(relative, offset.daysBefore);
+      if (!reminderParts) {
+        continue;
+      }
+
+      const { month, day } = reminderParts;
 
       await Notifications.scheduleNotificationAsync({
         content: buildContent(

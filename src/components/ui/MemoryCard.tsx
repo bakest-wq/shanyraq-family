@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { MemoryArchive } from '@/data/mockData';
 import { Relative } from '@/types/relative';
+import { BirthdayPartsInput } from '@/utils/birthday-parts';
 import { Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
 
 import { AvatarPlaceholder } from './RelativeCard';
@@ -9,6 +10,18 @@ import { AvatarPlaceholder } from './RelativeCard';
 type DeceasedCardProps = {
   relative: Relative;
 };
+
+function formatLifeYears(relative: BirthdayPartsInput): string {
+  if (relative.birthdayYear) {
+    return String(relative.birthdayYear);
+  }
+
+  if (relative.birthday?.trim()) {
+    return relative.birthday.slice(0, 4);
+  }
+
+  return '?';
+}
 
 export function DeceasedCard({ relative }: DeceasedCardProps) {
   return (
@@ -25,7 +38,7 @@ export function DeceasedCard({ relative }: DeceasedCardProps) {
           <Text style={styles.name}>{relative.fullName}</Text>
           {relative.deathYear ? (
             <Text style={styles.years}>
-              {relative.birthday.slice(0, 4)} — {relative.deathYear}
+              {formatLifeYears(relative)} — {relative.deathYear}
             </Text>
           ) : null}
         </View>

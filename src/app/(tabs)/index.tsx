@@ -20,6 +20,7 @@ import {
   isBirthdayToday,
   calculateAge,
 } from '@/utils/dates';
+import { hasBirthdayDayMonth } from '@/utils/birthday-parts';
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function HomeScreen() {
@@ -29,12 +30,12 @@ export default function HomeScreen() {
   const today = new Date();
 
   const todayBirthdays = livingRelatives.filter(
-    (r) => r.birthday && isBirthdayToday(r.birthday, today),
+    (r) => hasBirthdayDayMonth(r) && isBirthdayToday(r, today),
   );
 
   const upcoming = livingRelatives
-    .filter((r) => r.birthday && !isBirthdayToday(r.birthday, today))
-    .map((r) => ({ relative: r, days: daysUntilBirthday(r.birthday, today) }))
+    .filter((r) => hasBirthdayDayMonth(r) && !isBirthdayToday(r, today))
+    .map((r) => ({ relative: r, days: daysUntilBirthday(r, today) }))
     .sort((a, b) => a.days - b.days)[0];
 
   return (
@@ -67,8 +68,8 @@ export default function HomeScreen() {
                 <Text style={styles.todayName}>{person.fullName}</Text>
                 <Text style={styles.todayMeta}>
                   {person.relationship}
-                  {calculateAge(person.birthday, today) !== null
-                    ? ` · ${getAgeLabel(calculateAge(person.birthday, today)!)}`
+                  {calculateAge(person, today) !== null
+                    ? ` · ${getAgeLabel(calculateAge(person, today)!)}`
                     : ''}
                 </Text>
               </View>
@@ -91,7 +92,7 @@ export default function HomeScreen() {
             <View style={styles.upcomingInfo}>
               <Text style={styles.upcomingName}>{upcoming.relative.fullName}</Text>
               <Text style={styles.upcomingRole}>
-                {upcoming.relative.relationship} · {formatBirthdayKzRu(upcoming.relative.birthday)}
+                {upcoming.relative.relationship} · {formatBirthdayKzRu(upcoming.relative)}
               </Text>
               <Text style={styles.upcomingDays}>{formatDaysUntil(upcoming.days)}</Text>
             </View>

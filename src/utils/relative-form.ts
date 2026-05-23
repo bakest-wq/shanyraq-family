@@ -1,7 +1,10 @@
 import { CreateRelativeInput, Relative } from '@/types/relative';
+import { relativeToBirthdayFormParts } from '@/utils/birthday-parts';
 import { syncNameFields } from '@/utils/relative-names';
 
 export function relativeToFormInput(relative: Relative): CreateRelativeInput {
+  const birthdayFields = relativeToBirthdayFormParts(relative);
+
   return {
     fullName: relative.fullName,
     firstName: relative.firstName,
@@ -10,7 +13,7 @@ export function relativeToFormInput(relative: Relative): CreateRelativeInput {
     currentSurname: relative.currentSurname ?? '',
     displayName: relative.displayName,
     relationship: relative.relationship,
-    birthday: relative.birthday,
+    ...birthdayFields,
     phone: relative.phone,
     avatarColor: relative.avatarColor,
     isDeceased: relative.isDeceased,
@@ -22,6 +25,10 @@ export function relativeToFormInput(relative: Relative): CreateRelativeInput {
     spouseId: relative.spouseId ?? null,
     gender: relative.gender,
     maritalStatus: relative.maritalStatus,
+    zhuz: relative.zhuz ?? '',
+    ru: relative.ru ?? '',
+    ataLine: relative.ataLine ?? '',
+    tribeBranch: relative.tribeBranch ?? '',
   };
 }
 
@@ -34,6 +41,10 @@ export const EMPTY_RELATIVE_FORM: CreateRelativeInput = {
   displayName: '',
   fullName: '',
   birthday: '',
+  birthdayDay: null,
+  birthdayMonth: null,
+  birthdayYear: null,
+  birthdayYearUnknown: false,
   phone: '',
   isDeceased: false,
   deathYear: undefined,
@@ -44,6 +55,10 @@ export const EMPTY_RELATIVE_FORM: CreateRelativeInput = {
   spouseId: null,
   gender: undefined,
   maritalStatus: undefined,
+  zhuz: '',
+  ru: '',
+  ataLine: '',
+  tribeBranch: '',
 };
 
 export function prepareFormFromInput(input: CreateRelativeInput): CreateRelativeInput {

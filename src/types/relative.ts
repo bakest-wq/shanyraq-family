@@ -13,6 +13,10 @@ export type Relative = {
   displayName: string;
   relationship: string;
   birthday: string;
+  birthdayDay?: number | null;
+  birthdayMonth?: number | null;
+  birthdayYear?: number | null;
+  birthdayYearUnknown?: boolean;
   phone: string;
   avatarColor: string;
   isDeceased: boolean;
@@ -24,6 +28,10 @@ export type Relative = {
   spouseId?: string;
   gender?: RelativeGender;
   maritalStatus?: MaritalStatus;
+  zhuz?: string;
+  ru?: string;
+  ataLine?: string;
+  tribeBranch?: string;
   createdAt?: string;
 };
 
@@ -42,6 +50,10 @@ export type CreateRelativeInput = {
   displayName?: string;
   relationship: string;
   birthday: string;
+  birthdayDay?: number | null;
+  birthdayMonth?: number | null;
+  birthdayYear?: number | null;
+  birthdayYearUnknown?: boolean;
   phone?: string;
   avatarColor?: string;
   isDeceased?: boolean;
@@ -53,21 +65,26 @@ export type CreateRelativeInput = {
   spouseId?: string | null;
   gender?: RelativeGender;
   maritalStatus?: MaritalStatus;
+  zhuz?: string;
+  ru?: string;
+  ataLine?: string;
+  tribeBranch?: string;
 };
 
-export const RELATIONSHIP_PRESETS = [
-  'Мен',
-  'Ата',
-  'Апа',
-  'Әке',
-  'Ана',
-  'Аға',
-  'Әпке',
-  'Бала',
-  'Немере',
-] as const;
-
-export type RelationshipPreset = (typeof RELATIONSHIP_PRESETS)[number];
+export type {
+  RelationshipGroupId,
+  RelationshipOption,
+  RelationshipPreset,
+} from '@/utils/relationship-presets';
+export {
+  RELATIONSHIP_GROUPS,
+  RELATIONSHIP_OPTIONS,
+  RELATIONSHIP_PRESETS,
+  RELATIONSHIP_PRESET_RU,
+  findRelationshipOption,
+  getRelationshipLabel,
+  getRelationshipRussian,
+} from '@/utils/relationship-presets';
 
 export const GENDER_OPTIONS: { id: RelativeGender; label: string; sublabel: string }[] = [
   { id: 'male', label: 'Ер · Мужской', sublabel: 'male' },

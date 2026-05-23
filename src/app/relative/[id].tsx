@@ -55,7 +55,7 @@ export default function RelativeDetailsScreen() {
     );
   }
 
-  const age = calculateAge(relative.birthday);
+  const age = calculateAge(relative);
   const anchor = findFamilyAnchor(relatives);
   const relationshipPath = formatRelationshipPath(
     getRelationshipPath(relative, relatives, anchor),
@@ -145,7 +145,7 @@ export default function RelativeDetailsScreen() {
           {relative.birthSurname ? (
             <DetailField label="Туған тегі · Birth surname" value={relative.birthSurname} />
           ) : null}
-          <DetailField label="Туған күні · Дата рождения" value={formatBirthdayKzRu(relative.birthday)} />
+          <DetailField label="Туған күні · Дата рождения" value={formatBirthdayKzRu(relative)} />
           <DetailField
             label="Жасы · Возраст"
             value={age !== null ? getAgeLabel(age) : '—'}
@@ -180,6 +180,14 @@ export default function RelativeDetailsScreen() {
               multiline
             />
           ) : null}
+        </Card>
+
+        <Card goldBorder style={styles.detailsCard}>
+          <Text style={styles.shezhireSectionTitle}>Шежіре деректері · Shezhire</Text>
+          <DetailField label="Жүз · Zhuz" value={relative.zhuz || '—'} />
+          <DetailField label="Ру · Ru" value={relative.ru || '—'} />
+          <DetailField label="Ата тегі · Ata line" value={relative.ataLine || '—'} />
+          <DetailField label="Тармақ · Branch" value={relative.tribeBranch || '—'} />
         </Card>
 
         <View style={styles.actionsGrid}>
@@ -265,6 +273,12 @@ const styles = StyleSheet.create({
   detailsCard: {
     gap: 0,
     ...Shadow.soft,
+  },
+  shezhireSectionTitle: {
+    ...Typography.bodySmall,
+    color: Palette.greenDeep,
+    fontWeight: '700',
+    marginBottom: Spacing.sm,
   },
   actionsGrid: {
     gap: Spacing.sm,

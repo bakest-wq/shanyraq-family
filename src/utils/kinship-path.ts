@@ -1,16 +1,10 @@
 import { Relative } from '@/types/relative';
 import { getRelativeDisplayName } from '@/utils/relative-names';
+import { RELATIONSHIP_PRESET_RU } from '@/utils/relationship-presets';
 
 const PRESET_RU: Record<string, string> = {
-  Мен: 'Я',
-  Ата: 'Дедушка',
-  Апа: 'Бабушка',
-  Әке: 'Отец',
-  Ана: 'Мать',
-  Аға: 'Старший брат',
-  Әпке: 'Сестра',
-  Бала: 'Ребёнок',
-  Немере: 'Внук',
+  ...RELATIONSHIP_PRESET_RU,
+  Я: 'Я',
 };
 
 export type KinshipLabel = {

@@ -21,9 +21,9 @@ type RelativeListCardProps = {
 export function RelativeListCard({ relative, highlighted = false }: RelativeListCardProps) {
   const router = useRouter();
   const highlightAnim = useRef(new Animated.Value(0)).current;
-  const age = calculateAge(relative.birthday);
+  const age = calculateAge(relative);
   const upcomingLabel =
-    !relative.isDeceased ? getUpcomingBirthdayLabel(relative.birthday) : null;
+    !relative.isDeceased ? getUpcomingBirthdayLabel(relative) : null;
 
   useEffect(() => {
     if (!highlighted) {
@@ -112,7 +112,7 @@ export function RelativeListCard({ relative, highlighted = false }: RelativeList
         <View style={styles.info}>
           <Text style={styles.relationship}>{relative.relationship}</Text>
           <Text style={styles.name}>{relative.fullName}</Text>
-          <Text style={styles.birthday}>{formatBirthdayKzRu(relative.birthday)}</Text>
+          <Text style={styles.birthday}>{formatBirthdayKzRu(relative)}</Text>
           {age !== null ? <Text style={styles.age}>{getAgeLabel(age)}</Text> : null}
         </View>
       </View>
