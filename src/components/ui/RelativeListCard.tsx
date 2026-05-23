@@ -1,5 +1,6 @@
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { Alert, Animated, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Relative } from '@/types/relative';
 import {
@@ -14,13 +15,51 @@ import { AvatarPlaceholder } from './RelativeCard';
 
 type RelativeListCardProps = {
   relative: Relative;
+  highlighted?: boolean;
 };
 
-export function RelativeListCard({ relative }: RelativeListCardProps) {
+export function RelativeListCard({ relative, highlighted = false }: RelativeListCardProps) {
   const router = useRouter();
+  const highlightAnim = useRef(new Animated.Value(0)).current;
   const age = calculateAge(relative.birthday);
   const upcomingLabel =
     !relative.isDeceased ? getUpcomingBirthdayLabel(relative.birthday) : null;
+
+  useEffect(() => {
+    if (!highlighted) {
+      highlightAnim.setValue(0);
+      return;
+    }
+
+    highlightAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(highlightAnim, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: false,
+      }),
+      Animated.timing(highlightAnim, {
+        toValue: 0,
+        duration: 2200,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [highlightAnim, highlighted]);
+
+  const borderColor = highlightAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [Palette.goldLight, Palette.gold],
+  });
+
+  const backgroundColor = highlightAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [Palette.white, '#FFF9EB'],
+  });
+
+  const shadowOpacity = highlightAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.08, 0.22],
+  });
 
   const handleCall = () => {
     if (!relative.phone) {
@@ -49,7 +88,20 @@ export function RelativeListCard({ relative }: RelativeListCardProps) {
   };
 
   return (
-    <View style={[styles.card, relative.isDeceased && styles.cardDeceased]}>
+    <Animated.View
+      style={[
+        styles.card,
+        relative.isDeceased && styles.cardDeceased,
+        highlighted && {
+          borderColor,
+          backgroundColor,
+          shadowColor: Palette.gold,
+          shadowOpacity,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 4,
+        },
+      ]}>
       <View style={styles.topRow}>
         <AvatarPlaceholder
           name={relative.fullName}
@@ -113,7 +165,7 @@ export function RelativeListCard({ relative }: RelativeListCardProps) {
           <Text style={[styles.actionLabel, styles.detailsLabel]}>Подробнее</Text>
         </Pressable>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

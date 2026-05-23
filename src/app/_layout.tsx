@@ -6,14 +6,17 @@ import { ArchiveProvider } from '@/providers/ArchiveProvider';
 import { FamilyProvider } from '@/providers/FamilyProvider';
 import { NotificationsProvider } from '@/providers/NotificationsProvider';
 import { RelativesProvider } from '@/providers/RelativesProvider';
+import { ToastProvider } from '@/providers/ToastProvider';
 
 function AppProviders({ children }: { children: React.ReactNode }) {
   return (
-    <RelativesProvider>
-      <ArchiveProvider>
-        <NotificationsProvider>{children}</NotificationsProvider>
-      </ArchiveProvider>
-    </RelativesProvider>
+    <ToastProvider>
+      <RelativesProvider>
+        <ArchiveProvider>
+          <NotificationsProvider>{children}</NotificationsProvider>
+        </ArchiveProvider>
+      </RelativesProvider>
+    </ToastProvider>
   );
 }
 

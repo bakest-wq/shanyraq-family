@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, RefObject } from 'react';
 import {
   RefreshControl,
   ScrollView,
@@ -17,6 +17,7 @@ type ScreenShellProps = {
   contentStyle?: ViewStyle;
   refreshing?: boolean;
   onRefresh?: () => void;
+  scrollRef?: RefObject<ScrollView | null>;
 };
 
 export function ScreenShell({
@@ -26,11 +27,13 @@ export function ScreenShell({
   contentStyle,
   refreshing = false,
   onRefresh,
+  scrollRef,
 }: ScreenShellProps) {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       {header}
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.scrollContent, contentStyle]}
         showsVerticalScrollIndicator={false}
         refreshControl={

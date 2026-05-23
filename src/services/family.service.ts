@@ -51,6 +51,21 @@ async function persistSession(session: FamilySession): Promise<void> {
   await AsyncStorage.setItem(FAMILY_ID_KEY, session.familyId);
 }
 
+async function saveLocalFamilyAndSession(session: FamilySession): Promise<void> {
+  const storedFamily: StoredFamily = {
+    id: session.familyId,
+    name: session.familyName,
+    inviteCode: session.inviteCode,
+    ownerName: session.ownerName,
+    createdAt: new Date().toISOString(),
+  };
+
+  const families = await readLocalFamilies();
+  const withoutDuplicate = families.filter((family) => family.id !== session.familyId);
+  await writeLocalFamilies([storedFamily, ...withoutDuplicate]);
+  await persistSession(session);
+}
+
 async function syncMemberToSupabase(session: FamilySession): Promise<void> {
   if (!isSupabaseReady()) {
     return;
@@ -67,21 +82,49 @@ async function syncMemberToSupabase(session: FamilySession): Promise<void> {
   }
 }
 
-async function syncFamilyToSupabase(session: FamilySession): Promise<void> {
-  if (!isSupabaseReady()) {
-    return;
-  }
+const SUPABASE_CREATE_TIMEOUT_MS = 8000;
+
+async function createFamilyOnSupabase(
+  familyName: string,
+  ownerName: string,
+  inviteCode: string,
+): Promise<FamilySession | null> {
+  const createTask = (async () => {
+    const familyId = createUuid();
+    const remote = await familiesService.create(familyName, inviteCode, familyId);
+    await familiesService.addMember({
+      family_id: remote.id,
+      display_name: ownerName,
+      role: 'owner',
+    });
+
+    return buildSession(remote.id, remote.name, ownerName, remote.inviteCode);
+  })();
+
+  const timeoutTask = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('Supabase request timed out')), SUPABASE_CREATE_TIMEOUT_MS);
+  });
 
   try {
-    await familiesService.create(session.familyName, session.inviteCode, session.familyId);
-    await familiesService.addMember({
-      family_id: session.familyId,
-      display_name: session.ownerName,
-      role: session.role,
-    });
+    return await Promise.race([createTask, timeoutTask]);
   } catch {
-    // Local session still works; Supabase sync can be retried later.
+    return null;
   }
+}
+
+function buildSession(
+  familyId: string,
+  familyName: string,
+  ownerName: string,
+  inviteCode: string,
+): FamilySession {
+  return {
+    familyId,
+    familyName,
+    ownerName,
+    inviteCode,
+    role: 'owner',
+  };
 }
 
 export const familyService = {
@@ -106,28 +149,21 @@ export const familyService = {
   },
 
   async createFamily(input: CreateFamilyInput): Promise<FamilySession> {
-    const familyId = createUuid();
+    const familyName = input.familyName.trim();
+    const ownerName = input.ownerName.trim();
     const inviteCode = generateInviteCode();
-    const session: FamilySession = {
-      familyId,
-      familyName: input.familyName.trim(),
-      ownerName: input.ownerName.trim(),
-      inviteCode,
-      role: 'owner',
-    };
 
-    const storedFamily: StoredFamily = {
-      id: familyId,
-      name: session.familyName,
-      inviteCode,
-      ownerName: session.ownerName,
-      createdAt: new Date().toISOString(),
-    };
+    if (isSupabaseReady()) {
+      const remoteSession = await createFamilyOnSupabase(familyName, ownerName, inviteCode);
 
-    const families = await readLocalFamilies();
-    await writeLocalFamilies([storedFamily, ...families]);
-    await persistSession(session);
-    await syncFamilyToSupabase(session);
+      if (remoteSession) {
+        await saveLocalFamilyAndSession(remoteSession);
+        return remoteSession;
+      }
+    }
+
+    const session = buildSession(createUuid(), familyName, ownerName, inviteCode);
+    await saveLocalFamilyAndSession(session);
     return session;
   },
 

@@ -60,7 +60,7 @@ export function useCreateRelative() {
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Не удалось сохранить родственника.';
         setError(message);
-        return null;
+        throw new Error(message);
       } finally {
         setSaving(false);
       }

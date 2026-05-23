@@ -1,7 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,14 +14,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RelativeFormFields } from '@/components/relatives/RelativeFormFields';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useCreateRelative, useRelatives } from '@/hooks/useRelatives';
+import { useToast } from '@/hooks/useToast';
 import { CreateRelativeInput } from '@/types/relative';
-import { getRelativeDisplayName } from '@/utils/relative-names';
 import { EMPTY_RELATIVE_FORM } from '@/utils/relative-form';
 import { hasFormErrors, prepareRelativeInput, validateRelativeForm } from '@/utils/validation';
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function AddRelativeScreen() {
   const router = useRouter();
+  const { showToast } = useToast();
   const { createRelative, saving, error: saveError } = useCreateRelative();
   const { relatives } = useRelatives();
   const [form, setForm] = useState<CreateRelativeInput>(EMPTY_RELATIVE_FORM);
@@ -37,6 +37,10 @@ export default function AddRelativeScreen() {
   };
 
   const handleSubmit = async () => {
+    if (saving) {
+      return;
+    }
+
     const prepared = prepareRelativeInput(form);
     const nextErrors = validateRelativeForm(prepared);
     setErrors(nextErrors);
@@ -45,19 +49,34 @@ export default function AddRelativeScreen() {
       return;
     }
 
-    const created = await createRelative(prepared);
+    try {
+      const created = await createRelative(prepared);
 
-    if (created) {
-      Alert.alert(
-        'Сәтті сақталды!',
-        `${getRelativeDisplayName(created)} отбасыңызға қосылды.\n\nУспешно добавлен в семью.`,
-        [
-          {
-            text: 'Жарайды',
-            onPress: () => router.replace('/relatives'),
-          },
-        ],
-      );
+      if (!created) {
+        throw new Error(saveError ?? 'Не удалось сохранить родственника.');
+      }
+
+      setForm(EMPTY_RELATIVE_FORM);
+      setErrors({});
+
+      showToast({
+        type: 'success',
+        title: 'Туыс сәтті қосылды 🌿',
+        message: 'Родственник успешно добавлен',
+      });
+
+      router.replace({
+        pathname: '/(tabs)/relatives',
+        params: { highlightId: created.id },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Не удалось сохранить родственника.';
+
+      showToast({
+        type: 'error',
+        title: 'Қате · Ошибка',
+        message,
+      });
     }
   };
 
@@ -88,10 +107,10 @@ export default function AddRelativeScreen() {
 
           <View style={styles.saveWrap}>
             <PrimaryButton
-              label={saving ? 'Сохранение...' : 'Сохранить'}
+              label={saving ? 'Сақталуда...' : 'Сохранить'}
               sublabel="Отбасыға қосу · Save to family"
               variant="green"
-              onPress={saving ? undefined : handleSubmit}
+              onPress={saving ? undefined : () => void handleSubmit()}
             />
           </View>
         </ScrollView>

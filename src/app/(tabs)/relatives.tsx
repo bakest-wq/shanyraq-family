@@ -1,6 +1,6 @@
-import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/ui/AppHeader';
 import { EmptyState, ErrorState } from '@/components/ui/EmptyState';
@@ -21,15 +21,69 @@ import { Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function RelativesScreen() {
   const router = useRouter();
+  const { highlightId } = useLocalSearchParams<{ highlightId?: string | string[] }>();
+  const resolvedHighlightId = Array.isArray(highlightId) ? highlightId[0] : highlightId;
   const { relatives, loading, error, isEmpty, refetch } = useRelatives();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<RelativeFilter>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const listOffsetRef = useRef(0);
+  const itemOffsetsRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!resolvedHighlightId) {
+      return;
+    }
+
+    setSearchQuery('');
+    setActiveFilter('all');
+  }, [resolvedHighlightId]);
 
   const filteredRelatives = useMemo(
     () => filterRelatives(relatives, searchQuery, activeFilter),
     [relatives, searchQuery, activeFilter],
   );
+
+  const scrollToHighlightedRelative = useCallback(() => {
+    if (!resolvedHighlightId || loading) {
+      return;
+    }
+
+    const itemY = itemOffsetsRef.current[resolvedHighlightId];
+    if (itemY === undefined) {
+      return;
+    }
+
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, listOffsetRef.current + itemY - Spacing.lg),
+      animated: true,
+    });
+  }, [loading, resolvedHighlightId]);
+
+  useEffect(() => {
+    if (!resolvedHighlightId || loading) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      scrollToHighlightedRelative();
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [loading, resolvedHighlightId, filteredRelatives.length, scrollToHighlightedRelative]);
+
+  useEffect(() => {
+    if (!resolvedHighlightId) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      router.setParams({ highlightId: '' });
+    }, 3200);
+
+    return () => clearTimeout(timer);
+  }, [resolvedHighlightId, router]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -41,6 +95,7 @@ export default function RelativesScreen() {
 
   return (
     <ScreenShell
+      scrollRef={scrollRef}
       refreshing={refreshing}
       onRefresh={() => void handleRefresh()}
       header={
@@ -95,9 +150,22 @@ export default function RelativesScreen() {
               />
             </View>
           ) : (
-            <View style={styles.list}>
+            <View
+              style={styles.list}
+              onLayout={(event) => {
+                listOffsetRef.current = event.nativeEvent.layout.y;
+              }}>
               {filteredRelatives.map((relative) => (
-                <RelativeListCard key={relative.id} relative={relative} />
+                <View
+                  key={relative.id}
+                  onLayout={(event) => {
+                    itemOffsetsRef.current[relative.id] = event.nativeEvent.layout.y;
+                  }}>
+                  <RelativeListCard
+                    relative={relative}
+                    highlighted={relative.id === resolvedHighlightId}
+                  />
+                </View>
               ))}
             </View>
           )}

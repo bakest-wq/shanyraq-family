@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FormField } from '@/components/ui/FormField';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useFamily } from '@/hooks/useFamily';
+import { formatInviteCodeDisplay } from '@/utils/family-invite';
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function CreateFamilyScreen() {
@@ -25,7 +26,20 @@ export default function CreateFamilyScreen() {
   const [errors, setErrors] = useState<{ familyName?: string; ownerName?: string }>({});
   const [saving, setSaving] = useState(false);
 
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/');
+  };
+
   const handleCreate = async () => {
+    if (saving) {
+      return;
+    }
+
     const nextErrors: { familyName?: string; ownerName?: string } = {};
 
     if (!familyName.trim()) {
@@ -50,14 +64,15 @@ export default function CreateFamilyScreen() {
         ownerName: ownerName.trim(),
       });
 
+      router.replace('/(tabs)');
+
       Alert.alert(
         'Отбасы құрылды!',
-        `${session.familyName} — семья создана.\n\nКод приглашения: ${session.inviteCode}`,
-        [{ text: 'Кіріу', onPress: () => router.replace('/(tabs)') }],
+        `${session.familyName} — семья создана.\n\nКод приглашения: ${formatInviteCodeDisplay(session.inviteCode)}`,
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Не удалось создать семью.';
-      Alert.alert('Қате', message);
+      Alert.alert('Қате · Ошибка', message);
     } finally {
       setSaving(false);
     }
@@ -69,7 +84,7 @@ export default function CreateFamilyScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable onPress={handleBack} style={styles.backButton}>
             <Text style={styles.backText}>← Артқа</Text>
           </Pressable>
           <Text style={styles.title}>Создать семью</Text>
@@ -106,7 +121,7 @@ export default function CreateFamilyScreen() {
           />
 
           <PrimaryButton
-            label={saving ? 'Создание...' : 'Создать семью'}
+            label={saving ? 'Создаём...' : 'Создать семью'}
             sublabel="Локально · AsyncStorage"
             variant="green"
             onPress={saving ? undefined : () => void handleCreate()}
