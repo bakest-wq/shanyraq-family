@@ -1,4 +1,5 @@
 import type { Relative } from '@/types/relative';
+import { isCoreFamilyRelation } from '@/utils/core-family-relation';
 import { relativeLinkIdsMatch } from '@/utils/family-link-picker';
 import { getShezhireSiblingIds } from '@/utils/focused-family-tree';
 import {
@@ -7,7 +8,7 @@ import {
   sharesExactParentsWith,
   type ParentSideKind,
 } from '@/utils/parent-side-quality';
-import { getRelativeDisplayName } from '@/utils/relative-names';
+import { sortRelativesBySmartPriority } from '@/services/relative-priority-sort';
 
 export type { ParentSideKind } from '@/utils/parent-side-quality';
 
@@ -30,12 +31,12 @@ export type ParentSideRelativesTree = {
   motherSide: ParentSideBranch;
 };
 
-function compareRelativesByName(left: Relative, right: Relative): number {
-  return getRelativeDisplayName(left).localeCompare(getRelativeDisplayName(right), 'ru');
-}
-
-function sortRelatives(relatives: Relative[]): Relative[] {
-  return [...relatives].sort(compareRelativesByName);
+function sortRelatives(
+  rootPerson: Relative,
+  relatives: Relative[],
+  allRelatives: Relative[],
+): Relative[] {
+  return sortRelativesBySmartPriority(rootPerson, relatives, { allRelatives });
 }
 
 function isLiving(relative: Relative): boolean {
@@ -55,6 +56,7 @@ function findParentSiblings(
   grandparents: { fatherId: string; motherId: string },
 ): Relative[] {
   return sortRelatives(
+    rootPerson,
     relatives.filter((relative) => {
       if (!isLiving(relative)) {
         return false;
@@ -74,17 +76,24 @@ function findParentSiblings(
 
       return sharesExactParentsWith(relative, parent, grandparents);
     }),
+    relatives,
   );
 }
 
-function findChildrenOf(relative: Relative, relatives: Relative[]): Relative[] {
+function findChildrenOf(
+  rootPerson: Relative,
+  relative: Relative,
+  relatives: Relative[],
+): Relative[] {
   return sortRelatives(
+    rootPerson,
     relatives.filter(
       (child) =>
         isLiving(child) &&
         (relativeLinkIdsMatch(child.fatherId, relative.id) ||
           relativeLinkIdsMatch(child.motherId, relative.id)),
     ),
+    relatives,
   );
 }
 
@@ -107,7 +116,11 @@ function buildBranchEntries(
 
   return siblings.map((person) => ({
     person,
-    children: findChildrenOf(person, relatives).filter((child) => !isExcluded(child, excludeIds)),
+    children: findChildrenOf(rootPerson, person, relatives).filter(
+      (child) =>
+        !isExcluded(child, excludeIds) &&
+        !isCoreFamilyRelation(rootPerson, child, relatives),
+    ),
   }));
 }
 

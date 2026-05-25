@@ -33,7 +33,7 @@ export function RelativeCard({ relative, showActions = true }: RelativeCardProps
           {age !== null ? <Text style={styles.age}>{getAgeLabel(age)}</Text> : null}
         </View>
       </View>
-      {showActions && relative.phone ? (
+      {showActions && !relative.isDeceased ? (
         <ContactButtons phone={relative.phone} name={relative.fullName} />
       ) : null}
     </View>

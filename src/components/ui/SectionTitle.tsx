@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Palette, Spacing, Typography } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/useElderMode';
 
 type SectionTitleProps = {
   title: string;
@@ -9,32 +10,38 @@ type SectionTitleProps = {
 };
 
 export function SectionTitle({ title, subtitle, light = false }: SectionTitleProps) {
+  const theme = useAppTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   return (
     <View style={styles.container}>
       <Text style={[styles.title, light && styles.titleLight]}>{title}</Text>
-      {subtitle ? (
+      {subtitle && !theme.elderMode ? (
         <Text style={[styles.subtitle, light && styles.subtitleLight]}>{subtitle}</Text>
       ) : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: Spacing.xs,
-  },
-  title: {
-    ...Typography.subtitle,
-    color: Palette.textPrimary,
-  },
-  titleLight: {
-    color: Palette.cream,
-  },
-  subtitle: {
-    ...Typography.bodySmall,
-    color: Palette.textSecondary,
-  },
-  subtitleLight: {
-    color: Palette.goldLight,
-  },
-});
+function createStyles(theme: ReturnType<typeof useAppTheme>) {
+  return StyleSheet.create({
+    container: {
+      gap: theme.spacing.xs,
+    },
+    title: {
+      ...theme.typography.subtitle,
+      color: theme.palette.textPrimary,
+      fontWeight: '800',
+    },
+    titleLight: {
+      color: theme.palette.cream,
+    },
+    subtitle: {
+      ...theme.typography.bodySmall,
+      color: theme.palette.textSecondary,
+    },
+    subtitleLight: {
+      color: theme.palette.goldLight,
+    },
+  });
+}

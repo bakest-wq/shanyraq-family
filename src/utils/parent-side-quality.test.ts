@@ -74,6 +74,24 @@ test('evaluateParentSideGuard is ready with complete parent chain', () => {
   }
 });
 
+test('evaluateParentSideGuard uses fresh parent from relatives when tree hint is stale', () => {
+  const grandfather = mockRelative('gf', 'Grandfather', { gender: 'male' });
+  const grandmother = mockRelative('gm', 'Grandmother', { gender: 'female' });
+  const fatherFresh = mockRelative('f', 'Father', {
+    gender: 'male',
+    fatherId: 'gf',
+    motherId: 'gm',
+  });
+  const fatherStale = mockRelative('f', 'Father', { gender: 'male' });
+  const root = mockRelative('root', 'Root', { gender: 'male', fatherId: 'f' });
+  const guard = evaluateParentSideGuard('father', root, [grandfather, grandmother, fatherFresh, root], fatherStale);
+
+  assert.equal(guard.state, 'ready');
+  if (guard.state === 'ready') {
+    assert.deepEqual(guard.grandparents, { fatherId: 'gf', motherId: 'gm' });
+  }
+});
+
 test('sharesExactParentsWith requires both parents and does not guess half siblings', () => {
   const parent = mockRelative('f', 'Father', {
     gender: 'male',

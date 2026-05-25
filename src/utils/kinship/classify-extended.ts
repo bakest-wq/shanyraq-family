@@ -2,9 +2,15 @@ import type { Relative } from '@/types/relative';
 import { relativeLinkIdsMatch } from '@/utils/family-link-picker';
 import { getRelativeDisplayName } from '@/utils/relative-names';
 import {
+  resolveDaughterChildKinship,
+  resolveRootSiblingKinship,
+  resolveSiblingChildKinship,
+} from '@/services/kinship/age-aware-kinship';
+import {
   buildKinshipResult,
   NAGASHY_SIBLING_AGE_MAP,
   PATERNAL_SIBLING_AGE_MAP,
+  ROOT_SIBLING_AGE_MAP,
   resolveSiblingAgeType,
   siblingStepLabel,
 } from '@/utils/kinship/classify-helpers';
@@ -46,6 +52,31 @@ function classifyGenerations(
   return null;
 }
 
+function classifyDaughterChildZhien(
+  rootPerson: Relative,
+  targetPerson: Relative,
+  relatives: Relative[],
+): KinshipResult | null {
+  for (const child of getChildren(rootPerson, relatives)) {
+    if (!isFemale(child) || !isChildOf(targetPerson, child, relatives)) {
+      continue;
+    }
+
+    const childKinship = resolveDaughterChildKinship();
+
+    return buildKinshipResult(childKinship.type, {
+      uncertain: childKinship.uncertain,
+      missingGenderHint: childKinship.missingGenderHint,
+      pathSteps: [
+        { person: child, stepLabel: 'қызы' },
+        { person: targetPerson, stepLabel: 'ұлы/қызы' },
+      ],
+    });
+  }
+
+  return null;
+}
+
 function classifyZhien(
   rootPerson: Relative,
   targetPerson: Relative,
@@ -56,19 +87,18 @@ function classifyZhien(
       continue;
     }
 
-    const siblingKinship = resolveSiblingAgeType(rootPerson, sibling, {
-      olderMale: 'aga',
-      youngerMale: 'ini',
-      olderFemale: 'apke',
-      youngerFemale: 'singli',
-      neutral: 'sibling_neutral',
-    });
+    const siblingKinship = resolveRootSiblingKinship(rootPerson, sibling);
+    const childKinship = resolveSiblingChildKinship(rootPerson, sibling);
 
-    return buildKinshipResult('zhien', {
+    return buildKinshipResult(childKinship.type, {
+      uncertain: childKinship.uncertain,
+      missingGenderHint: childKinship.missingGenderHint,
       pathSteps: [
         {
           person: sibling,
-          stepLabel: siblingStepLabel(siblingKinship.type),
+          stepLabel:
+            siblingKinship.labelOverride?.kazakh.toLowerCase()
+            ?? siblingStepLabel(siblingKinship.type),
         },
         { person: targetPerson, stepLabel: 'ұлы/қызы' },
       ],
@@ -131,24 +161,6 @@ function classifyNagashySide(
   const mother = getMother(rootPerson, relatives);
   if (!mother) {
     return null;
-  }
-
-  if (relativeLinkIdsMatch(targetPerson.id, mother.fatherId)) {
-    return buildKinshipResult('nagashy_ata', {
-      pathSteps: [
-        { person: mother, stepLabel: 'ана' },
-        { person: targetPerson, stepLabel: 'нағашы ата' },
-      ],
-    });
-  }
-
-  if (relativeLinkIdsMatch(targetPerson.id, mother.motherId)) {
-    return buildKinshipResult('nagashy_aje', {
-      pathSteps: [
-        { person: mother, stepLabel: 'ана' },
-        { person: targetPerson, stepLabel: 'нағашы әже' },
-      ],
-    });
   }
 
   const motherSibling = getSiblings(mother, relatives).find((person) =>
@@ -254,6 +266,60 @@ function classifyKuda(
   targetPerson: Relative,
   relatives: Relative[],
 ): KinshipResult | null {
+  for (const sibling of getSiblings(rootPerson, relatives)) {
+    const siblingSpouse = getEffectiveSpouse(sibling, relatives);
+    if (!siblingSpouse) {
+      continue;
+    }
+
+    const siblingKinship = resolveSiblingAgeType(rootPerson, sibling, ROOT_SIBLING_AGE_MAP);
+    const siblingLabel = siblingStepLabel(siblingKinship.type);
+
+    if (relativeLinkIdsMatch(targetPerson.id, siblingSpouse.fatherId)) {
+      if (isMale(targetPerson)) {
+        return buildKinshipResult('kuda', {
+          pathSteps: [
+            { person: sibling, stepLabel: siblingLabel },
+            { person: siblingSpouse, stepLabel: 'жұбайы' },
+            { person: targetPerson, stepLabel: 'құда' },
+          ],
+        });
+      }
+
+      return buildKinshipResult('kuda_neutral', {
+        uncertain: true,
+        confidenceHint: 'Құдалық байланыс',
+        pathSteps: [
+          { person: sibling, stepLabel: siblingLabel },
+          { person: siblingSpouse, stepLabel: 'жұбайы' },
+          { person: targetPerson, stepLabel: 'құдалық туыс' },
+        ],
+      });
+    }
+
+    if (relativeLinkIdsMatch(targetPerson.id, siblingSpouse.motherId)) {
+      if (isFemale(targetPerson)) {
+        return buildKinshipResult('kudagi', {
+          pathSteps: [
+            { person: sibling, stepLabel: siblingLabel },
+            { person: siblingSpouse, stepLabel: 'жұбайы' },
+            { person: targetPerson, stepLabel: 'құдағи' },
+          ],
+        });
+      }
+
+      return buildKinshipResult('kuda_neutral', {
+        uncertain: true,
+        confidenceHint: 'Құдалық байланыс',
+        pathSteps: [
+          { person: sibling, stepLabel: siblingLabel },
+          { person: siblingSpouse, stepLabel: 'жұбайы' },
+          { person: targetPerson, stepLabel: 'құдалық туыс' },
+        ],
+      });
+    }
+  }
+
   for (const child of getChildren(rootPerson, relatives)) {
     const childSpouse = getEffectiveSpouse(child, relatives);
     if (!childSpouse) {
@@ -395,8 +461,9 @@ export function classifyExtendedKinship(
   relatives: Relative[],
 ): KinshipResult | null {
   return (
-    classifyGenerations(rootPerson, targetPerson, relatives) ??
+    classifyDaughterChildZhien(rootPerson, targetPerson, relatives) ??
     classifyZhien(rootPerson, targetPerson, relatives) ??
+    classifyGenerations(rootPerson, targetPerson, relatives) ??
     classifyNagashySide(rootPerson, targetPerson, relatives) ??
     classifyPaternalSide(rootPerson, targetPerson, relatives) ??
     classifyBole(rootPerson, targetPerson, relatives) ??

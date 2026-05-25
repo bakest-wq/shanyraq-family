@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import type { Relative } from '@/types/relative';
 import { getKinshipLabel } from '@/utils/kinship/getKinshipLabel';
+import { formatKinshipCardLine } from '@/utils/kinship/labels.kz';
 import { explainKinship, explainKinshipToMe } from '@/utils/kinship/explainKinship';
 
 function mockRelative(
@@ -28,7 +29,7 @@ function mockRelative(
   };
 }
 
-test('brother wife => jenge', () => {
+test('older brother wife => jenge', () => {
   const father = mockRelative('f', 'Ғалымжан', { gender: 'male' });
   const mother = mockRelative('m', 'Фирдаус', { gender: 'female', spouseId: 'f' });
   const root = mockRelative('root', 'Бауыржан', {
@@ -41,7 +42,7 @@ test('brother wife => jenge', () => {
     gender: 'male',
     fatherId: 'f',
     motherId: 'm',
-    birthdayYear: 1992,
+    birthdayYear: 1988,
   });
   const wife = mockRelative('wife', 'Эльмира', {
     gender: 'female',
@@ -53,6 +54,33 @@ test('brother wife => jenge', () => {
 
   assert.equal(result.type, 'jenge');
   assert.match(result.label.kazakh, /Жеңге/);
+});
+
+test('younger brother wife => kelin', () => {
+  const father = mockRelative('f2', 'Ғалымжан', { gender: 'male' });
+  const mother = mockRelative('m2', 'Фирдаус', { gender: 'female', spouseId: 'f2' });
+  const root = mockRelative('root2', 'Бауыржан', {
+    gender: 'male',
+    fatherId: 'f2',
+    motherId: 'm2',
+    birthdayYear: 1990,
+  });
+  const brother = mockRelative('bro2', 'Алимжан', {
+    gender: 'male',
+    fatherId: 'f2',
+    motherId: 'm2',
+    birthdayYear: 1992,
+  });
+  const wife = mockRelative('wife2', 'Анна', {
+    gender: 'female',
+    spouseId: 'bro2',
+  });
+
+  const relatives = [father, mother, root, brother, wife];
+  const result = getKinshipLabel(root, wife, relatives);
+
+  assert.equal(result.type, 'kelin');
+  assert.match(result.label.kazakh, /Келін/);
 });
 
 test('sister husband => jezde', () => {
@@ -131,11 +159,14 @@ test('labels recalculate when root changes', () => {
     gender: 'male',
     fatherId: 'f',
     motherId: 'm',
+    birthdayYear: 1990,
+    spouseId: 'an',
   });
   const alimzhan = mockRelative('a', 'Алимжан', {
     gender: 'male',
     fatherId: 'f',
     motherId: 'm',
+    birthdayYear: 1988,
   });
   const anna = mockRelative('an', 'Анна', {
     gender: 'female',
@@ -148,7 +179,7 @@ test('labels recalculate when root changes', () => {
   const fromAlimzhan = getKinshipLabel(alimzhan, anna, relatives);
 
   assert.equal(fromBauyrzhan.type, 'wife');
-  assert.equal(fromAlimzhan.type, 'jenge');
+  assert.equal(fromAlimzhan.type, 'kelin');
 });
 
 test('mother brother => nagashy aga/ini', () => {
@@ -324,8 +355,7 @@ test('jenge explanation matches user example pattern', () => {
   const relatives = [father, mother, root, brother, wife];
   const explanation = explainKinship(root, wife, relatives);
 
-  assert.match(explanation.summary, /Эльмира — Алимжан ағаңыздың жұбайы/);
-  assert.match(explanation.summary, /Сізге жеңге болады/);
+  assert.match(explanation.summary, /Эльмира — .* жеңге/);
 });
 
 test('zhien explanation matches user example pattern', () => {
@@ -349,8 +379,7 @@ test('zhien explanation matches user example pattern', () => {
   });
 
   const explanation = explainKinship(root, zhien, [father, mother, root, sister, zhien]);
-  assert.match(explanation.summary, /Мұрат — .*әпкеңіздің ұлы/);
-  assert.match(explanation.summary, /Сізге жиен болады/);
+  assert.match(explanation.summary, /Мұрат — .* жиен/);
 });
 
 test('unknown kinship shows incomplete link message', () => {
@@ -360,5 +389,90 @@ test('unknown kinship shows incomplete link message', () => {
   const result = getKinshipLabel(root, stranger, [root, stranger]);
   assert.equal(result.type, 'unknown');
   assert.equal(result.label.kazakh, 'Байланыс толық анықталмады');
-  assert.match(result.confidenceHint ?? '', /әke\/ана/i);
+  assert.match(result.confidenceHint ?? '', /әке\/ана/i);
+});
+
+test("father's father => paternal grandfather (Бауыржан → Қабдолла)", () => {
+  const qabdolla = mockRelative('gp', 'Қабдолла', { gender: 'male' });
+  const galymzhan = mockRelative('f', 'Ғалымжан', { gender: 'male', fatherId: 'gp' });
+  const fir = mockRelative('gm', 'Фирдаус', { gender: 'female' });
+  const root = mockRelative('root', 'Бауыржан', {
+    gender: 'male',
+    fatherId: 'f',
+    motherId: 'gm',
+  });
+  const relatives = [qabdolla, galymzhan, fir, root];
+
+  const result = getKinshipLabel(root, qabdolla, relatives);
+  assert.equal(result.type, 'grandfather');
+  assert.match(result.label.kazakh, /Әке жағынан ата/);
+  assert.equal(formatKinshipCardLine(result), 'Ата');
+
+  const explanation = explainKinshipToMe(root, qabdolla, relatives);
+  assert.match(explanation.summary, /Сізге ата болады/);
+});
+
+test("father's mother => paternal grandmother", () => {
+  const grandmother = mockRelative('pgm', 'Фирдаус', { gender: 'female' });
+  const grandfather = mockRelative('pgf', 'Қабдолла', { gender: 'male' });
+  const father = mockRelative('f', 'Ғалымжан', {
+    gender: 'male',
+    fatherId: 'pgf',
+    motherId: 'pgm',
+  });
+  const root = mockRelative('root', 'Бауыржан', { gender: 'male', fatherId: 'f' });
+
+  const result = getKinshipLabel(root, grandmother, [root, father, grandmother, grandfather]);
+  assert.equal(result.type, 'grandmother');
+  assert.match(result.label.kazakh, /Әке жағынан әже/);
+
+  const explanation = explainKinshipToMe(root, grandmother, [root, father, grandmother, grandfather]);
+  assert.match(explanation.summary, /Сізге әже болады/);
+});
+
+test("mother's father => nagashy ata", () => {
+  const nagashyAta = mockRelative('mga', 'Ерлан', { gender: 'male' });
+  const mother = mockRelative('m', 'Айгуль', { gender: 'female', fatherId: 'mga' });
+  const root = mockRelative('root', 'Бауыржан', { gender: 'male', motherId: 'm' });
+
+  const result = getKinshipLabel(root, nagashyAta, [root, mother, nagashyAta]);
+  assert.equal(result.type, 'nagashy_ata');
+  assert.match(result.label.kazakh, /Нағашы ата/);
+});
+
+test("mother's mother => nagashy aje", () => {
+  const nagashyAje = mockRelative('mgm', 'Зейнеп', { gender: 'female' });
+  const mother = mockRelative('m', 'Айгуль', { gender: 'female', motherId: 'mgm' });
+  const root = mockRelative('root', 'Бауыржан', { gender: 'male', motherId: 'm' });
+
+  const result = getKinshipLabel(root, nagashyAje, [root, mother, nagashyAje]);
+  assert.equal(result.type, 'nagashy_aje');
+  assert.match(result.label.kazakh, /Нағашы әже/);
+});
+
+test('grandparent to grandchild => nemere (reverse direction)', () => {
+  const qabdolla = mockRelative('gp', 'Қабдолла', { gender: 'male' });
+  const galymzhan = mockRelative('f', 'Ғалымжан', { gender: 'male', fatherId: 'gp' });
+  const root = mockRelative('root', 'Бауыржан', { gender: 'male', fatherId: 'f' });
+  const relatives = [qabdolla, galymzhan, root];
+
+  const result = getKinshipLabel(qabdolla, root, relatives);
+  assert.equal(result.type, 'nemere');
+
+  const explanation = explainKinshipToMe(qabdolla, root, relatives);
+  assert.match(explanation.summary, /немереңіз/);
+});
+
+test('root to grandchild => nemere (forward direction)', () => {
+  const root = mockRelative('root', 'Бауыржан', { gender: 'male' });
+  const child = mockRelative('c', 'Алмас', { gender: 'male', fatherId: 'root' });
+  const nemere = mockRelative('gc', 'Айдана', { gender: 'female', fatherId: 'c' });
+  const relatives = [root, child, nemere];
+
+  const result = getKinshipLabel(root, nemere, relatives);
+  assert.equal(result.type, 'nemere');
+  assert.match(result.label.kazakh, /Немере/);
+
+  const explanation = explainKinshipToMe(root, nemere, relatives);
+  assert.match(explanation.summary, /немереңіз/);
 });

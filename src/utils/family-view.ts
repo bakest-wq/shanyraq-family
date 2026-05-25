@@ -6,8 +6,9 @@ export function parseFamilyView(value?: string | string[]): FamilyView {
 }
 
 export function familyViewHref(view: FamilyView = 'list') {
-  return {
-    pathname: '/(tabs)/relatives' as const,
-    params: view === 'tree' ? { view: 'tree' as const } : {},
-  };
+  if (view === 'tree') {
+    return '/(tabs)/shezhire' as const;
+  }
+
+  return '/(tabs)/relatives' as const;
 }

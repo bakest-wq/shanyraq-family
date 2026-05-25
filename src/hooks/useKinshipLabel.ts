@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 
+import { useKinshipAnchor } from '@/hooks/useKinshipAnchor';
 import { useRelatives } from '@/hooks/useRelatives';
-import { useUserIdentity } from '@/hooks/useUserIdentity';
 import { Relative } from '@/types/relative';
-import { getKinshipCardLine } from '@/utils/kinship/getKinshipLabel';
+import { ROOT_PERSON_LABEL } from '@/services/kinship/kinship-labels';
+import { getKinshipCardLine } from '@/services/kinship.service';
 
 export function useKinshipCardLine(
   rootPerson: Relative | null | undefined,
@@ -16,7 +17,7 @@ export function useKinshipCardLine(
     }
 
     if (rootPerson.id === targetPerson.id) {
-      return 'Орталық тұлға';
+      return ROOT_PERSON_LABEL;
     }
 
     return getKinshipCardLine(rootPerson, targetPerson, relatives);
@@ -25,9 +26,9 @@ export function useKinshipCardLine(
 
 export function useMyKinshipCardLine(targetPerson: Relative | null | undefined): string | null {
   const { relatives } = useRelatives();
-  const { myRelative } = useUserIdentity();
+  const anchorPerson = useKinshipAnchor();
 
-  return useKinshipCardLine(myRelative, targetPerson, relatives);
+  return useKinshipCardLine(anchorPerson, targetPerson, relatives);
 }
 
 export function getStructuralRoleLabel(relative: Relative): string | undefined {

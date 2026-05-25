@@ -4,14 +4,18 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { FAMILY_SPACE_COPY } from '@/constants/family-space-content';
 import { useFamilyContext } from '@/providers/FamilyProvider';
 import { useRelativesContext } from '@/providers/RelativesProvider';
-import { relativesService } from '@/services/relatives.service';
+import { editHistoryService } from '@/services/edit-history.service';
+import { recordGraphVersionAfterMutation } from '@/hooks/useGraphVersions';
+import { relativesService, RelationshipSafetyBlockedError } from '@/services/relatives.service';
 import {
   assessSafeDelete,
   DeleteBlockedError,
 } from '@/services/graph-integrity.service';
 import { CreateRelativeInput, ConnectParentsInput, Relative } from '@/types/relative';
+import { resolveEditActor } from '@/utils/edit-actor';
 import { findRelativeByLinkId } from '@/utils/family-link-picker';
 import { canEditFamilyData, canDeleteFamilyData } from '@/utils/family-permissions';
+import { getRelationshipSaveErrorMessage } from '@/utils/relationship-safety-validation';
 
 export function useRelatives() {
   const context = useRelativesContext();
@@ -56,7 +60,7 @@ export function useRefreshRelativesOnFocus() {
 
 export function useCreateRelative() {
   const { familyId, session } = useFamilyContext();
-  const { invalidateRelatives, upsertRelative } = useRelativesContext();
+  const { invalidateRelatives, upsertRelative, relatives } = useRelativesContext();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,17 +83,32 @@ export function useCreateRelative() {
 
         const created = await relativesService.create(input, familyId);
         upsertRelative(created);
+        const editEvent = await editHistoryService.logRelativeCreate(
+          familyId,
+          resolveEditActor(session),
+          created,
+        );
+        await recordGraphVersionAfterMutation({
+          familyId,
+          actor: resolveEditActor(session),
+          beforeRelatives: relatives,
+          summary: 'Жаңа туыс қосылды',
+          editEventId: editEvent.id,
+        });
         await invalidateRelatives({ silent: true });
         return created;
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Не удалось сохранить родственника.';
+        const message = getRelationshipSaveErrorMessage(err);
         setError(message);
+        if (err instanceof RelationshipSafetyBlockedError) {
+          throw err;
+        }
         throw new Error(message);
       } finally {
         setSaving(false);
       }
     },
-    [familyId, invalidateRelatives, session?.role, upsertRelative],
+    [familyId, invalidateRelatives, relatives, session?.role, upsertRelative],
   );
 
   return {
@@ -101,7 +120,7 @@ export function useCreateRelative() {
 
 export function useUpdateRelative(relativeId: string) {
   const { familyId, session } = useFamilyContext();
-  const { upsertRelative, invalidateRelatives } = useRelativesContext();
+  const { upsertRelative, invalidateRelatives, relatives } = useRelativesContext();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,21 +138,43 @@ export function useUpdateRelative(relativeId: string) {
           throw new Error(FAMILY_SPACE_COPY.suggestEditInstead);
         }
 
+        const beforeRelative = await relativesService.getById(relativeId, familyId);
         const updated = await relativesService.update(relativeId, input, familyId);
         if (updated) {
           upsertRelative(updated);
         }
+
+        if (beforeRelative && updated) {
+          const editEvent = await editHistoryService.logRelativeUpdate(
+            familyId,
+            resolveEditActor(session),
+            beforeRelative,
+            updated,
+          );
+          await recordGraphVersionAfterMutation({
+            familyId,
+            actor: resolveEditActor(session),
+            beforeRelatives: relatives,
+            editEventId: editEvent.id,
+          });
+        }
+
         await invalidateRelatives({ silent: true });
+        console.log('SAVE SUCCESS');
+        console.log('KINSHIP RECALCULATED');
         return updated;
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Не удалось обновить родственника.';
+        const message = getRelationshipSaveErrorMessage(err);
         setError(message);
-        return null;
+        if (err instanceof RelationshipSafetyBlockedError) {
+          throw err;
+        }
+        throw new Error(message);
       } finally {
         setSaving(false);
       }
     },
-    [familyId, invalidateRelatives, relativeId, session?.role, upsertRelative],
+    [familyId, invalidateRelatives, relativeId, relatives, session?.role, upsertRelative],
   );
 
   return {
@@ -145,7 +186,7 @@ export function useUpdateRelative(relativeId: string) {
 
 export function useConnectParents(relativeId: string) {
   const { familyId, session } = useFamilyContext();
-  const { invalidateRelatives, upsertRelative } = useRelativesContext();
+  const { invalidateRelatives, upsertRelative, relatives } = useRelativesContext();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -163,10 +204,27 @@ export function useConnectParents(relativeId: string) {
           throw new Error(FAMILY_SPACE_COPY.suggestEditInstead);
         }
 
+        const beforeRelative = await relativesService.getById(relativeId, familyId);
         const updated = await relativesService.connectParents(relativeId, input, familyId);
         if (updated) {
           upsertRelative(updated);
         }
+
+        if (beforeRelative && updated) {
+          const editEvent = await editHistoryService.logRelativeUpdate(
+            familyId,
+            resolveEditActor(session),
+            beforeRelative,
+            updated,
+          );
+          await recordGraphVersionAfterMutation({
+            familyId,
+            actor: resolveEditActor(session),
+            beforeRelatives: relatives,
+            editEventId: editEvent.id,
+          });
+        }
+
         await invalidateRelatives({ silent: true });
         return updated;
       } catch (err) {
@@ -177,7 +235,7 @@ export function useConnectParents(relativeId: string) {
         setSaving(false);
       }
     },
-    [familyId, invalidateRelatives, relativeId, session?.role, upsertRelative],
+    [familyId, invalidateRelatives, relativeId, relatives, session?.role, upsertRelative],
   );
 
   return {
@@ -190,7 +248,7 @@ export function useConnectParents(relativeId: string) {
 export function useDeleteRelative() {
   const router = useRouter();
   const { familyId, session } = useFamilyContext();
-  const { invalidateRelatives } = useRelativesContext();
+  const { invalidateRelatives, relatives } = useRelativesContext();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -208,7 +266,24 @@ export function useDeleteRelative() {
           throw new Error(FAMILY_SPACE_COPY.suggestDeleteInstead);
         }
 
+        const beforeRelative = await relativesService.getById(relativeId, familyId);
         await relativesService.delete(relativeId, familyId);
+
+        if (beforeRelative) {
+          const editEvent = await editHistoryService.logRelativeDelete(
+            familyId,
+            resolveEditActor(session),
+            beforeRelative,
+          );
+          await recordGraphVersionAfterMutation({
+            familyId,
+            actor: resolveEditActor(session),
+            beforeRelatives: relatives,
+            summary: 'Туыс жойылды',
+            editEventId: editEvent.id,
+          });
+        }
+
         await invalidateRelatives({ silent: true });
         return true;
       } catch (err) {
@@ -224,7 +299,7 @@ export function useDeleteRelative() {
         setDeleting(false);
       }
     },
-    [familyId, invalidateRelatives, session?.role],
+    [familyId, invalidateRelatives, relatives, session?.role],
   );
 
   const clearRelativeReferences = useCallback(
@@ -248,7 +323,7 @@ export function useDeleteRelative() {
     async (relativeId: string) => {
       const success = await deleteRelative(relativeId);
       if (success) {
-        router.replace('/relatives');
+        router.replace('/(tabs)/relatives');
       }
       return success;
     },

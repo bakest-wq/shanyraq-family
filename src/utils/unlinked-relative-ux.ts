@@ -1,6 +1,8 @@
 import type { Relative } from '@/types/relative';
+import { kk, FAMILY_LANGUAGE } from '@/content/family-language';
 import { relativeLinkIdsMatch } from '@/utils/family-link-picker';
 import { getEffectiveSpouse } from '@/utils/relationship-engine';
+import { isReferencedAsParent } from '@/utils/shezhire-parent-lookup';
 import {
   isParentRelationship,
   isSpouseRelationship,
@@ -47,30 +49,31 @@ export function analyzeUnlinkedRelative(
 
   const hasParents = Boolean(relative.fatherId || relative.motherId);
   const hasSpouse = Boolean(getEffectiveSpouse(relative, relatives));
+  const linkedAsParent = isReferencedAsParent(relative, relatives);
 
-  if (!hasParents) {
-    reasons.push('Ата-анасы байланыстырылмаған');
+  if (!hasParents && !linkedAsParent) {
+    reasons.push(kk(FAMILY_LANGUAGE.unlinked.parentMissing));
     actions.push({
       id: 'link_parents',
-      label: 'Ата-анасын таңдау',
+      label: kk(FAMILY_LANGUAGE.unlinked.actionLinkParents),
     });
   }
 
   if (shouldSuggestSpouseLink(relative, relatives)) {
-    reasons.push('Жұбайы көрсетілмеген');
+    reasons.push(kk(FAMILY_LANGUAGE.unlinked.spouseMissing));
     actions.push({
       id: 'link_spouse',
-      label: 'Жұбайын байланыстыру',
+      label: kk(FAMILY_LANGUAGE.unlinked.actionLinkSpouse),
     });
   }
 
   if (reasons.length === 0) {
-    reasons.push('Шежіредегі орны анықталмаған');
+    reasons.push(kk(FAMILY_LANGUAGE.unlinked.placeUnknown));
   }
 
   actions.push({
     id: 'focus_tree',
-    label: 'Шежіреге қосу',
+    label: kk(FAMILY_LANGUAGE.unlinked.actionFocusTree),
   });
 
   const seen = new Set<UnlinkedRelativeActionId>();

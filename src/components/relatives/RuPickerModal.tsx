@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 
 import { SearchField } from '@/components/ui/SearchField';
+import { EMPTY_STATE_COPY } from '@/constants/empty-state-content';
 import {
   formatSearchResultLabel,
   formatSearchResultSubtitle,
@@ -157,10 +158,8 @@ export function RuPickerModal({
               <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
                 {stepOptions.length === 0 ? (
                   <View style={styles.emptyState}>
-                    <Text style={styles.emptyTitle}>Тізім бос</Text>
-                    <Text style={styles.emptyText}>
-                      Алдыңы қадамды таңдаңыз · Сначала выберите предыдущий шаг
-                    </Text>
+                    <Text style={styles.emptyTitle}>{EMPTY_STATE_COPY.ruPicker.listEmpty}</Text>
+                    <Text style={styles.emptyText}>{EMPTY_STATE_COPY.ruPicker.listEmptyHint}</Text>
                   </View>
                 ) : (
                   stepOptions.map((option) => {
@@ -196,10 +195,8 @@ export function RuPickerModal({
             <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
               {searchResults.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Text style={styles.emptyTitle}>Табылмады</Text>
-                  <Text style={styles.emptyText}>
-                    Басқа сөзді жазыңыз · Попробуйте другой запрос
-                  </Text>
+                  <Text style={styles.emptyTitle}>{EMPTY_STATE_COPY.ruPicker.noMatch}</Text>
+                  <Text style={styles.emptyText}>{EMPTY_STATE_COPY.ruPicker.noMatchHint}</Text>
                 </View>
               ) : (
                 searchResults.map((record) => (

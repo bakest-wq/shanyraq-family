@@ -4,10 +4,8 @@ import { Card } from '@/components/ui/Card';
 import { HelperHintBanner } from '@/components/ui/HelperHintBanner';
 import { SECTION_HELPER_TEXT } from '@/constants/family-ux-content';
 import { Relative } from '@/types/relative';
-import {
-  buildRelationshipExplanation,
-  formatRelationshipPath,
-} from '@/utils/relationship-engine';
+import { getKinshipExplanation } from '@/services/kinship.service';
+import { resolveShezhireRootPerson } from '@/utils/shezhire-parent-lookup';
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
 
 type RelationshipExplanationCardProps = {
@@ -25,31 +23,31 @@ export function RelationshipExplanationCard({
     return null;
   }
 
-  const explanation = buildRelationshipExplanation(personA, personB, relatives);
+  const root = resolveShezhireRootPerson(personA, relatives) ?? personA;
+  const explanation = getKinshipExplanation(root, personB, relatives);
+  const resolved =
+    explanation.result.type !== 'unknown' && explanation.result.resolved !== false;
 
   return (
     <Card goldBorder style={styles.card}>
-      <Text style={styles.title}>Туыстық байланыс · Relationship explanation</Text>
+      <Text style={styles.title}>{explanation.title}</Text>
       <View style={styles.quoteWrap}>
-        <Text style={styles.leaf}>🌿</Text>
         <Text
           style={[
             styles.kazakhText,
-            !explanation.resolved && styles.unresolvedText,
+            !resolved && styles.unresolvedText,
           ]}>
-          {explanation.kazakh}
+          {explanation.summary}
         </Text>
-        <Text style={styles.russianText}>{explanation.russian}</Text>
       </View>
 
       {explanation.hint ? (
-        <Text style={styles.hint}>{formatRelationshipPath(explanation.hint)}</Text>
+        <Text style={styles.hint}>{explanation.hint}</Text>
       ) : null}
 
       <HelperHintBanner
         icon="🌿"
         text={SECTION_HELPER_TEXT.relationshipExplanation.text}
-        subtext={SECTION_HELPER_TEXT.relationshipExplanation.subtext}
         tone="cream"
       />
     </Card>
@@ -62,33 +60,21 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xl,
   },
   title: {
-    ...Typography.bodySmall,
-    color: Palette.textSecondary,
-    fontWeight: '700',
+    ...Typography.body,
+    color: Palette.greenDeep,
+    fontWeight: '800',
     textAlign: 'center',
   },
   quoteWrap: {
     backgroundColor: Palette.cream,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
-    gap: Spacing.sm,
-    alignItems: 'center',
-  },
-  leaf: {
-    fontSize: 22,
   },
   kazakhText: {
     ...Typography.body,
-    color: Palette.greenDeep,
-    fontWeight: '700',
-    textAlign: 'center',
-    lineHeight: 26,
-  },
-  russianText: {
-    ...Typography.bodySmall,
     color: Palette.textPrimary,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 26,
   },
   unresolvedText: {
     color: Palette.textSecondary,

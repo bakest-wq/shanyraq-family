@@ -10,7 +10,9 @@ import {
 
 import { useFamilyContext } from '@/providers/FamilyProvider';
 import { archiveService } from '@/services/archive.service';
+import { editHistoryService } from '@/services/edit-history.service';
 import { CreateMemoryInput, FamilyMemory } from '@/types/archive';
+import { resolveEditActor } from '@/utils/edit-actor';
 
 type ArchiveContextValue = {
   memories: FamilyMemory[];
@@ -19,12 +21,13 @@ type ArchiveContextValue = {
   isEmpty: boolean;
   refetch: (options?: { silent?: boolean }) => Promise<void>;
   addMemory: (input: CreateMemoryInput) => Promise<FamilyMemory | null>;
+  removeMemory: (memoryId: string) => Promise<boolean>;
 };
 
 const ArchiveContext = createContext<ArchiveContextValue | null>(null);
 
 export function ArchiveProvider({ children }: PropsWithChildren) {
-  const { familyId, isReady: familyReady } = useFamilyContext();
+  const { familyId, isReady: familyReady, session } = useFamilyContext();
   const [memories, setMemories] = useState<FamilyMemory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +75,11 @@ export function ArchiveProvider({ children }: PropsWithChildren) {
 
       try {
         const created = await archiveService.add(familyId, input);
+        await editHistoryService.logMemoryCreate(
+          familyId,
+          resolveEditActor(session),
+          created,
+        );
         await refetch({ silent: true });
         return created;
       } catch (err) {
@@ -80,7 +88,38 @@ export function ArchiveProvider({ children }: PropsWithChildren) {
         return null;
       }
     },
-    [familyId, refetch],
+    [familyId, refetch, session],
+  );
+
+  const removeMemory = useCallback(
+    async (memoryId: string): Promise<boolean> => {
+      if (!familyId) {
+        return false;
+      }
+
+      try {
+        const existing = await archiveService.getAll(familyId);
+        const target = existing.find((memory) => memory.id === memoryId);
+
+        await archiveService.remove(familyId, memoryId);
+
+        if (target) {
+          await editHistoryService.logMemoryDelete(
+            familyId,
+            resolveEditActor(session),
+            target,
+          );
+        }
+
+        await refetch({ silent: true });
+        return true;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Естелікті жою мүмкін болмады.';
+        setError(message);
+        return false;
+      }
+    },
+    [familyId, refetch, session],
   );
 
   const value = useMemo(
@@ -91,8 +130,9 @@ export function ArchiveProvider({ children }: PropsWithChildren) {
       isEmpty: !loading && !error && memories.length === 0,
       refetch,
       addMemory,
+      removeMemory,
     }),
-    [memories, loading, error, refetch, addMemory],
+    [memories, loading, error, refetch, addMemory, removeMemory],
   );
 
   return <ArchiveContext.Provider value={value}>{children}</ArchiveContext.Provider>;

@@ -1,0 +1,23 @@
+/** Calm copy for progressive disclosure — one choice at a time. */
+export const COGNITIVE_LOAD_COPY = {
+  expand: 'Көрсету',
+  collapse: 'Жасыру',
+  moreSection: 'Қосымша',
+  moreSectionHint: 'Сирек қолданылатын параметрлер',
+  moreReminders: (count: number) => `Тағы ${count} еске салу →`,
+  copyCode: 'Кодты көшіру',
+  showInviteMessage: 'Хабарды көру',
+  contact: 'Байланысу',
+  contactCall: 'Қоңырау шалу',
+  contactWhatsApp: 'WhatsApp',
+  exportSection: 'Экспорт',
+  exportSectionHint: 'JSON немесе PDF файл',
+  siblingsSection: 'Ағайындар',
+  jurtSection: 'Жұрт',
+  optionalFields: 'Қосымша деректер',
+  optionalFieldsHint: 'Ру, туған күн, телефон',
+  timelineLink: 'Хронология →',
+  switchFamily: 'Отбасын ауыстыру',
+  congratulations: 'Құттықтау',
+  deleteRelative: 'Туысын жою',
+} as const;

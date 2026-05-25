@@ -16,6 +16,9 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { AvatarPlaceholder } from '@/components/ui/RelativeCard';
 import { useConnectParents, useRelative, useRelatives } from '@/hooks/useRelatives';
+import { useSafeGoBack } from '@/hooks/useSafeGoBack';
+import { APP_ROUTES } from '@/utils/safe-navigation';
+import { validateRelativeBeforeSave } from '@/services/graph-integrity.service';
 import {
   buildFamilyLinkCandidates,
   validateFamilyLinksFull,
@@ -24,6 +27,7 @@ import { Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function ConnectRelativeScreen() {
   const router = useRouter();
+  const goBack = useSafeGoBack(APP_ROUTES.relatives);
   const { id } = useLocalSearchParams<{ id: string }>();
   const relativeId = Array.isArray(id) ? id[0] : id;
   const { relative, loading } = useRelative(relativeId ?? '');
@@ -95,9 +99,25 @@ export default function ConnectRelativeScreen() {
       subjectGender: relative.gender,
     });
 
-    setLinkErrors(nextErrors);
+    const integrity = validateRelativeBeforeSave(
+      {
+        fullName: relative.fullName,
+        firstName: relative.firstName,
+        relationship: relative.relationship,
+        birthday: relative.birthday,
+        fatherId,
+        motherId,
+        spouseId: relative.spouseId,
+        gender: relative.gender,
+      },
+      relatives,
+      { relativeId, relatives, subjectGender: relative.gender },
+    );
 
-    if (Object.keys(nextErrors).length > 0) {
+    const mergedErrors = { ...nextErrors, ...integrity.errors };
+    setLinkErrors(mergedErrors);
+
+    if (Object.keys(mergedErrors).length > 0) {
       return;
     }
 
@@ -113,7 +133,7 @@ export default function ConnectRelativeScreen() {
 
     if (updated) {
       Alert.alert('Сақталды · Saved', 'Байланыс жаңартылды · Links updated.', [
-        { text: 'Жарайды', onPress: () => router.back() },
+        { text: 'Жарайды', onPress: goBack },
       ]);
     }
   };
@@ -141,7 +161,7 @@ export default function ConnectRelativeScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={goBack} style={styles.backButton}>
           <Text style={styles.backText}>← Артқа</Text>
         </Pressable>
 

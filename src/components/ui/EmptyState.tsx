@@ -73,11 +73,11 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
       <View style={[styles.iconWrap, styles.errorWrap]}>
         <Text style={styles.icon}>⚠️</Text>
       </View>
-      <Text style={styles.title}>Қате · Ошибка</Text>
+      <Text style={styles.title}>Бір нәрсе дұрыс болмады</Text>
       <Text style={styles.subtitle}>{message}</Text>
       {onRetry ? (
         <Pressable onPress={onRetry} style={styles.retryButton}>
-          <Text style={styles.retryText}>Қайта көру · Повторить</Text>
+          <Text style={styles.retryText}>Қайта көру</Text>
         </Pressable>
       ) : null}
     </View>
@@ -88,11 +88,12 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Palette.white,
+    backgroundColor: Palette.cream,
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Palette.goldLight,
-    padding: Spacing.xl,
+    paddingVertical: Spacing.xxl,
+    paddingHorizontal: Spacing.xl,
     gap: Spacing.md,
     ...Shadow.soft,
   },
@@ -143,11 +144,11 @@ const styles = StyleSheet.create({
     ...Typography.subtitle,
     color: Palette.greenDeep,
     textAlign: 'center',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   subtitle: {
     ...Typography.bodySmall,
-    color: Palette.textPrimary,
+    color: Palette.textSecondary,
     textAlign: 'center',
     lineHeight: 24,
   },

@@ -1,8 +1,11 @@
 import { Redirect, Tabs } from 'expo-router';
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { FloatingSettingsButton } from '@/components/ui/FloatingSettingsButton';
 import { LoadingState } from '@/components/ui/LoadingState';
-import { Palette, Typography } from '@/constants/theme';
+import { APP_TABS } from '@/constants/app-navigation-content';
+import { useAppTheme, useElderMode } from '@/hooks/useElderMode';
 import { useFamily } from '@/hooks/useFamily';
 import { useSetupOnboarding } from '@/hooks/useSetupOnboarding';
 import { useRefreshRelativesOnFocus } from '@/hooks/useRelatives';
@@ -14,6 +17,9 @@ type TabIconProps = {
 };
 
 function TabIcon({ emoji, focused, label }: TabIconProps) {
+  const theme = useAppTheme();
+  const styles = useMemo(() => createIconStyles(theme), [theme]);
+
   return (
     <>
       <Text style={[styles.emoji, focused && styles.emojiFocused]}>{emoji}</Text>
@@ -22,10 +28,36 @@ function TabIcon({ emoji, focused, label }: TabIconProps) {
   );
 }
 
+function createIconStyles(theme: ReturnType<typeof useAppTheme>) {
+  return StyleSheet.create({
+    emoji: {
+      fontSize: theme.layout.tabEmojiSize,
+      opacity: 0.72,
+      marginBottom: 2,
+    },
+    emojiFocused: {
+      opacity: 1,
+    },
+    label: {
+      ...theme.typography.tab,
+      color: '#A8C5B0',
+      fontSize: theme.layout.tabLabelSize,
+      fontWeight: '700',
+    },
+    labelFocused: {
+      color: theme.palette.gold,
+    },
+  });
+}
+
 export default function TabLayout() {
   const { isReady, hasFamily } = useFamily();
   const { isReady: onboardingReady, isCompleted } = useSetupOnboarding();
+  const { enabled: elderMode } = useElderMode();
+  const theme = useAppTheme();
   useRefreshRelativesOnFocus();
+
+  const styles = useMemo(() => createLayoutStyles(theme), [theme]);
 
   if (!isReady || !onboardingReady) {
     return (
@@ -44,10 +76,12 @@ export default function TabLayout() {
   }
 
   return (
-    <Tabs
-      screenOptions={{
+    <View style={styles.root}>
+      <Tabs
+        initialRouteName={elderMode ? 'shezhire' : 'index'}
+        screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Palette.gold,
+        tabBarActiveTintColor: theme.palette.gold,
         tabBarInactiveTintColor: '#A8C5B0',
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabBarLabel,
@@ -55,17 +89,67 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Басты',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} label="Басты" />,
+          title: APP_TABS.home.label,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji={APP_TABS.home.emoji} focused={focused} label={APP_TABS.home.label} />
+          ),
+          tabBarLabel: () => null,
+        }}
+      />
+      <Tabs.Screen
+        name="shezhire"
+        options={{
+          title: APP_TABS.shezhire.label,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon
+              emoji={APP_TABS.shezhire.emoji}
+              focused={focused}
+              label={APP_TABS.shezhire.label}
+            />
+          ),
           tabBarLabel: () => null,
         }}
       />
       <Tabs.Screen
         name="relatives"
         options={{
-          title: 'Туыстар',
+          title: APP_TABS.relatives.label,
           tabBarIcon: ({ focused }) => (
-            <TabIcon emoji="👨‍👩‍👧‍👦" focused={focused} label="Туыстар" />
+            <TabIcon
+              emoji={APP_TABS.relatives.emoji}
+              focused={focused}
+              label={APP_TABS.relatives.label}
+            />
+          ),
+          tabBarLabel: () => null,
+        }}
+      />
+      <Tabs.Screen
+        name="memory"
+        options={{
+          href: elderMode ? null : undefined,
+          title: APP_TABS.memories.label,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon
+              emoji={APP_TABS.memories.emoji}
+              focused={focused}
+              label={APP_TABS.memories.label}
+            />
+          ),
+          tabBarLabel: () => null,
+        }}
+      />
+      <Tabs.Screen
+        name="management"
+        options={{
+          href: elderMode ? null : undefined,
+          title: APP_TABS.management.label,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon
+              emoji={APP_TABS.management.emoji}
+              focused={focused}
+              label={APP_TABS.management.label}
+            />
           ),
           tabBarLabel: () => null,
         }}
@@ -73,61 +157,35 @@ export default function TabLayout() {
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'Күнтізбе',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📅" focused={focused} label="Күнтізбе" />,
-          tabBarLabel: () => null,
-        }}
-      />
-      <Tabs.Screen
-        name="shezhire"
-        options={{
           href: null,
         }}
       />
-      <Tabs.Screen
-        name="memory"
-        options={{
-          title: 'Еске алу',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🕊️" focused={focused} label="Еске алу" />,
-          tabBarLabel: () => null,
-        }}
-      />
     </Tabs>
+      <FloatingSettingsButton />
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  loadingWrap: {
-    flex: 1,
-    backgroundColor: Palette.cream,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  tabBar: {
-    backgroundColor: Palette.greenDeep,
-    borderTopWidth: 0,
-    height: 84,
-    paddingTop: 8,
-    paddingBottom: 12,
-  },
-  tabBarLabel: {
-    ...Typography.tab,
-  },
-  emoji: {
-    fontSize: 22,
-    opacity: 0.65,
-    marginBottom: 2,
-  },
-  emojiFocused: {
-    opacity: 1,
-  },
-  label: {
-    ...Typography.tab,
-    color: '#A8C5B0',
-    fontSize: 11,
-  },
-  labelFocused: {
-    color: Palette.gold,
-    fontWeight: '700',
-  },
-});
+function createLayoutStyles(theme: ReturnType<typeof useAppTheme>) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+    },
+    loadingWrap: {
+      flex: 1,
+      backgroundColor: theme.palette.cream,
+      justifyContent: 'center',
+      padding: theme.spacing.lg,
+    },
+    tabBar: {
+      backgroundColor: theme.palette.greenDeep,
+      borderTopWidth: 0,
+      height: theme.layout.tabBarHeight,
+      paddingTop: 8,
+      paddingBottom: 12,
+    },
+    tabBarLabel: {
+      ...theme.typography.tab,
+    },
+  });
+}

@@ -1,4 +1,6 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+
+import { AnimatedPressable } from '@/components/ui/motion/AnimatedPressable';
 
 import { ShezhireFocusCrumb } from '@/utils/shezhire-focus-navigation';
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
@@ -30,14 +32,10 @@ export function ShezhireFocusBreadcrumb({
 
         return (
           <View key={crumb.id} style={styles.itemWrap}>
-            <Pressable
+            <AnimatedPressable
               onPress={() => onSelect(crumb.id)}
               disabled={isActive}
-              style={({ pressed }) => [
-                styles.crumb,
-                isActive && styles.crumbActive,
-                pressed && !isActive && styles.crumbPressed,
-              ]}
+              style={[styles.crumb, isActive && styles.crumbActive]}
               accessibilityRole="button"
               accessibilityState={{ selected: isActive }}>
               <Text
@@ -45,7 +43,7 @@ export function ShezhireFocusBreadcrumb({
                 numberOfLines={1}>
                 {crumb.label}
               </Text>
-            </Pressable>
+            </AnimatedPressable>
             {!isLast ? <Text style={styles.separator}>→</Text> : null}
           </View>
         );
@@ -78,9 +76,6 @@ const styles = StyleSheet.create({
   crumbActive: {
     borderColor: Palette.greenDeep,
     backgroundColor: '#F4FAF6',
-  },
-  crumbPressed: {
-    opacity: 0.88,
   },
   crumbText: {
     ...Typography.caption,

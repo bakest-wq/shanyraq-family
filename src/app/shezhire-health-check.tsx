@@ -3,22 +3,24 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ShezhireHealthCheckPanel } from '@/components/integrity/ShezhireHealthCheckPanel';
-import { GRAPH_INTEGRITY_COPY } from '@/constants/graph-integrity-content';
+import { HEALTH_CHECK_COPY } from '@/constants/health-check-content';
+import { useSafeGoBack } from '@/hooks/useSafeGoBack';
+import { APP_ROUTES } from '@/utils/safe-navigation';
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function ShezhireHealthCheckScreen() {
-  const router = useRouter();
+  const goBack = useSafeGoBack(APP_ROUTES.management);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={goBack} style={styles.backButton}>
           <Text style={styles.backText}>← Артқа</Text>
         </Pressable>
 
         <View style={styles.header}>
-          <Text style={styles.title}>{GRAPH_INTEGRITY_COPY.healthCheckTitle}</Text>
-          <Text style={styles.subtitle}>{GRAPH_INTEGRITY_COPY.healthCheckSubtitle}</Text>
+          <Text style={styles.title}>{HEALTH_CHECK_COPY.title}</Text>
+          <Text style={styles.subtitle}>{HEALTH_CHECK_COPY.subtitle}</Text>
         </View>
 
         <ShezhireHealthCheckPanel />

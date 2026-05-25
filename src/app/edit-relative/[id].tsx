@@ -27,15 +27,17 @@ import {
   hasChildLinkChanges,
   resolveParentLinkRole,
 } from '@/utils/family-child-links';
-import {
-  navigateAfterEditSave,
-  parseEditReturnTo,
-} from '@/utils/edit-relative-navigation';
+import { navigateAfterEditSave, parseEditReturnTo, resolveEditBackFallback } from '@/utils/edit-relative-navigation';
+import { useSafeGoBack } from '@/hooks/useSafeGoBack';
 import { resolveFamilyLinkFormLayout } from '@/utils/family-link-modes';
 import { pickDefaultRootId } from '@/utils/focused-family-tree';
 import { resolveMyRelativeId } from '@/utils/current-user-relative';
 import { relativeToFormInput } from '@/utils/relative-form';
-import { hasFormErrors, prepareRelativeInput, validateRelativeForm } from '@/utils/validation';
+import { hasFormErrors, getFirstFormErrorMessage, prepareRelativeInput, validateRelativeForm } from '@/utils/validation';
+import {
+  getRelationshipSaveErrorMessage,
+  isRelationshipSafetyBlockedError,
+} from '@/utils/relationship-safety-validation';
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function EditRelativeScreen() {
@@ -47,6 +49,9 @@ export default function EditRelativeScreen() {
   }>();
   const relativeId = Array.isArray(id) ? id[0] : id;
   const returnTo = parseEditReturnTo(returnToParam);
+  const goBack = useSafeGoBack(
+    relativeId ? resolveEditBackFallback(relativeId, returnTo) : undefined,
+  );
   const { relative, loading } = useRelative(relativeId ?? '');
   const { relatives, invalidateRelatives } = useRelatives();
   const { familyId } = useFamilyContext();
@@ -156,27 +161,18 @@ export default function EditRelativeScreen() {
     });
   };
 
-  const handleSubmit = async () => {
+  const performSubmit = async () => {
     if (!form || !relativeId || saving || submitting) {
       return;
     }
 
-    const prepared = prepareRelativeInput(form);
-    const nextErrors = validateRelativeForm(prepared, {
-      relativeId,
-      relatives,
-      subjectGender: relative?.gender,
-    });
-    setErrors(nextErrors);
-
-    if (hasFormErrors(nextErrors)) {
-      return;
-    }
-
+    console.log('SAVE START');
     setSubmitting(true);
 
     try {
+      const prepared = prepareRelativeInput(form);
       const { pendingPhotoUri, clearPhoto, ...relativeInput } = prepared;
+
       let nextPhotoUrl = relativeInput.photoUrl;
 
       if (familyId) {
@@ -202,8 +198,10 @@ export default function EditRelativeScreen() {
         photoUrl: nextPhotoUrl,
       });
 
+      console.log('SAVE SUCCESS');
+
       if (!updated) {
-        return;
+        throw new Error('Не удалось сохранить родственника.');
       }
 
       if (familyId) {
@@ -220,22 +218,64 @@ export default function EditRelativeScreen() {
             familyId,
             relatives,
           );
-          await invalidateRelatives({ silent: true });
-        } else if (pendingPhotoUri || clearPhoto) {
-          await invalidateRelatives({ silent: true });
         }
       }
+
+      await invalidateRelatives({ silent: true });
+      console.log('PROFILE REFRESHED');
 
       showToast({
         type: 'success',
         title: 'Өзгерістер сақталды 🌿',
-        message: 'Изменения сохранены',
+        durationMs: 4200,
       });
 
+      await new Promise((resolve) => setTimeout(resolve, 400));
       navigateAfterEditSave(router, relativeId, returnTo);
+    } catch (err) {
+      if (isRelationshipSafetyBlockedError(err)) {
+        setErrors((current) => ({ ...current, ...err.fieldErrors }));
+      }
+
+      showToast({
+        type: 'error',
+        title: 'Сақтау мүмкін емес',
+        message: getRelationshipSaveErrorMessage(err),
+      });
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = () => {
+    if (!form || !relativeId || saving || submitting) {
+      return;
+    }
+
+    const prepared = prepareRelativeInput(form);
+    const parentRole = resolveParentLinkRole(prepared.gender, prepared.relationship);
+    const nextErrors = validateRelativeForm(prepared, {
+      relativeId,
+      relatives,
+      subjectGender: relative?.gender,
+      linkedChildIds: parentRole ? linkedChildIds : undefined,
+      parentLinkRole: parentRole ?? undefined,
+    });
+    setErrors(nextErrors);
+
+    if (hasFormErrors(nextErrors)) {
+      const message =
+        getFirstFormErrorMessage(nextErrors) ??
+        'Тексеріңіз — формада қате бар · Проверьте поля формы';
+      showToast({
+        type: 'error',
+        title: 'Сақтау мүмкін емес',
+        message,
+      });
+      return;
+    }
+
+    void performSubmit();
   };
 
   const isSaving = saving || submitting;
@@ -257,7 +297,7 @@ export default function EditRelativeScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centered}>
           <Text style={styles.errorText}>Родственник не найден</Text>
-          <PrimaryButton label="Назад" variant="gold" onPress={() => router.back()} />
+          <PrimaryButton label="Назад" variant="gold" onPress={goBack} />
         </View>
       </SafeAreaView>
     );
@@ -269,7 +309,7 @@ export default function EditRelativeScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable onPress={goBack} style={styles.backButton}>
             <Text style={styles.backText}>← Артқа</Text>
           </Pressable>
           <Text style={styles.title}>Өңдеу</Text>
@@ -299,9 +339,11 @@ export default function EditRelativeScreen() {
           <View style={styles.saveWrap}>
             <PrimaryButton
               label={isSaving ? 'Сақталуда...' : 'Сохранить изменения'}
-              sublabel={isSaving ? 'Saving...' : 'Жаңарту · Update relative'}
+              sublabel={isSaving ? undefined : 'Жаңарту · Update relative'}
               variant="green"
-              onPress={isSaving ? undefined : () => void handleSubmit()}
+              loading={isSaving}
+              disabled={isSaving}
+              onPress={() => handleSubmit()}
             />
           </View>
         </ScrollView>

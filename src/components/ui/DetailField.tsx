@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Palette, Spacing, Typography } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/useElderMode';
 
 type DetailFieldProps = {
   label: string;
@@ -9,6 +10,9 @@ type DetailFieldProps = {
 };
 
 export function DetailField({ label, value, multiline = false }: DetailFieldProps) {
+  const theme = useAppTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   return (
     <View style={styles.row}>
       <Text style={styles.label}>{label}</Text>
@@ -17,24 +21,26 @@ export function DetailField({ label, value, multiline = false }: DetailFieldProp
   );
 }
 
-const styles = StyleSheet.create({
-  row: {
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Palette.creamDark,
-  },
-  label: {
-    ...Typography.caption,
-    color: Palette.textSecondary,
-    fontWeight: '600',
-  },
-  value: {
-    ...Typography.body,
-    color: Palette.textPrimary,
-    fontWeight: '600',
-  },
-  multiline: {
-    lineHeight: 26,
-  },
-});
+function createStyles(theme: ReturnType<typeof useAppTheme>) {
+  return StyleSheet.create({
+    row: {
+      gap: theme.spacing.xs,
+      paddingVertical: theme.spacing.sm,
+      borderBottomWidth: theme.elderMode ? 2 : 1,
+      borderBottomColor: theme.palette.creamDark,
+    },
+    label: {
+      ...theme.typography.caption,
+      color: theme.palette.textSecondary,
+      fontWeight: '700',
+    },
+    value: {
+      ...theme.typography.body,
+      color: theme.palette.textPrimary,
+      fontWeight: '700',
+    },
+    multiline: {
+      lineHeight: 28,
+    },
+  });
+}

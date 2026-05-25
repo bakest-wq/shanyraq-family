@@ -19,6 +19,8 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { AvatarPlaceholder } from '@/components/ui/RelativeCard';
 import { useRelative } from '@/hooks/useRelatives';
+import { useSafeGoBack } from '@/hooks/useSafeGoBack';
+import { APP_ROUTES } from '@/utils/safe-navigation';
 import { congratulationsService } from '@/services/congratulations.service';
 import { CongratulationsStyle } from '@/types/congratulations';
 import {
@@ -30,6 +32,7 @@ import { Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme'
 
 export default function CongratulationsScreen() {
   const router = useRouter();
+  const goBack = useSafeGoBack(APP_ROUTES.relatives);
   const { id } = useLocalSearchParams<{ id: string }>();
   const relativeId = Array.isArray(id) ? id[0] : id;
   const { relative, loading } = useRelative(relativeId ?? '');
@@ -101,7 +104,7 @@ export default function CongratulationsScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centered}>
           <Text style={styles.errorText}>Родственник не найден</Text>
-          <PrimaryButton label="Назад" variant="gold" onPress={() => router.back()} />
+          <PrimaryButton label="Назад" variant="gold" onPress={goBack} />
         </View>
       </SafeAreaView>
     );
@@ -110,7 +113,7 @@ export default function CongratulationsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={goBack} style={styles.backButton}>
           <Text style={styles.backText}>← Артқа · Назад</Text>
         </Pressable>
 

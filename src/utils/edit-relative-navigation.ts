@@ -1,3 +1,7 @@
+import type { Href } from 'expo-router';
+
+import { APP_ROUTES, safeGoBack, type SafeRouter } from '@/utils/safe-navigation';
+
 export type EditReturnTo = 'details' | 'relatives' | 'shezhire';
 
 export function parseEditReturnTo(value: string | string[] | undefined): EditReturnTo | undefined {
@@ -17,31 +21,30 @@ export function buildEditRelativeHref(id: string, returnTo: EditReturnTo) {
   };
 }
 
-export function navigateAfterEditSave(
-  router: { replace: (href: never) => void },
-  relativeId: string,
-  returnTo?: EditReturnTo,
-) {
+export function resolveEditBackFallback(relativeId: string, returnTo?: EditReturnTo): Href {
   if (returnTo === 'shezhire') {
-    router.replace({
-      pathname: '/(tabs)/relatives',
-      params: { view: 'tree' },
-    } as never);
-    return;
+    return APP_ROUTES.shezhire;
   }
 
   if (returnTo === 'relatives') {
-    router.replace('/(tabs)/relatives' as never);
-    return;
+    return APP_ROUTES.relatives;
   }
 
   if (returnTo === 'details') {
-    router.replace({
+    return {
       pathname: '/relative/[id]',
       params: { id: relativeId },
-    } as never);
-    return;
+    };
   }
 
-  router.replace('/(tabs)/relatives' as never);
+  return APP_ROUTES.relatives;
+}
+
+/** Dismiss edit modal and return to the screen that opened it (profile, list, or tree). */
+export function navigateAfterEditSave(
+  router: SafeRouter,
+  relativeId: string,
+  returnTo?: EditReturnTo,
+) {
+  safeGoBack(router, { fallback: resolveEditBackFallback(relativeId, returnTo) });
 }

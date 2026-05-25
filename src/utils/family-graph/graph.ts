@@ -1,5 +1,5 @@
 import type { Relative } from '@/types/relative';
-import { relativeLinkIdsMatch } from '@/utils/family-link-picker';
+import { relativeLinkIdsMatch, normalizeRelativeLinkId } from '@/utils/family-link-picker';
 import { sharesLinkedParentWithRoot } from '@/utils/family-sibling-links';
 import {
   dedupeRelativesById,
@@ -276,6 +276,16 @@ function buildDerivedIndices(graph: FamilyGraph): FamilyGraphDerived {
   const spouseById = new Map<string, Relative | null>();
   const unlinkedIds: string[] = [];
   const roots: Relative[] = [];
+  const structurallyReferenced = new Set<string>();
+
+  for (const relative of graph.relatives) {
+    for (const linkId of [relative.fatherId, relative.motherId, relative.spouseId]) {
+      const normalized = normalizeRelativeLinkId(linkId);
+      if (normalized) {
+        structurallyReferenced.add(normalized);
+      }
+    }
+  }
 
   for (const relative of graph.relatives) {
     parentIdsById.set(relative.id, {
@@ -304,8 +314,9 @@ function buildDerivedIndices(graph: FamilyGraph): FamilyGraphDerived {
     const hasParents = Boolean(relative.fatherId || relative.motherId);
     const hasSpouse = spouseById.get(relative.id) != null;
     const hasChildren = (childrenById.get(relative.id) ?? []).length > 0;
+    const isReferenced = structurallyReferenced.has(relative.id);
 
-    if (!hasParents && !hasSpouse && !hasChildren) {
+    if (!hasParents && !hasSpouse && !hasChildren && !isReferenced) {
       unlinkedIds.push(relative.id);
     }
   }

@@ -1,4 +1,5 @@
 import type { Relative } from '@/types/relative';
+import { brokenLinkMessage, kk, FAMILY_LANGUAGE } from '@/content/family-language';
 import { relativeLinkIdsMatch } from '@/utils/family-link-picker';
 import type { FamilyGraph } from '@/utils/family-graph/graph';
 import { linksFromRelative, normalizeFamilyLinkSnapshot } from '@/utils/family-graph/normalize';
@@ -10,14 +11,14 @@ import type {
 } from '@/utils/family-graph/types';
 
 const MSG = {
-  selfLink: 'Адам өзіне байланыса алмайды',
-  ancestorCycle: 'Ата-ана байланысы шеңберге айналуы мүмкін',
-  brokenLink: 'Байланыс көрсетілген туыс табылмады',
-  spouseMismatch: 'Жұбай байланысы екі жаққа да сәйкес емес',
-  sameParents: 'Әke мен ana бір адам бола алмайды',
-  parentSpouseConflict: 'Жұбайды ата-ана ретінде таңдауға болмайды',
-  genderFather: 'Әke ер кisi болуы керек',
-  genderMother: 'Ana әйел кisi болуы керек',
+  selfLink: kk(FAMILY_LANGUAGE.health.selfLink),
+  ancestorCycle: kk(FAMILY_LANGUAGE.health.ancestorCycle),
+  brokenLink: kk(FAMILY_LANGUAGE.health.brokenLinkGeneric),
+  spouseMismatch: kk(FAMILY_LANGUAGE.health.spouseMismatch),
+  sameParents: kk(FAMILY_LANGUAGE.health.sameParents),
+  parentSpouseConflict: kk(FAMILY_LANGUAGE.health.parentSpouseConflict),
+  genderFather: kk(FAMILY_LANGUAGE.health.genderFather),
+  genderMother: kk(FAMILY_LANGUAGE.health.genderMother),
 } as const;
 
 function pushIssue(
@@ -83,7 +84,7 @@ function inspectBrokenLinks(graph: FamilyGraph, relative: Relative, issues: Grap
         relativeId: relative.id,
         field,
         relatedId: linkId,
-        message: MSG.brokenLink,
+        message: brokenLinkMessage(field),
       });
     }
   }

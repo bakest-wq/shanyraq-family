@@ -7,32 +7,45 @@ import { YearSection } from '@/components/timeline/YearSection';
 import { AppHeader } from '@/components/ui/AppHeader';
 import { PresetEmptyState, ErrorState } from '@/components/ui/EmptyState';
 import { EMPTY_STATE_PRESETS } from '@/constants/family-ux-content';
+import { TIMELINE_COPY } from '@/constants/timeline-content';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
-import { QuickActionButton } from '@/components/ui/QuickActionButton';
 import { ScreenShell } from '@/components/ui/ScreenShell';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { useTimeline } from '@/hooks/useTimeline';
+import { useKinshipAnchor } from '@/hooks/useKinshipAnchor';
+import { useRelatives } from '@/hooks/useRelatives';
+import { useSafeGoBack } from '@/hooks/useSafeGoBack';
+import { APP_ROUTES } from '@/utils/safe-navigation';
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function TimelineScreen() {
   const router = useRouter();
+  const goBack = useSafeGoBack(APP_ROUTES.management);
   const { sections, loading, error, isEmpty, refetch, events } = useTimeline();
+  const { relatives } = useRelatives();
+  const anchorPerson = useKinshipAnchor();
   const [refreshing, setRefreshing] = useState(false);
 
-  const autoCount = useMemo(
-    () => events.filter((event) => event.source === 'auto').length,
-    [events],
-  );
-  const manualCount = useMemo(
-    () => events.filter((event) => event.source === 'manual').length,
-    [events],
-  );
+  const momentsLabel = useMemo(() => {
+    if (events.length === 0) {
+      return null;
+    }
+
+    return `${events.length} ${TIMELINE_COPY.momentsLabel}`;
+  }, [events.length]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await refetch({ silent: true });
     setRefreshing(false);
+  };
+
+  const openRelativeProfile = (relativeId: string) => {
+    router.push({
+      pathname: '/relative/[id]',
+      params: { id: relativeId },
+    });
   };
 
   return (
@@ -41,75 +54,54 @@ export default function TimelineScreen() {
       onRefresh={() => void handleRefresh()}
       header={
         <>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable onPress={goBack} style={styles.backButton}>
             <Text style={styles.backText}>← Артқа</Text>
           </Pressable>
           <AppHeader
-            title="Отбасы хронологиясы"
-            subtitle="Семейная хронология · Tuystar оқиғалары"
-            badge="🕰️"
+            title={TIMELINE_COPY.screenTitle}
+            subtitle={TIMELINE_COPY.screenSubtitle}
+            badge={momentsLabel ?? '📜'}
           />
         </>
       }
       contentStyle={styles.content}>
-      {!loading && !error && !isEmpty ? (
-        <View style={styles.statsRow}>
-          <View style={styles.statChip}>
-            <Text style={styles.statValue}>{events.length}</Text>
-            <Text style={styles.statLabel}>Оқиға · Событий</Text>
-          </View>
-          <View style={styles.statChip}>
-            <Text style={styles.statValue}>{autoCount}</Text>
-            <Text style={styles.statLabel}>Авто · Auto</Text>
-          </View>
-          <View style={styles.statChip}>
-            <Text style={styles.statValue}>{manualCount}</Text>
-            <Text style={styles.statLabel}>Қолмен · Manual</Text>
-          </View>
-        </View>
-      ) : null}
-
       {loading ? (
-        <LoadingState message="Хронология жүктелуде..." />
+        <LoadingState message={TIMELINE_COPY.loading} />
       ) : error ? (
         <ErrorState message={error} onRetry={() => void refetch()} />
       ) : isEmpty ? (
         <View style={styles.emptyWrap}>
           <PresetEmptyState
             preset={EMPTY_STATE_PRESETS.timeline}
-            onAction={() => router.push('/add-timeline-event')}
+            onAction={() => router.push('/add-relative')}
+          />
+          <PrimaryButton
+            label={TIMELINE_COPY.emptyAction}
+            variant="green"
+            onPress={() => router.push('/add-relative')}
           />
         </View>
       ) : (
         <View style={styles.timeline}>
           <SectionTitle
-            title="Жылдар бойынша"
-            subtitle="По годам · newest first"
+            title={TIMELINE_COPY.sectionTitle}
+            subtitle={TIMELINE_COPY.sectionSubtitle}
           />
           {sections.map((section) => (
             <YearSection key={section.label} yearLabel={section.label}>
               {section.events.map((event) => (
-                <TimelineEventCard key={event.id} event={event} />
+                <TimelineEventCard
+                  key={event.id}
+                  event={event}
+                  anchorPerson={anchorPerson}
+                  relatives={relatives}
+                  onPress={openRelativeProfile}
+                />
               ))}
             </YearSection>
           ))}
         </View>
       )}
-
-      <QuickActionButton
-        icon="➕"
-        label="Оқиға қосу"
-        sublabel="Көшу, оқу, естелік · Manual event"
-        variant="gold"
-        onPress={() => router.push('/add-timeline-event')}
-      />
-
-      <PrimaryButton
-        label="Жаңа естелік"
-        sublabel="Add family milestone · Локально сақталады"
-        variant="green"
-        onPress={() => router.push('/add-timeline-event')}
-      />
     </ScreenShell>
   );
 }
@@ -127,32 +119,9 @@ const styles = StyleSheet.create({
     color: Palette.greenDeep,
     fontWeight: '700',
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  statChip: {
-    flex: 1,
-    backgroundColor: Palette.white,
-    borderRadius: 16,
-    padding: Spacing.md,
-    alignItems: 'center',
-    gap: 2,
-    borderWidth: 1,
-    borderColor: Palette.creamDark,
-  },
-  statValue: {
-    ...Typography.subtitle,
-    color: Palette.greenDeep,
-    fontWeight: '800',
-  },
-  statLabel: {
-    ...Typography.caption,
-    color: Palette.textSecondary,
-    textAlign: 'center',
-  },
   emptyWrap: {
     paddingVertical: Spacing.lg,
+    gap: Spacing.lg,
   },
   timeline: {
     gap: Spacing.xl,

@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ONBOARDING_HINTS } from '@/constants/family-ux-content';
+import { EMPTY_STATE_COPY } from '@/constants/empty-state-content';
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
 
 type OnboardingHintsCardProps = {
@@ -9,8 +10,8 @@ type OnboardingHintsCardProps = {
 };
 
 export function OnboardingHintsCard({
-  title = 'Бастауға көмек 🌿',
-  subtitle = 'Getting started · warm family steps',
+  title = EMPTY_STATE_COPY.onboarding.title,
+  subtitle = EMPTY_STATE_COPY.onboarding.subtitle,
 }: OnboardingHintsCardProps) {
   return (
     <View style={styles.card}>

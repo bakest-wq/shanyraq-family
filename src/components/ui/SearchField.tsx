@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/useElderMode';
+import { Radius, Shadow } from '@/constants/theme';
 
 type SearchFieldProps = {
   value: string;
@@ -11,8 +13,11 @@ type SearchFieldProps = {
 export function SearchField({
   value,
   onChangeText,
-  placeholder = 'Іздеу · Поиск по имени',
+  placeholder = 'Іздеу...',
 }: SearchFieldProps) {
+  const theme = useAppTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   return (
     <View style={styles.wrap}>
       <Text style={styles.icon}>🔍</Text>
@@ -20,7 +25,7 @@ export function SearchField({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={Palette.textMuted}
+        placeholderTextColor={theme.palette.textMuted}
         style={styles.input}
         autoCapitalize="words"
         autoCorrect={false}
@@ -30,26 +35,29 @@ export function SearchField({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Palette.white,
-    borderRadius: Radius.lg,
-    borderWidth: 1.5,
-    borderColor: Palette.creamDark,
-    paddingHorizontal: Spacing.md,
-    minHeight: 56,
-    ...Shadow.soft,
-  },
-  icon: {
-    fontSize: 20,
-  },
-  input: {
-    flex: 1,
-    ...Typography.body,
-    color: Palette.textPrimary,
-    paddingVertical: Spacing.sm,
-  },
-});
+function createStyles(theme: ReturnType<typeof useAppTheme>) {
+  return StyleSheet.create({
+    wrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.sm,
+      backgroundColor: theme.palette.white,
+      borderRadius: Radius.lg,
+      borderWidth: theme.layout.cardBorderWidth,
+      borderColor: theme.palette.creamDark,
+      paddingHorizontal: theme.spacing.md,
+      minHeight: theme.elderMode ? 64 : 56,
+      ...Shadow.soft,
+    },
+    icon: {
+      fontSize: theme.elderMode ? 24 : 20,
+    },
+    input: {
+      flex: 1,
+      ...theme.typography.body,
+      color: theme.palette.textPrimary,
+      paddingVertical: theme.spacing.sm,
+      fontWeight: theme.elderMode ? '700' : '500',
+    },
+  });
+}

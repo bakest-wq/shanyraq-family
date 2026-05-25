@@ -14,16 +14,16 @@ export function mapRelativeRow(row: RelativeRow): Relative {
   const firstName = row.first_name?.trim() || legacy.firstName;
   const middleName = row.middle_name?.trim() || legacy.middleName;
   const currentSurname = row.current_surname?.trim() || legacy.currentSurname;
-  const composedFromParts = composeFullName({ firstName, middleName, currentSurname });
   const storedFull = row.full_name?.trim() ?? '';
-  const fullName = composedFromParts || storedFull;
+  const composedFromParts = composeFullName({ firstName, middleName, currentSurname });
+  const fullName = storedFull || composedFromParts;
   const storedDisplay = row.display_name?.trim();
   const displayName =
     storedDisplay &&
     storedDisplay !== storedFull &&
     (!composedFromParts || storedDisplay !== composedFromParts)
       ? storedDisplay
-      : composeDisplayName({ firstName, middleName, currentSurname, fullName });
+      : storedFull || composeDisplayName({ firstName, middleName, currentSurname, fullName });
   const birthdayFields = syncBirthdayFields({
     birthday: row.birthday ?? '',
     birthdayDay: row.birthday_day,

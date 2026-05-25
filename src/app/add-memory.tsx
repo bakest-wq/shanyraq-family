@@ -14,7 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MemoryFormFields } from '@/components/archive/MemoryFormFields';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { FAMILY_MEMORIES_COPY } from '@/constants/family-memories-content';
 import { useAddMemory } from '@/hooks/useArchive';
+import { useSafeGoBack } from '@/hooks/useSafeGoBack';
 import { useRelatives } from '@/hooks/useRelatives';
 import { CreateMemoryInput } from '@/types/archive';
 import {
@@ -32,14 +34,13 @@ const EMPTY_MEMORY_FORM: CreateMemoryInput = {
   day: '',
   story: '',
   category: 'story',
-  hasPhoto: false,
-  hasVoice: false,
-  hasDocument: false,
+  pendingPhotoUri: null,
 };
 
 export default function AddMemoryScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ relativeId?: string }>();
+  const goBack = useSafeGoBack();
+  const params = useLocalSearchParams<{ relativeId?: string; type?: string }>();
   const { relatives } = useRelatives();
   const { saveMemory, saving, error: saveError } = useAddMemory();
   const [form, setForm] = useState<CreateMemoryInput>(EMPTY_MEMORY_FORM);
@@ -61,6 +62,13 @@ export default function AddMemoryScreen() {
       relativeName: presetRelative.fullName,
     }));
   }, [presetRelative]);
+
+  useEffect(() => {
+    const type = params.type;
+    if (type === 'photo' || type === 'story' || type === 'note') {
+      setForm((current) => ({ ...current, category: type }));
+    }
+  }, [params.type]);
 
   const updateForm = <K extends keyof CreateMemoryInput>(
     key: K,
@@ -86,21 +94,15 @@ export default function AddMemoryScreen() {
       month: form.month?.trim() ?? '',
       day: form.day?.trim() ?? '',
       story: form.story.trim(),
-      hasVoice: form.category === 'voice',
-      hasDocument: form.category === 'document',
     });
 
     if (created) {
-      Alert.alert(
-        'Сақталды 🌿',
-        'Естелік отбасы жадына қосылды.\n\nЛокально · Supabase Storage кейін',
-        [
-          {
-            text: 'Жарайды',
-            onPress: () => router.back(),
-          },
-        ],
-      );
+      Alert.alert(FAMILY_MEMORIES_COPY.saved, FAMILY_MEMORIES_COPY.savedHint, [
+        {
+          text: 'Жарайды',
+          onPress: goBack,
+        },
+      ]);
     }
   };
 
@@ -110,11 +112,11 @@ export default function AddMemoryScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable onPress={goBack} style={styles.backButton}>
             <Text style={styles.backText}>← Артқа</Text>
           </Pressable>
-          <Text style={styles.title}>Естелік қосу</Text>
-          <Text style={styles.subtitle}>Add memory · Отбасы естелігі</Text>
+          <Text style={styles.title}>{FAMILY_MEMORIES_COPY.addTitle}</Text>
+          <Text style={styles.subtitle}>{FAMILY_MEMORIES_COPY.addSubtitle}</Text>
         </View>
 
         <ScrollView
@@ -131,8 +133,7 @@ export default function AddMemoryScreen() {
 
           <View style={styles.saveWrap}>
             <PrimaryButton
-              label={saving ? 'Сақталуда...' : 'Естелікті сақтау'}
-              sublabel="Save memory · Локально"
+              label={saving ? FAMILY_MEMORIES_COPY.saving : FAMILY_MEMORIES_COPY.save}
               variant="green"
               onPress={saving ? undefined : () => void handleSubmit()}
             />

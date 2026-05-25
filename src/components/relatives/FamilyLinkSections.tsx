@@ -41,6 +41,7 @@ type FamilyLinkSectionsProps = {
   ) => void;
   onPatch?: (patch: Partial<CreateRelativeInput>) => void;
   onSiblingParentSync?: (siblingId: string, patch: Partial<FamilyLinkValues>) => void;
+  hideSiblingGuidance?: boolean;
 };
 
 export function FamilyLinkSections({
@@ -54,6 +55,7 @@ export function FamilyLinkSections({
   onChange,
   onPatch,
   onSiblingParentSync,
+  hideSiblingGuidance = false,
 }: FamilyLinkSectionsProps) {
   const [inheritanceDecision, setInheritanceDecision] = useState<InheritanceDecision | null>(
     null,
@@ -150,6 +152,7 @@ export function FamilyLinkSections({
 
   const showParentPickers = layout.showFatherPicker || layout.showMotherPicker;
   const showInheritanceCard =
+    !hideSiblingGuidance &&
     isSiblingRelationship(form.relationship) &&
     inheritanceDecision === 'pending' &&
     siblingInheritance.offer != null;
@@ -257,7 +260,8 @@ export function FamilyLinkSections({
           />
         ) : null}
 
-        {isSiblingRelationship(form.relationship) &&
+        {!hideSiblingGuidance &&
+        isSiblingRelationship(form.relationship) &&
         siblingInheritance.missingReferenceParents ? (
           <HelperHintBanner
             icon="ℹ️"

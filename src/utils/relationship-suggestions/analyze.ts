@@ -1,8 +1,8 @@
 import { Relative } from '@/types/relative';
+import { getKinshipLabel } from '@/services/kinship.service';
 import { findFamilyAnchor } from '@/utils/kinship-path';
 import { areSharedParentSiblings } from '@/utils/family-sibling-links';
-import { findRelationship } from '@/utils/relationship-engine';
-import { getChildren, getSiblings } from '@/utils/relationship-engine';
+import { getChildren, getSiblings } from '@/utils/kinship/graph';
 import { getRelativeDisplayName } from '@/utils/relative-names';
 import {
   areSpousesLinked,
@@ -381,7 +381,7 @@ export function getRelativeRelationshipBadges(
   const anchor = findFamilyAnchor(relatives);
 
   if (anchor && anchor.id !== relative.id) {
-    const relation = findRelationship(anchor, relative, relatives);
+    const relation = getKinshipLabel(anchor, relative, relatives);
     if (relation.type !== 'unknown' && relation.type !== 'self') {
       badges.push({
         id: `to-anchor:${relation.type}`,

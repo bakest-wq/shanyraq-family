@@ -1,7 +1,8 @@
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
 
-import { Palette, Radius, Shadow, Spacing } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/useElderMode';
+import { Radius, Shadow } from '@/constants/theme';
 
 type CardProps = {
   children: ReactNode;
@@ -11,6 +12,9 @@ type CardProps = {
 };
 
 export function Card({ children, style, accent = false, goldBorder = false }: CardProps) {
+  const theme = useAppTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   return (
     <View
       style={[
@@ -24,19 +28,21 @@ export function Card({ children, style, accent = false, goldBorder = false }: Ca
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: Palette.white,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    gap: Spacing.sm,
-    ...Shadow.card,
-  },
-  accent: {
-    backgroundColor: Palette.greenDeep,
-  },
-  goldBorder: {
-    borderWidth: 1.5,
-    borderColor: Palette.goldLight,
-  },
-});
+function createStyles(theme: ReturnType<typeof useAppTheme>) {
+  return StyleSheet.create({
+    card: {
+      backgroundColor: theme.palette.white,
+      borderRadius: Radius.lg,
+      padding: theme.spacing.lg,
+      gap: theme.spacing.sm,
+      ...Shadow.card,
+    },
+    accent: {
+      backgroundColor: theme.palette.greenDeep,
+    },
+    goldBorder: {
+      borderWidth: theme.layout.cardBorderWidth,
+      borderColor: theme.palette.goldLight,
+    },
+  });
+}

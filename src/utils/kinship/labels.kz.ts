@@ -1,4 +1,5 @@
-import type { KinshipLabel, KinshipType } from '@/utils/kinship/types';
+import type { KinshipLabel, KinshipResult, KinshipType } from '@/utils/kinship/types';
+import { formatKinshipMainLabel } from '@/utils/kinship/kinship-display';
 
 export const GENDER_HINT_KZ =
   'Жынысын көрсетсеңіз, байланыс дәлірек анықталады';
@@ -26,14 +27,19 @@ export const KINSHIP_LABELS: Record<KinshipType, KinshipLabel> = {
     russian: 'Брат / сестра',
     subtitle: 'жас нақтыланбаған',
   },
-  grandfather: { kazakh: 'Ата', russian: 'Дедушка', subtitle: 'әке жағы' },
-  grandmother: { kazakh: 'Әже', russian: 'Бабушка', subtitle: 'әке жағы' },
+  grandfather: { kazakh: 'Әке жағынан ата', russian: 'Дедушка', subtitle: 'әке жағы' },
+  grandmother: { kazakh: 'Әке жағынан әже', russian: 'Бабушка', subtitle: 'әке жағы' },
   nemere: { kazakh: 'Немере', russian: 'Внук / внучка' },
   shobere: { kazakh: 'Шөбере', russian: 'Правнук / правнучка' },
   jenge: {
     kazakh: 'Жеңге',
     russian: 'Жена брата',
-    subtitle: 'бауырдың жұбайы',
+    subtitle: 'аға бауырдың жұбайы',
+  },
+  brother_wife_neutral: {
+    kazakh: 'Бауырының жұбайы',
+    russian: 'Жена брата',
+    subtitle: 'жас нақтыланбаған',
   },
   jezde: {
     kazakh: 'Жезде',
@@ -119,7 +125,22 @@ export const KINSHIP_LABELS: Record<KinshipType, KinshipLabel> = {
   zhien: {
     kazakh: 'Жиен',
     russian: 'Племянник / племянница',
-    subtitle: 'бауыр баласы',
+    subtitle: 'апа-сіңлі баласы',
+  },
+  brother_child_older: {
+    kazakh: 'Ағаңыздың баласы',
+    russian: 'Ребёнок старшего брата',
+    subtitle: 'аға баласы',
+  },
+  brother_child_younger: {
+    kazakh: 'Ініңіздің баласы',
+    russian: 'Ребёнок младшего брата',
+    subtitle: 'іні баласы',
+  },
+  brother_child_neutral: {
+    kazakh: 'Бауырыңыздың баласы',
+    russian: 'Ребёнок брата',
+    subtitle: 'жас нақтыланбаған',
   },
   bole: {
     kazakh: 'Бөле',
@@ -150,39 +171,14 @@ export function getKinshipLabelText(type: KinshipType): KinshipLabel {
   return KINSHIP_LABELS[type] ?? UNKNOWN_KINSHIP;
 }
 
-export function formatKinshipCardLine(result: {
-  label: KinshipLabel;
-  uncertain: boolean;
-  resolved?: boolean;
-  type?: string;
-}): string {
-  if (result.type === 'unknown' || result.resolved === false) {
-    return UNKNOWN_KINSHIP.kazakh;
-  }
-
-  return result.uncertain ? `${result.label.kazakh} (мүмкін)` : result.label.kazakh;
+export function formatKinshipCardLine(result: KinshipResult): string {
+  return formatKinshipMainLabel(result);
 }
 
-export function formatKinshipCardSubtitle(result: {
-  label: KinshipLabel;
-  uncertain: boolean;
-  resolved?: boolean;
-  type?: string;
-}): string | null {
-  if (result.type === 'unknown' || result.resolved === false) {
-    return null;
-  }
-
-  return result.label.russian;
+export function formatKinshipCardSubtitle(_result: KinshipResult): string | null {
+  return null;
 }
 
-export function formatKinshipBadge(result: {
-  label: KinshipLabel;
-  uncertain: boolean;
-  resolved?: boolean;
-  type?: string;
-}): string {
-  const kazakh = formatKinshipCardLine(result);
-  const russian = formatKinshipCardSubtitle(result);
-  return russian ? `${kazakh} · ${russian}` : kazakh;
+export function formatKinshipBadge(result: KinshipResult): string {
+  return formatKinshipMainLabel(result);
 }

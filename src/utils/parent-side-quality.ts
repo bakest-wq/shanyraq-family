@@ -1,6 +1,11 @@
 import { SHEZHIRE_FOCUSED_ROOT } from '@/constants/family-ux-content';
 import type { Relative } from '@/types/relative';
-import { relativeLinkIdsMatch } from '@/utils/family-link-picker';
+import {
+  findRelativeByLinkId,
+  normalizeRelativeLinkId,
+  relativeLinkIdsMatch,
+} from '@/utils/family-link-picker';
+import { resolveShezhireRootPerson } from '@/utils/shezhire-parent-lookup';
 
 export type ParentSideKind = 'father' | 'mother';
 
@@ -30,19 +35,32 @@ export function resolveParentByKind(
   kind: ParentSideKind,
   rootPerson: Relative,
   relatives: Relative[],
+  hintParent?: Relative | null,
 ): Relative | null {
-  const parentId = kind === 'father' ? rootPerson.fatherId : rootPerson.motherId;
+  const root = resolveShezhireRootPerson(rootPerson, relatives) ?? rootPerson;
+  const linkId =
+    normalizeRelativeLinkId(kind === 'father' ? root.fatherId : root.motherId) ??
+    (hintParent ? normalizeRelativeLinkId(hintParent.id) : null);
 
-  if (!parentId) {
+  if (!linkId) {
     return null;
   }
 
-  return relatives.find((relative) => relativeLinkIdsMatch(relative.id, parentId)) ?? null;
+  const fromRelatives = findRelativeByLinkId(relatives, linkId);
+  if (fromRelatives) {
+    return fromRelatives;
+  }
+
+  if (hintParent && relativeLinkIdsMatch(hintParent.id, linkId)) {
+    return hintParent;
+  }
+
+  return null;
 }
 
 export function getParentGrandparentLinks(parent: Relative): ParentSideGrandparentLinks | null {
-  const fatherId = parent.fatherId?.trim();
-  const motherId = parent.motherId?.trim();
+  const fatherId = normalizeRelativeLinkId(parent.fatherId);
+  const motherId = normalizeRelativeLinkId(parent.motherId);
 
   if (!fatherId || !motherId) {
     return null;
@@ -55,8 +73,9 @@ export function evaluateParentSideGuard(
   kind: ParentSideKind,
   rootPerson: Relative,
   relatives: Relative[],
+  hintParent?: Relative | null,
 ): ParentSideGuardResult {
-  const parent = resolveParentByKind(kind, rootPerson, relatives);
+  const parent = resolveParentByKind(kind, rootPerson, relatives, hintParent);
 
   if (!parent) {
     return { state: 'parent_missing', kind };

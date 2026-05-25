@@ -1,9 +1,10 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ArchiveCategoryChips } from '@/components/archive/ArchiveCategoryChips';
-import { PhotoPlaceholderUpload } from '@/components/archive/PhotoPlaceholderUpload';
+import { MemoryPhotoPicker } from '@/components/archive/MemoryPhotoPicker';
 import { Card } from '@/components/ui/Card';
 import { FormField } from '@/components/ui/FormField';
+import { FAMILY_MEMORIES_COPY } from '@/constants/family-memories-content';
 import { Relative } from '@/types/relative';
 import { CreateMemoryInput, MEMORY_TYPES, MemoryType } from '@/types/archive';
 import { MemoryFormErrors } from '@/utils/archive-validation';
@@ -20,6 +21,18 @@ type MemoryFormFieldsProps = {
   ) => void;
 };
 
+function storyPlaceholder(category: MemoryType): string {
+  if (category === 'note') {
+    return FAMILY_MEMORIES_COPY.form.storyPlaceholderNote;
+  }
+
+  if (category === 'photo') {
+    return FAMILY_MEMORIES_COPY.form.storyPlaceholderPhoto;
+  }
+
+  return FAMILY_MEMORIES_COPY.form.storyPlaceholderStory;
+}
+
 export function MemoryFormFields({
   form,
   errors,
@@ -34,21 +47,21 @@ export function MemoryFormFields({
 
   const handleTypeChange = (type: MemoryType) => {
     onChange('category', type);
-    onChange('hasVoice', type === 'voice');
-    onChange('hasDocument', type === 'document');
     if (type !== 'photo') {
-      onChange('hasPhoto', false);
+      onChange('pendingPhotoUri', null);
     }
   };
+
+  const storyRequired = form.category !== 'photo';
 
   return (
     <>
       <Card goldBorder style={styles.sectionCard}>
-        <Text style={styles.sectionLabel}>Түрі · Type</Text>
+        <Text style={styles.sectionLabel}>{FAMILY_MEMORIES_COPY.form.type}</Text>
         <ArchiveCategoryChips
           options={MEMORY_TYPES.map((type) => ({
             id: type.id,
-            label: `${type.icon} ${type.labelKz}`,
+            label: `${type.icon} ${type.label}`,
           }))}
           value={form.category}
           onChange={(value) => handleTypeChange(value as MemoryType)}
@@ -56,15 +69,15 @@ export function MemoryFormFields({
       </Card>
 
       <FormField
-        label="Атауы · Title *"
-        placeholder="Мысалы: Ата-ананың насихаты"
+        label={`${FAMILY_MEMORIES_COPY.form.title} *`}
+        placeholder={FAMILY_MEMORIES_COPY.form.titlePlaceholder}
         value={form.title}
         onChangeText={(value) => onChange('title', value)}
         error={errors.title}
       />
 
       <Card goldBorder style={styles.sectionCard}>
-        <Text style={styles.sectionLabel}>Туыс · Relative *</Text>
+        <Text style={styles.sectionLabel}>{FAMILY_MEMORIES_COPY.form.relative} *</Text>
         <View style={styles.relativeGrid}>
           {relatives.map((relative) => {
             const selected = form.relativeId === relative.id;
@@ -85,19 +98,12 @@ export function MemoryFormFields({
                   numberOfLines={2}>
                   {relative.fullName}
                 </Text>
-                <Text
-                  style={[
-                    styles.relativeChipRole,
-                    selected && styles.relativeChipRoleSelected,
-                  ]}>
-                  {relative.relationship}
-                </Text>
               </Pressable>
             );
           })}
         </View>
         {relatives.length === 0 ? (
-          <Text style={styles.hint}>Алдымен «Туыстар» тізіміне туыс қосыңыз.</Text>
+          <Text style={styles.hint}>{FAMILY_MEMORIES_COPY.form.relativeEmpty}</Text>
         ) : null}
         {errors.relativeName ? <Text style={styles.errorText}>{errors.relativeName}</Text> : null}
       </Card>
@@ -105,7 +111,7 @@ export function MemoryFormFields({
       <View style={styles.dateRow}>
         <View style={styles.dateField}>
           <FormField
-            label="Жыл · Year"
+            label={FAMILY_MEMORIES_COPY.form.year}
             placeholder="1998"
             value={form.year}
             onChangeText={(value) => onChange('year', value)}
@@ -115,7 +121,7 @@ export function MemoryFormFields({
         </View>
         <View style={styles.dateField}>
           <FormField
-            label="Ай · Month"
+            label="Ай"
             placeholder="5"
             value={form.month ?? ''}
             onChangeText={(value) => onChange('month', value)}
@@ -125,7 +131,7 @@ export function MemoryFormFields({
         </View>
         <View style={styles.dateField}>
           <FormField
-            label="Күн · Day"
+            label="Күн"
             placeholder="12"
             value={form.day ?? ''}
             onChangeText={(value) => onChange('day', value)}
@@ -135,10 +141,23 @@ export function MemoryFormFields({
         </View>
       </View>
 
+      {form.category === 'photo' ? (
+        <>
+          <MemoryPhotoPicker
+            photoUri={form.pendingPhotoUri}
+            onChange={(uri) => onChange('pendingPhotoUri', uri)}
+          />
+          {errors.photo ? <Text style={styles.errorText}>{errors.photo}</Text> : null}
+        </>
+      ) : null}
+
       <View style={styles.storyField}>
-        <Text style={styles.sectionLabel}>Сипаттама · Description *</Text>
+        <Text style={styles.sectionLabel}>
+          {FAMILY_MEMORIES_COPY.form.story}
+          {storyRequired ? ' *' : ''}
+        </Text>
         <TextInput
-          placeholder="Отбасы естeliгі, насихат немесе қысқа тарих..."
+          placeholder={storyPlaceholder(form.category)}
           placeholderTextColor={Palette.textMuted}
           value={form.story}
           onChangeText={(value) => onChange('story', value)}
@@ -149,27 +168,11 @@ export function MemoryFormFields({
         {errors.story ? <Text style={styles.errorText}>{errors.story}</Text> : null}
       </View>
 
-      {form.category === 'photo' || form.category === 'story' ? (
-        <PhotoPlaceholderUpload
-          hasPhoto={form.hasPhoto}
-          onChange={(hasPhoto) => onChange('hasPhoto', hasPhoto)}
+      {form.category === 'story' ? (
+        <MemoryPhotoPicker
+          photoUri={form.pendingPhotoUri}
+          onChange={(uri) => onChange('pendingPhotoUri', uri)}
         />
-      ) : null}
-
-      {form.category === 'voice' ? (
-        <Card style={styles.mockCard}>
-          <Text style={styles.mockIcon}>🎙️</Text>
-          <Text style={styles.mockTitle}>Дауыс жазба · Voice note</Text>
-          <Text style={styles.hint}>Mock · настоящая запись аудио будет позже</Text>
-        </Card>
-      ) : null}
-
-      {form.category === 'document' ? (
-        <Card style={styles.mockCard}>
-          <Text style={styles.mockIcon}>📄</Text>
-          <Text style={styles.mockTitle}>Құжат · Document</Text>
-          <Text style={styles.hint}>Mock · загрузка файлов будет позже</Text>
-        </Card>
       ) : null}
 
       {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
@@ -206,8 +209,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Palette.creamDark,
     padding: Spacing.sm,
-    gap: 2,
     minHeight: 56,
+    justifyContent: 'center',
   },
   relativeChipSelected: {
     backgroundColor: Palette.greenDeep,
@@ -224,13 +227,6 @@ const styles = StyleSheet.create({
   relativeChipTextSelected: {
     color: Palette.white,
   },
-  relativeChipRole: {
-    ...Typography.caption,
-    color: Palette.textSecondary,
-  },
-  relativeChipRoleSelected: {
-    color: Palette.goldLight,
-  },
   storyField: {
     gap: Spacing.sm,
   },
@@ -244,23 +240,10 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     color: Palette.textPrimary,
     minHeight: 140,
+    lineHeight: 26,
   },
   storyInputError: {
     borderColor: Palette.danger,
-  },
-  mockCard: {
-    alignItems: 'center',
-    gap: Spacing.xs,
-    paddingVertical: Spacing.lg,
-    backgroundColor: Palette.cream,
-  },
-  mockIcon: {
-    fontSize: 34,
-  },
-  mockTitle: {
-    ...Typography.body,
-    color: Palette.greenDeep,
-    fontWeight: '700',
   },
   hint: {
     ...Typography.caption,

@@ -8,6 +8,10 @@ import {
 import { getAncestorIds, getDescendantIds } from '@/utils/family-graph';
 import { buildFamilyLinkCandidatesForType } from '@/utils/parent-link-candidates';
 import { getRelativeDisplayName } from '@/utils/relative-names';
+import {
+  RELATIONSHIP_SAFETY_MESSAGE,
+  validateFamilyLinkSelectionSafety,
+} from '@/utils/relationship-safety-validation';
 
 export { getAncestorIds, getDescendantIds } from '@/utils/family-graph';
 
@@ -39,25 +43,14 @@ export type LinkValidationIssue = {
 };
 
 const MSG = {
-  selfParent:
-    'Адам өзін әке/ана ретінде таңдай алмайды · Cannot select self as father or mother',
-  selfSpouse:
-    'Адам өзін жұбай ретінде таңдай алмайды · Cannot select self as spouse',
-  childAsParent:
-    'Баланы ата-ана ретінде таңдауға болмайды · Child cannot be a parent',
-  parentAsSpouse:
-    'Ата-ананы жұбай ретінде таңдауға болмайды · Parent cannot be spouse',
-  spouseAsParent:
-    'Жұбайды ата-ана ретінде таңдауға болмайды · Spouse cannot be parent',
-  sameParents:
-    'Әke мен ana бір адам бола алмайды · Father and mother must differ',
-  genericWarning: 'Бұл байланыс шежіреде қате болуы мүмкін',
-  genderUnknown: 'Жынысы белгісіз · Gender unknown',
-  subjectGenderUnknown: 'Сіздің жынысыңыз белгісіз · Your gender unknown',
-  genderFather: 'Әke ер кisi болуы керек · Father should be male',
-  genderMother: 'Ana әйел кisi болуы керек · Mother should be female',
-  genderSpouse: 'Жұбай жыNSысы сәйкес емес · Spouse gender mismatch',
-  notFound: 'Туыс табылмады · Relative not found',
+  sameParents: RELATIONSHIP_SAFETY_MESSAGE,
+  genericWarning: RELATIONSHIP_SAFETY_MESSAGE,
+  genderUnknown: 'Жынысы белгісіз',
+  subjectGenderUnknown: 'Сіздің жынысыңыз белгісіз',
+  genderFather: 'Әke ер кisi болуы керек',
+  genderMother: 'Ana әйел кisi болуы керек',
+  genderSpouse: 'Жұбай жыNSысы сәйкес емес',
+  notFound: 'Туыс табылмады',
 } as const;
 
 function genderUnknownWarning(linkType: FamilyLinkType, subjectGender?: RelativeGender): string {
@@ -86,11 +79,7 @@ function validateLinkPerson(
   }
 
   if (relativeId && relativeLinkIdsMatch(personId, relativeId)) {
-    if (linkType === 'spouse') {
-      return { error: MSG.selfSpouse };
-    }
-
-    return { error: MSG.selfParent };
+    return { error: RELATIONSHIP_SAFETY_MESSAGE };
   }
 
   if (
@@ -98,18 +87,14 @@ function validateLinkPerson(
     links.spouseId &&
     relativeLinkIdsMatch(personId, links.spouseId)
   ) {
-    return { error: MSG.spouseAsParent };
+    return { error: RELATIONSHIP_SAFETY_MESSAGE };
   }
 
   if (
     relativeId &&
     [...getDescendantIds(relativeId, relatives)].some((id) => relativeLinkIdsMatch(id, personId))
   ) {
-    if (linkType === 'spouse') {
-      return { error: `${MSG.childAsParent} · ${MSG.genericWarning}` };
-    }
-
-    return { error: MSG.childAsParent };
+    return { error: RELATIONSHIP_SAFETY_MESSAGE };
   }
 
   if (
@@ -117,7 +102,7 @@ function validateLinkPerson(
     relativeId &&
     [...getAncestorIds(relativeId, relatives)].some((id) => relativeLinkIdsMatch(id, personId))
   ) {
-    return { error: MSG.parentAsSpouse };
+    return { error: RELATIONSHIP_SAFETY_MESSAGE };
   }
 
   if (linkType === 'father' && links.motherId && relativeLinkIdsMatch(personId, links.motherId)) {
@@ -154,6 +139,11 @@ export function validateFamilyLinkSelection(
   context: ValidateFamilyLinksContext,
   links: FamilyLinkValues,
 ): LinkValidationIssue | null {
+  const safetyMessage = validateFamilyLinkSelectionSafety(linkType, personId, context, links);
+  if (safetyMessage) {
+    return { blocking: true, message: safetyMessage };
+  }
+
   const { error, warning } = validateLinkPerson(linkType, personId, context, links);
 
   if (error) {

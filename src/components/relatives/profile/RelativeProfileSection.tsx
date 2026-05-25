@@ -2,7 +2,8 @@ import { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
-import { Palette, Spacing, Typography } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/useElderMode';
+import { Palette, Radius } from '@/constants/theme';
 
 type RelativeProfileSectionProps = {
   title: string;
@@ -17,6 +18,9 @@ export function RelativeProfileSection({
   children,
   goldBorder = false,
 }: RelativeProfileSectionProps) {
+  const theme = useAppTheme();
+  const styles = createStyles(theme);
+
   return (
     <Card goldBorder={goldBorder} style={styles.card}>
       <View style={styles.header}>
@@ -31,33 +35,37 @@ export function RelativeProfileSection({
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    gap: Spacing.md,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-  },
-  accent: {
-    width: 4,
-    height: 28,
-    borderRadius: 999,
-    backgroundColor: Palette.gold,
-    marginTop: 2,
-  },
-  headerText: {
-    flex: 1,
-    gap: 2,
-  },
-  title: {
-    ...Typography.body,
-    color: Palette.greenDeep,
-    fontWeight: '700',
-  },
-  subtitle: {
-    ...Typography.caption,
-    color: Palette.textSecondary,
-  },
-});
+function createStyles(theme: ReturnType<typeof useAppTheme>) {
+  return StyleSheet.create({
+    card: {
+      gap: theme.spacing.md,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: theme.spacing.sm,
+    },
+    accent: {
+      width: 4,
+      height: 28,
+      borderRadius: Radius.full,
+      backgroundColor: theme.palette.gold,
+      marginTop: 2,
+    },
+    headerText: {
+      flex: 1,
+      gap: 2,
+      minWidth: 0,
+    },
+    title: {
+      ...theme.typography.subtitle,
+      color: theme.palette.greenDeep,
+      fontWeight: '800',
+    },
+    subtitle: {
+      ...theme.typography.caption,
+      color: theme.palette.textSecondary,
+      lineHeight: 20,
+    },
+  });
+}

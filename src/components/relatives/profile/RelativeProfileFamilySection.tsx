@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+﻿import { StyleSheet, Text, View } from 'react-native';
 
 import { Relative } from '@/types/relative';
 import { findRelativeById } from '@/utils/family-link-picker';
@@ -7,6 +7,7 @@ import { getEffectiveSpouse } from '@/utils/relationship-engine';
 import { RelativeProfileLinkRow } from './RelativeProfileLinkRow';
 import { RelativeProfileSection } from './RelativeProfileSection';
 import { HelperHintBanner } from '@/components/ui/HelperHintBanner';
+import { EMPTY_STATE_COPY } from '@/constants/empty-state-content';
 import { SHEZHIRE_NAME_WARNING } from '@/constants/family-ux-content';
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
@@ -57,7 +58,7 @@ export function RelativeProfileFamilySection({
 
       {children.length === 0 ? (
         <View style={styles.childrenEmpty}>
-          <Text style={styles.childrenEmptyText}>Балалар тізімі бос · Дети не указаны</Text>
+          <Text style={styles.childrenEmptyText}>{EMPTY_STATE_COPY.children.title}</Text>
         </View>
       ) : (
         children.map((child, index) => (

@@ -1,28 +1,33 @@
+import 'react-native-reanimated';
+
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 import { Palette } from '@/constants/theme';
 import { ArchiveProvider } from '@/providers/ArchiveProvider';
+import { ElderModeProvider } from '@/providers/ElderModeProvider';
 import { FamilyProvider } from '@/providers/FamilyProvider';
 import { NotificationsProvider } from '@/providers/NotificationsProvider';
 import { RelativesProvider } from '@/providers/RelativesProvider';
+import { ShezhireRootProvider } from '@/providers/ShezhireRootProvider';
 import { SetupOnboardingProvider } from '@/providers/SetupOnboardingProvider';
-import { TimelineProvider } from '@/providers/TimelineProvider';
 import { ToastProvider } from '@/providers/ToastProvider';
 import { UserIdentityProvider } from '@/providers/UserIdentityProvider';
 
 function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <ToastProvider>
-      <RelativesProvider>
-        <UserIdentityProvider>
-          <ArchiveProvider>
-            <TimelineProvider>
-              <NotificationsProvider>{children}</NotificationsProvider>
-            </TimelineProvider>
-          </ArchiveProvider>
-        </UserIdentityProvider>
-      </RelativesProvider>
+      <ElderModeProvider>
+        <RelativesProvider>
+          <UserIdentityProvider>
+            <ShezhireRootProvider>
+              <ArchiveProvider>
+                <NotificationsProvider>{children}</NotificationsProvider>
+              </ArchiveProvider>
+            </ShezhireRootProvider>
+          </UserIdentityProvider>
+        </RelativesProvider>
+      </ElderModeProvider>
     </ToastProvider>
   );
 }
@@ -43,6 +48,9 @@ export default function RootLayout() {
             <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="who-am-i" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="notification-settings" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="backup-restore" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="edit-history" options={{ animation: 'slide_from_right' }} />
+            <Stack.Screen name="recent-changes" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="archive" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="family-memories" options={{ animation: 'slide_from_right' }} />
             <Stack.Screen name="timeline" options={{ animation: 'slide_from_right' }} />

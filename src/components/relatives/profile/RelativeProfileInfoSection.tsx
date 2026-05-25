@@ -1,6 +1,5 @@
 import { Relative } from '@/types/relative';
-import { calculateAge, formatBirthdayKzRu, getAgeLabel } from '@/utils/dates';
-import { getGenderLabel } from '@/utils/relative-profile';
+import { RELATIVE_PROFILE_COPY } from '@/constants/relative-profile-content';
 
 import { RelativeProfileInfoRow } from './RelativeProfileInfoRow';
 import { RelativeProfileSection } from './RelativeProfileSection';
@@ -14,38 +13,19 @@ export function RelativeProfileInfoSection({
   relative,
   onCallPhone,
 }: RelativeProfileInfoSectionProps) {
-  const age = calculateAge(relative);
-  const birthday = formatBirthdayKzRu(relative);
-  const hasBirthday = birthday !== '—';
   const hasPhone = Boolean(relative.phone?.trim());
-  const hasGender = Boolean(relative.gender);
+
+  if (!hasPhone) {
+    return null;
+  }
 
   return (
-    <RelativeProfileSection title="Негізгі деректер · Основное" subtitle="Туған күн, жасы, байланыс">
-      <RelativeProfileInfoRow
-        icon="🎂"
-        label="Туған күні · Дата рождения"
-        value={birthday}
-        empty={!hasBirthday}
-      />
-      <RelativeProfileInfoRow
-        icon="🌿"
-        label="Жасы · Возраст"
-        value={age !== null ? getAgeLabel(age) : 'Жыл белгісіз · Год неизвестен'}
-        empty={age === null}
-      />
+    <RelativeProfileSection title={RELATIVE_PROFILE_COPY.sections.contact}>
       <RelativeProfileInfoRow
         icon="📞"
-        label="Телефон · WhatsApp"
-        value={hasPhone ? relative.phone : 'Көрсетілмеген · Не указан'}
-        empty={!hasPhone}
-        onPress={hasPhone ? onCallPhone : undefined}
-      />
-      <RelativeProfileInfoRow
-        icon="👤"
-        label="Жынысы · Пол"
-        value={hasGender ? getGenderLabel(relative.gender) : 'Көрсетілмеген · Не указан'}
-        empty={!hasGender}
+        label="Телефон"
+        value={relative.phone}
+        onPress={onCallPhone}
         isLast
       />
     </RelativeProfileSection>

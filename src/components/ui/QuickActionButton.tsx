@@ -1,6 +1,9 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { AnimatedPressable } from '@/components/ui/motion/AnimatedPressable';
+import { useAppTheme } from '@/hooks/useElderMode';
+import { Radius, Shadow } from '@/constants/theme';
 
 type QuickActionButtonProps = {
   label: string;
@@ -17,63 +20,79 @@ export function QuickActionButton({
   onPress,
   variant = 'default',
 }: QuickActionButtonProps) {
+  const theme = useAppTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
+  const iconWrapStyle =
+    variant === 'gold'
+      ? styles.iconWrapGold
+      : variant === 'green'
+        ? styles.iconWrapGreen
+        : styles.iconWrapDefault;
+
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+      style={styles.button}
       accessibilityRole="button">
-      <View style={[styles.iconWrap, variantStyles[variant].iconWrap]}>
+      <View style={[styles.iconWrap, iconWrapStyle]}>
         <Text style={styles.icon}>{icon}</Text>
       </View>
       <View style={styles.textWrap}>
         <Text style={styles.label}>{label}</Text>
-        {sublabel ? <Text style={styles.sublabel}>{sublabel}</Text> : null}
+        {sublabel && !theme.elderMode ? <Text style={styles.sublabel}>{sublabel}</Text> : null}
       </View>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
-const variantStyles = {
-  default: { iconWrap: { backgroundColor: Palette.creamDark } },
-  gold: { iconWrap: { backgroundColor: Palette.goldLight } },
-  green: { iconWrap: { backgroundColor: '#D8EDDF' } },
-};
+function createStyles(theme: ReturnType<typeof useAppTheme>) {
+  const iconSize = theme.layout.quickActionIconSize;
 
-const styles = StyleSheet.create({
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: Palette.white,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    minHeight: 72,
-    ...Shadow.soft,
-  },
-  pressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.98 }],
-  },
-  iconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: Radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  icon: {
-    fontSize: 24,
-  },
-  textWrap: {
-    flex: 1,
-    gap: 2,
-  },
-  label: {
-    ...Typography.body,
-    color: Palette.textPrimary,
-  },
-  sublabel: {
-    ...Typography.caption,
-    color: Palette.textSecondary,
-  },
-});
+  return StyleSheet.create({
+    button: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: theme.spacing.md,
+      backgroundColor: theme.palette.white,
+      borderRadius: Radius.lg,
+      padding: theme.spacing.md,
+      minHeight: theme.layout.quickActionMinHeight,
+      borderWidth: theme.elderMode ? 2 : 1,
+      borderColor: theme.palette.creamDark,
+      ...Shadow.soft,
+    },
+    iconWrap: {
+      width: iconSize,
+      height: iconSize,
+      borderRadius: Radius.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    iconWrapDefault: {
+      backgroundColor: theme.palette.creamDark,
+    },
+    iconWrapGold: {
+      backgroundColor: theme.palette.goldLight,
+    },
+    iconWrapGreen: {
+      backgroundColor: '#D8EDDF',
+    },
+    icon: {
+      fontSize: theme.elderMode ? 28 : 24,
+    },
+    textWrap: {
+      flex: 1,
+      gap: 2,
+    },
+    label: {
+      ...theme.typography.body,
+      color: theme.palette.textPrimary,
+      fontWeight: theme.elderMode ? '800' : '600',
+    },
+    sublabel: {
+      ...theme.typography.caption,
+      color: theme.palette.textSecondary,
+    },
+  });
+}

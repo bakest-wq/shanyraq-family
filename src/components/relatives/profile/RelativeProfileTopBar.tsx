@@ -19,7 +19,7 @@ export function RelativeProfileTopBar({
         onPress={onBack}
         style={({ pressed }) => [styles.sideButton, pressed && styles.pressed]}
         accessibilityRole="button"
-        accessibilityLabel="Артқа · Назад">
+        accessibilityLabel="Артқа">
         <Text style={styles.backText}>← Артқа</Text>
       </Pressable>
 
@@ -35,8 +35,8 @@ export function RelativeProfileTopBar({
         ]}
         accessibilityRole="button"
         accessibilityState={{ disabled: editDisabled }}
-        accessibilityLabel="Өзгерту · Edit">
-        <Text style={[styles.editText, editDisabled && styles.editTextDisabled]}>Өзгерту · Edit</Text>
+        accessibilityLabel="Өзгерту">
+        <Text style={[styles.editText, editDisabled && styles.editTextDisabled]}>Өзгерту</Text>
       </Pressable>
     </View>
   );

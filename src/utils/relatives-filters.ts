@@ -1,9 +1,14 @@
+import { FAMILY_SEARCH_COPY } from '@/constants/family-search-content';
 import { Relative } from '@/types/relative';
 import {
   daysUntilBirthdayForRelative,
   hasBirthdayDayMonth,
 } from '@/utils/birthday-parts';
-import { getRelativeDisplayName } from '@/utils/relative-names';
+import {
+  RelativeSearchContext,
+  searchRelatives,
+  sortRelativesForDisplay,
+} from '@/utils/relative-search';
 
 export type RelativeFilter = 'all' | 'birthday' | 'deceased';
 
@@ -14,7 +19,14 @@ export function filterRelatives(
   searchQuery: string,
   filter: RelativeFilter,
   referenceDate = new Date(),
+  searchContext?: RelativeSearchContext,
 ): Relative[] {
+  const query = searchQuery.trim();
+
+  if (query) {
+    return searchRelatives(relatives, query, searchContext);
+  }
+
   let result = [...relatives];
 
   if (filter === 'deceased') {
@@ -30,46 +42,11 @@ export function filterRelatives(
     result = result.filter((relative) => !relative.isDeceased);
   }
 
-  const query = searchQuery.trim().toLowerCase();
-  if (query) {
-    result = result.filter((relative) => {
-      const haystack = [
-        relative.fullName,
-        relative.displayName,
-        relative.firstName,
-        relative.middleName,
-        relative.currentSurname,
-        relative.relationship,
-        getRelativeDisplayName(relative),
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      return haystack.includes(query);
-    });
-  }
-
-  result.sort((a, b) => {
-    const daysA = hasBirthdayDayMonth(a)
-      ? daysUntilBirthdayForRelative(a, referenceDate)
-      : 9999;
-    const daysB = hasBirthdayDayMonth(b)
-      ? daysUntilBirthdayForRelative(b, referenceDate)
-      : 9999;
-
-    if (daysA !== daysB) {
-      return daysA - daysB;
-    }
-
-    return a.fullName.localeCompare(b.fullName, 'ru');
-  });
-
-  return result;
+  return sortRelativesForDisplay(result, referenceDate, searchContext);
 }
 
 export const RELATIVE_FILTERS: { id: RelativeFilter; label: string }[] = [
-  { id: 'all', label: 'Барлығы · Все' },
-  { id: 'birthday', label: 'Туған күн · ДР' },
-  { id: 'deceased', label: 'Марқұм · Умершие' },
+  { id: 'all', label: FAMILY_SEARCH_COPY.filterAll },
+  { id: 'birthday', label: FAMILY_SEARCH_COPY.filterBirthday },
+  { id: 'deceased', label: FAMILY_SEARCH_COPY.filterDeceased },
 ];

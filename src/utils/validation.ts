@@ -1,5 +1,6 @@
 import { CreateRelativeInput } from '@/types/relative';
 import { SHEZHIRE_FOCUSED_ROOT } from '@/constants/family-ux-content';
+import type { ParentLinkRole } from '@/utils/family-child-links';
 import {
   getBirthYearForValidation,
   syncBirthdayFields,
@@ -18,7 +19,10 @@ export type RelativeFormErrors = Partial<
   Record<keyof CreateRelativeInput | 'deathYear', string>
 >;
 
-export type ValidateRelativeFormContext = ValidateFamilyLinksContext;
+export type ValidateRelativeFormContext = ValidateFamilyLinksContext & {
+  linkedChildIds?: string[];
+  parentLinkRole?: ParentLinkRole;
+};
 
 export type RelativeFormValidation = {
   errors: RelativeFormErrors;
@@ -114,7 +118,10 @@ export function validateRelativeForm(
   }
 
   if (context) {
-    const integrity = validateRelativeBeforeSave(input, context.relatives, context);
+    const integrity = validateRelativeBeforeSave(input, context.relatives, context, {
+      linkedChildIds: context.linkedChildIds,
+      parentLinkRole: context.parentLinkRole,
+    });
     Object.assign(errors, integrity.errors);
   }
 
@@ -123,6 +130,15 @@ export function validateRelativeForm(
 
 export function hasFormErrors(errors: RelativeFormErrors): boolean {
   return Object.keys(errors).length > 0;
+}
+
+export function getFirstFormErrorMessage(errors: RelativeFormErrors): string | null {
+  const firstKey = Object.keys(errors)[0] as keyof RelativeFormErrors | undefined;
+  if (!firstKey) {
+    return null;
+  }
+
+  return errors[firstKey] ?? null;
 }
 
 export function prepareRelativeInput(input: CreateRelativeInput): CreateRelativeInput {

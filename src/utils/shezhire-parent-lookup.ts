@@ -4,20 +4,12 @@ import {
   normalizeRelativeLinkId,
   relativeLinkIdsMatch,
 } from '@/utils/family-link-picker';
-import { getRelativeDisplayName } from '@/utils/relative-names';
 
 export type ShezhireParentRole = 'father' | 'mother';
 
 export type ShezhireParentSlot = {
   linkId: string | null;
   parent: Relative | null;
-};
-
-type ShezhireTreeParentsContext = {
-  father?: Relative | null;
-  mother?: Relative | null;
-  fatherId?: string | null;
-  motherId?: string | null;
 };
 
 /** Resolve the freshest root person from the shared relatives list. */
@@ -48,51 +40,21 @@ export function resolveShezhireRootPerson(
   };
 }
 
-function resolveParentLinkId(
-  rootPerson: Relative,
-  role: ShezhireParentRole,
-  treeParentLinkId?: string | null,
-): string | null {
-  const fromRoot =
-    role === 'father'
-      ? normalizeRelativeLinkId(rootPerson.fatherId)
-      : normalizeRelativeLinkId(rootPerson.motherId);
-
-  if (fromRoot) {
-    return fromRoot;
-  }
-
-  return normalizeRelativeLinkId(treeParentLinkId);
+function resolveParentLinkId(rootPerson: Relative, role: ShezhireParentRole): string | null {
+  return role === 'father'
+    ? normalizeRelativeLinkId(rootPerson.fatherId)
+    : normalizeRelativeLinkId(rootPerson.motherId);
 }
 
-/**
- * Temporary debug helper for father lookup mismatches.
- * Logs every relative id alongside the root's father_id.
- */
-export function debugShezhireFatherLookup(
-  rootPerson: Relative,
+function findParentByLinkId(
+  linkId: string | null,
   relatives: Relative[],
 ): Relative | null {
-  const rootName = rootPerson.fullName?.trim() || getRelativeDisplayName(rootPerson);
+  if (!linkId) {
+    return null;
+  }
 
-  console.log('ROOT PERSON', rootName);
-  console.log('ROOT father_id', rootPerson.fatherId);
-
-  relatives.forEach((relative) => {
-    const name = relative.fullName?.trim() || getRelativeDisplayName(relative);
-    console.log('RELATIVE ID', relative.id, name);
-  });
-
-  const foundFather =
-    rootPerson.fatherId == null
-      ? null
-      : relatives.find((relative) =>
-          relativeLinkIdsMatch(relative.id, rootPerson.fatherId),
-        ) ?? null;
-
-  console.log('FOUND FATHER', foundFather);
-
-  return foundFather;
+  return relatives.find((relative) => relativeLinkIdsMatch(relative.id, linkId)) ?? null;
 }
 
 /**
@@ -138,45 +100,21 @@ export function resolveShezhireSpouse(
 }
 
 /**
- * Parent lookup for Shezhire — uses rootPerson.fatherId / motherId against the
- * same relatives array as Relatives list and profile details.
+ * Parent lookup — ONLY rootPerson.fatherId / motherId against relatives[].
+ * No surname, patronymic, or search inference.
  */
 export function resolveShezhireParentSlot(
   rootPerson: Relative,
   relatives: Relative[],
   role: ShezhireParentRole,
-  options?: {
-    treeParent?: Relative | null;
-    treeParentLinkId?: string | null;
-    lookupById?: (relativeId: string) => Relative | null;
-    debug?: boolean;
-  },
 ): ShezhireParentSlot {
-  const linkId = resolveParentLinkId(rootPerson, role, options?.treeParentLinkId);
-
-  if (options?.debug && role === 'father') {
-    debugShezhireFatherLookup(rootPerson, relatives);
-  }
+  const linkId = resolveParentLinkId(rootPerson, role);
 
   if (!linkId) {
     return { linkId: null, parent: null };
   }
 
-  let parent = findRelativeByLinkId(relatives, linkId);
-
-  if (!parent && options?.lookupById) {
-    parent = options.lookupById(linkId);
-  }
-
-  if (!parent && options?.treeParent) {
-    if (relativeLinkIdsMatch(options.treeParent.id, linkId)) {
-      parent = options.treeParent;
-    }
-  }
-
-  if (role === 'father' && linkId && !parent) {
-    console.warn('[Shezhire] father_id exists but no matching relative in cache:', linkId);
-  }
+  const parent = findParentByLinkId(linkId, relatives);
 
   return { linkId, parent };
 }
@@ -184,23 +122,18 @@ export function resolveShezhireParentSlot(
 export function resolveShezhireParentSlots(
   rootPerson: Relative,
   relatives: Relative[],
-  options?: {
-    treeParents?: ShezhireTreeParentsContext;
-    lookupById?: (relativeId: string) => Relative | null;
-    debug?: boolean;
-  },
 ): { father: ShezhireParentSlot; mother: ShezhireParentSlot } {
   return {
-    father: resolveShezhireParentSlot(rootPerson, relatives, 'father', {
-      treeParent: options?.treeParents?.father,
-      treeParentLinkId: options?.treeParents?.fatherId,
-      lookupById: options?.lookupById,
-      debug: options?.debug,
-    }),
-    mother: resolveShezhireParentSlot(rootPerson, relatives, 'mother', {
-      treeParent: options?.treeParents?.mother,
-      treeParentLinkId: options?.treeParents?.motherId,
-      lookupById: options?.lookupById,
-    }),
+    father: resolveShezhireParentSlot(rootPerson, relatives, 'father'),
+    mother: resolveShezhireParentSlot(rootPerson, relatives, 'mother'),
   };
+}
+
+/** True when any relative links to this person as father or mother. */
+export function isReferencedAsParent(relative: Relative, relatives: Relative[]): boolean {
+  return relatives.some(
+    (candidate) =>
+      relativeLinkIdsMatch(candidate.fatherId, relative.id) ||
+      relativeLinkIdsMatch(candidate.motherId, relative.id),
+  );
 }

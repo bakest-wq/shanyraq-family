@@ -1,7 +1,12 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/Card';
-import { FamilyMemory, getMemoryTypeLabel, getMemoryTypeOption } from '@/types/archive';
+import {
+  FamilyMemory,
+  getMemoryTypeLabel,
+  getMemoryTypeOption,
+  memoryHasDisplayPhoto,
+} from '@/types/archive';
 import { formatMemoryDateLabel } from '@/utils/memory-format';
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
 
@@ -9,36 +14,36 @@ type FamilyMemoryCardProps = {
   memory: FamilyMemory;
   compact?: boolean;
   onPress?: () => void;
+  onLongPress?: () => void;
 };
 
-function getAttachmentLabel(memory: FamilyMemory): { icon: string; label: string } {
+export function FamilyMemoryCard({
+  memory,
+  compact = false,
+  onPress,
+  onLongPress,
+}: FamilyMemoryCardProps) {
   const typeOption = getMemoryTypeOption(memory.category);
-
-  if (memory.hasPhoto || memory.category === 'photo') {
-    return { icon: '🖼️', label: 'Фото · Photo' };
-  }
-
-  if (memory.hasVoice || memory.category === 'voice') {
-    return { icon: '🎙️', label: 'Дауыс · Voice' };
-  }
-
-  if (memory.hasDocument || memory.category === 'document') {
-    return { icon: '📄', label: 'Құжат · Document' };
-  }
-
-  return { icon: typeOption.icon, label: `${typeOption.labelKz} · ${typeOption.labelRu}` };
-}
-
-export function FamilyMemoryCard({ memory, compact = false, onPress }: FamilyMemoryCardProps) {
-  const attachment = getAttachmentLabel(memory);
+  const showPhoto = memoryHasDisplayPhoto(memory) && Boolean(memory.photoUri);
   const cardStyle = compact ? StyleSheet.flatten([styles.card, styles.cardCompact]) : styles.card;
+
+  const media = showPhoto ? (
+    <View style={[styles.photoWrap, compact && styles.photoWrapCompact]}>
+      <Image source={{ uri: memory.photoUri }} style={styles.photo} resizeMode="cover" />
+      <View style={styles.photoBadge}>
+        <Text style={styles.photoBadgeText}>{typeOption.icon}</Text>
+      </View>
+    </View>
+  ) : (
+    <View style={[styles.placeholderWrap, compact && styles.placeholderWrapCompact]}>
+      <Text style={styles.placeholderIcon}>{typeOption.icon}</Text>
+      <Text style={styles.placeholderLabel}>{getMemoryTypeLabel(memory.category)}</Text>
+    </View>
+  );
 
   const content = (
     <>
-      <View style={[styles.mediaWrap, compact && styles.mediaWrapCompact]}>
-        <Text style={styles.mediaIcon}>{attachment.icon}</Text>
-        <Text style={styles.mediaLabel}>{attachment.label}</Text>
-      </View>
+      {media}
 
       <View style={styles.body}>
         <View style={styles.typeBadge}>
@@ -56,28 +61,35 @@ export function FamilyMemoryCard({ memory, compact = false, onPress }: FamilyMem
           👤 {memory.relativeName}
         </Text>
 
-        <Text style={[styles.description, compact && styles.descriptionCompact]} numberOfLines={compact ? 2 : 4}>
-          {memory.story}
-        </Text>
+        {memory.story ? (
+          <Text
+            style={[styles.description, compact && styles.descriptionCompact]}
+            numberOfLines={compact ? 2 : 4}>
+            {memory.story}
+          </Text>
+        ) : null}
       </View>
     </>
   );
 
-  if (onPress) {
-    return (
-      <Pressable onPress={onPress} style={({ pressed }) => [pressed && styles.pressed]}>
-        <Card goldBorder style={cardStyle}>
-          {content}
-        </Card>
-      </Pressable>
-    );
-  }
-
-  return (
+  const card = (
     <Card goldBorder style={cardStyle}>
       {content}
     </Card>
   );
+
+  if (onPress || onLongPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        onLongPress={onLongPress}
+        style={({ pressed }) => [pressed && styles.pressed]}>
+        {card}
+      </Pressable>
+    );
+  }
+
+  return card;
 }
 
 const styles = StyleSheet.create({
@@ -91,28 +103,51 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.92,
   },
-  mediaWrap: {
-    height: 148,
+  photoWrap: {
+    height: 180,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    backgroundColor: Palette.creamDark,
+  },
+  photoWrapCompact: {
+    height: 132,
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
+  },
+  photoBadge: {
+    position: 'absolute',
+    top: Spacing.sm,
+    right: Spacing.sm,
+    backgroundColor: 'rgba(27, 67, 50, 0.78)',
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  photoBadgeText: {
+    fontSize: 16,
+  },
+  placeholderWrap: {
+    height: 120,
     borderRadius: Radius.md,
     backgroundColor: Palette.creamDark,
     borderWidth: 1.5,
     borderColor: Palette.goldLight,
-    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
   },
-  mediaWrapCompact: {
-    height: 112,
+  placeholderWrapCompact: {
+    height: 96,
   },
-  mediaIcon: {
-    fontSize: 34,
+  placeholderIcon: {
+    fontSize: 32,
   },
-  mediaLabel: {
+  placeholderLabel: {
     ...Typography.caption,
     color: Palette.textSecondary,
     fontWeight: '600',
-    textAlign: 'center',
   },
   body: {
     gap: Spacing.sm,

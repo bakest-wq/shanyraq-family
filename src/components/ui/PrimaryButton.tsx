@@ -1,6 +1,9 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
-import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
+import { AnimatedPressable } from '@/components/ui/motion/AnimatedPressable';
+import { useAppTheme } from '@/hooks/useElderMode';
+import { Radius } from '@/constants/theme';
 
 type PrimaryButtonProps = {
   label: string;
@@ -8,6 +11,8 @@ type PrimaryButtonProps = {
   onPress?: () => void;
   variant?: 'gold' | 'green' | 'danger';
   fullWidth?: boolean;
+  disabled?: boolean;
+  loading?: boolean;
 };
 
 export function PrimaryButton({
@@ -16,17 +21,23 @@ export function PrimaryButton({
   onPress,
   variant = 'gold',
   fullWidth = true,
+  disabled = false,
 }: PrimaryButtonProps) {
+  const theme = useAppTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
+    <AnimatedPressable
+      onPress={disabled ? undefined : onPress}
+      disabled={disabled}
+      style={[
         styles.button,
         variant === 'gold' ? styles.gold : variant === 'danger' ? styles.danger : styles.green,
         fullWidth && styles.fullWidth,
-        pressed && styles.pressed,
+        disabled && styles.disabled,
       ]}
-      accessibilityRole="button">
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}>
       <Text
         style={[
           styles.label,
@@ -38,52 +49,63 @@ export function PrimaryButton({
       {sublabel ? (
         <Text style={[styles.sublabel, variant === 'gold' && styles.sublabelGold]}>{sublabel}</Text>
       ) : null}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    borderRadius: Radius.xl,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.xs,
-    minHeight: 72,
-  },
-  gold: {
-    backgroundColor: Palette.gold,
-  },
-  green: {
-    backgroundColor: Palette.greenDeep,
-  },
-  danger: {
-    backgroundColor: Palette.danger,
-  },
-  fullWidth: {
-    alignSelf: 'stretch',
-  },
-  pressed: {
-    opacity: 0.9,
-  },
-  label: {
-    ...Typography.subtitle,
-    color: Palette.white,
-    textAlign: 'center',
-  },
-  labelGold: {
-    color: Palette.greenDeep,
-  },
-  labelDanger: {
-    color: Palette.white,
-  },
-  sublabel: {
-    ...Typography.caption,
-    color: 'rgba(255,255,255,0.85)',
-    textAlign: 'center',
-  },
-  sublabelGold: {
-    color: Palette.textSecondary,
-  },
-});
+function createStyles(theme: ReturnType<typeof useAppTheme>) {
+  return StyleSheet.create({
+    button: {
+      borderRadius: Radius.xl,
+      paddingVertical: theme.spacing.lg,
+      paddingHorizontal: theme.spacing.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: theme.spacing.xs,
+      minHeight: theme.layout.buttonMinHeight,
+      borderWidth: theme.elderMode ? 2 : 0,
+      borderColor: theme.palette.greenDeep,
+    },
+    gold: {
+      backgroundColor: theme.palette.gold,
+    },
+    green: {
+      backgroundColor: theme.palette.greenDeep,
+    },
+    danger: {
+      backgroundColor: theme.palette.danger,
+    },
+    fullWidth: {
+      alignSelf: 'stretch',
+    },
+    disabled: {
+      opacity: 0.55,
+    },
+    loadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: theme.spacing.sm,
+    },
+    label: {
+      ...theme.typography.subtitle,
+      color: theme.palette.white,
+      textAlign: 'center',
+      fontWeight: '800',
+    },
+    labelGold: {
+      color: theme.palette.greenDeep,
+    },
+    labelDanger: {
+      color: theme.palette.white,
+    },
+    sublabel: {
+      ...theme.typography.caption,
+      color: 'rgba(255,255,255,0.9)',
+      textAlign: 'center',
+    },
+    sublabelGold: {
+      color: theme.palette.textSecondary,
+    },
+  });
+}

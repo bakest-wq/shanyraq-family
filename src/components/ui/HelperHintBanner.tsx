@@ -1,6 +1,7 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
+import { useCalmUx } from '@/hooks/useCalmUx';
 
 type HelperHintBannerProps = {
   icon?: string;
@@ -9,12 +10,16 @@ type HelperHintBannerProps = {
   tone?: 'cream' | 'white';
 };
 
+/** Soft hint banner — calm tone, no alarm colors. */
 export function HelperHintBanner({
   icon = '🌿',
   text,
   subtext,
   tone = 'white',
 }: HelperHintBannerProps) {
+  const { theme, calm } = useCalmUx();
+  const styles = useMemo(() => createStyles(theme, calm), [calm, theme]);
+
   return (
     <View style={[styles.banner, tone === 'cream' ? styles.bannerCream : styles.bannerWhite]}>
       <View style={styles.iconColumn}>
@@ -29,49 +34,52 @@ export function HelperHintBanner({
   );
 }
 
-const styles = StyleSheet.create({
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.md,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Palette.goldLight,
-    padding: Spacing.md,
-  },
-  bannerWhite: {
-    backgroundColor: Palette.white,
-  },
-  bannerCream: {
-    backgroundColor: Palette.cream,
-  },
-  iconColumn: {
-    alignItems: 'center',
-    gap: Spacing.xs,
-    paddingTop: 2,
-  },
-  iconDot: {
-    width: 6,
-    height: 6,
-    borderRadius: Radius.full,
-    backgroundColor: Palette.gold,
-  },
-  icon: {
-    fontSize: 22,
-  },
-  textColumn: {
-    flex: 1,
-    gap: 4,
-  },
-  text: {
-    ...Typography.bodySmall,
-    color: Palette.greenDeep,
-    fontWeight: '700',
-    lineHeight: 22,
-  },
-  subtext: {
-    ...Typography.caption,
-    color: Palette.textSecondary,
-    lineHeight: 20,
-  },
-});
+function createStyles(theme: ReturnType<typeof useCalmUx>['theme'], calm: ReturnType<typeof useCalmUx>['calm']) {
+  return StyleSheet.create({
+    banner: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: theme.spacing.md,
+      borderRadius: theme.radius.lg,
+      borderWidth: 1,
+      borderColor: theme.palette.goldLight,
+      padding: theme.spacing.md,
+      minHeight: calm.minTouchHeight,
+    },
+    bannerWhite: {
+      backgroundColor: calm.surfaceRaised,
+    },
+    bannerCream: {
+      backgroundColor: calm.surfaceSoft,
+    },
+    iconColumn: {
+      alignItems: 'center',
+      gap: theme.spacing.xs,
+      paddingTop: 2,
+    },
+    iconDot: {
+      width: 6,
+      height: 6,
+      borderRadius: theme.radius.full,
+      backgroundColor: theme.palette.gold,
+    },
+    icon: {
+      fontSize: 22,
+    },
+    textColumn: {
+      flex: 1,
+      gap: 4,
+    },
+    text: {
+      ...theme.typography.bodySmall,
+      color: theme.palette.greenDeep,
+      fontWeight: '700',
+      lineHeight: 22,
+    },
+    subtext: {
+      ...theme.typography.caption,
+      color: theme.palette.textSecondary,
+      lineHeight: 20,
+    },
+  });
+}

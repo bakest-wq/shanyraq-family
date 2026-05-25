@@ -1,15 +1,18 @@
 import type { Relative } from '@/types/relative';
 import { relativeLinkIdsMatch } from '@/utils/family-link-picker';
 import { getRelativeDisplayName } from '@/utils/relative-names';
-import { classifyKinship } from '@/utils/kinship/classify';
 import {
   areSpouses,
   getChildren,
   getEffectiveSpouse,
   getParents,
-  getPersonById,
 } from '@/utils/kinship/graph';
 import type { KinshipPathStep } from '@/utils/kinship/types';
+
+import {
+  findShortestRelationshipPath,
+  toKinshipPathSteps,
+} from '@/services/kinship/relationship-path.engine';
 
 export type KinshipGraphEdge = {
   fromId: string;
@@ -41,70 +44,19 @@ export function buildKinshipEdges(relatives: Relative[]): KinshipGraphEdge[] {
   return edges;
 }
 
-type QueueItem = {
-  personId: string;
-  path: KinshipPathStep[];
-};
-
 /**
- * Shortest structural path between root and target using parent/child/spouse edges.
- * Semantic kinship labels are applied separately in classifyKinship().
+ * Shortest structural path between root and target.
+ * Delegates to the relationship path engine (BFS + visited-set loop protection).
  */
 export function findKinshipPath(
   rootPerson: Relative,
   targetPerson: Relative,
   relatives: Relative[],
 ): KinshipPathStep[] {
-  if (relativeLinkIdsMatch(rootPerson.id, targetPerson.id)) {
-    return [];
-  }
+  const result = findShortestRelationshipPath(rootPerson, targetPerson, relatives);
 
-  const classified = classifyKinship(rootPerson, targetPerson, relatives);
-  if (classified.pathSteps.length > 0) {
-    return classified.pathSteps;
-  }
-
-  const edges = buildKinshipEdges(relatives);
-  const byFrom = new Map<string, KinshipGraphEdge[]>();
-
-  for (const edge of edges) {
-    const bucket = byFrom.get(edge.fromId) ?? [];
-    bucket.push(edge);
-    byFrom.set(edge.fromId, bucket);
-  }
-
-  const visited = new Set<string>([rootPerson.id]);
-  const queue: QueueItem[] = [{ personId: rootPerson.id, path: [] }];
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current) {
-      break;
-    }
-
-    const outgoing = byFrom.get(current.personId) ?? [];
-
-    for (const edge of outgoing) {
-      if (visited.has(edge.toId)) {
-        continue;
-      }
-
-      const nextPerson = getPersonById(relatives, edge.toId);
-      if (!nextPerson) {
-        continue;
-      }
-
-      const stepLabel =
-        edge.kind === 'parent' ? 'ата-ана' : edge.kind === 'child' ? 'бала' : 'жұбайы';
-      const nextPath = [...current.path, { person: nextPerson, stepLabel }];
-
-      if (relativeLinkIdsMatch(nextPerson.id, targetPerson.id)) {
-        return nextPath;
-      }
-
-      visited.add(edge.toId);
-      queue.push({ personId: edge.toId, path: nextPath });
-    }
+  if (result.resolved) {
+    return toKinshipPathSteps(result);
   }
 
   return [];

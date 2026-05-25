@@ -25,6 +25,15 @@ import {
   DeleteBlockedError,
   type ShezhireRepairKind,
 } from '@/services/graph-integrity.service';
+import {
+  assertRelationshipSafetyForLinkPatch,
+  assertRelationshipSafetyForSave,
+  PROPOSED_RELATIVE_ID,
+  RelationshipSafetyBlockedError,
+  RELATIONSHIP_SAFETY_MESSAGES,
+} from '@/utils/relationship-safety-validation';
+
+export { RelationshipSafetyBlockedError } from '@/utils/relationship-safety-validation';
 
 function handleSupabaseError(error: { message: string } | null, fallback: string): never {
   throw new Error(error?.message ?? fallback);
@@ -139,6 +148,7 @@ async function applyLinkSync(
     }
 
     for (const { personId, patch } of patches) {
+      assertRelationshipSafetyForLinkPatch(personId, patch, workingRelatives);
       await patchRelativeLinksRaw(personId, patch, familyId);
       appliedCount += 1;
     }
@@ -171,6 +181,12 @@ export const relativesService = {
   },
 
   async create(input: CreateRelativeInput, familyId: string): Promise<Relative> {
+    let relatives = await fetchAllRelatives(familyId);
+    assertRelationshipSafetyForSave(input, relatives, {
+      relativeId: PROPOSED_RELATIVE_ID,
+      relatives,
+    });
+
     const supabase = getSupabaseClient();
     const payload = mapRelativeToInsert(input, familyId);
 
@@ -181,7 +197,7 @@ export const relativesService = {
     }
 
     const [created] = await enrichRelativesWithLocalPhotos([mapRelativeRow(data)]);
-    const relatives = await fetchAllRelatives(familyId);
+    relatives = await fetchAllRelatives(familyId);
     await applyLinkSync(created.id, null, linksFromInput(input), familyId, relatives);
 
     return (await fetchRelativeById(created.id, familyId)) ?? created;
@@ -189,6 +205,9 @@ export const relativesService = {
 
   async update(id: string, input: CreateRelativeInput, familyId: string): Promise<Relative> {
     const before = await fetchRelativeById(id, familyId);
+    let relatives = await fetchAllRelatives(familyId);
+    assertRelationshipSafetyForSave(input, relatives, { relativeId: id, relatives });
+
     const supabase = getSupabaseClient();
     const payload = mapRelativeToUpdate(input, familyId);
 
@@ -205,7 +224,7 @@ export const relativesService = {
     }
 
     const [updated] = await enrichRelativesWithLocalPhotos([mapRelativeRow(data)]);
-    const relatives = await fetchAllRelatives(familyId);
+    relatives = await fetchAllRelatives(familyId);
     await applyLinkSync(
       id,
       before ? linksFromRelative(before) : null,
@@ -317,7 +336,12 @@ export const relativesService = {
 
       const parent = relatives.find((relative) => relative.id === parentId);
       if (parent && areSharedParentSiblings(parent, child)) {
-        continue;
+        throw new RelationshipSafetyBlockedError({
+          fatherId:
+            role === 'father' ? RELATIONSHIP_SAFETY_MESSAGES.siblingAsChild : undefined,
+          motherId:
+            role === 'mother' ? RELATIONSHIP_SAFETY_MESSAGES.siblingAsChild : undefined,
+        });
       }
 
       if (role === 'father' && child.fatherId !== parentId) {
@@ -344,6 +368,15 @@ export const relativesService = {
     }
 
     for (const update of updates) {
+      assertRelationshipSafetyForLinkPatch(
+        update.childId,
+        {
+          fatherId: update.fatherId,
+          motherId: update.motherId,
+        },
+        relatives,
+      );
+
       const row: { father_id?: string | null; mother_id?: string | null } = {};
 
       if (update.fatherId !== undefined) {
@@ -399,6 +432,9 @@ export const relativesService = {
     familyId: string,
   ): Promise<Relative> {
     const before = await fetchRelativeById(id, familyId);
+    let relatives = await fetchAllRelatives(familyId);
+    assertRelationshipSafetyForLinkPatch(id, input, relatives);
+
     const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
@@ -418,7 +454,7 @@ export const relativesService = {
     }
 
     const [updated] = await enrichRelativesWithLocalPhotos([mapRelativeRow(data)]);
-    const relatives = await fetchAllRelatives(familyId);
+    relatives = await fetchAllRelatives(familyId);
     await applyLinkSync(
       id,
       before ? linksFromRelative(before) : null,
@@ -437,13 +473,16 @@ export const relativesService = {
     options?: PatchRelativeLinksOptions,
   ): Promise<Relative> {
     const before = await fetchRelativeById(id, familyId);
+    let relatives = await fetchAllRelatives(familyId);
+    assertRelationshipSafetyForLinkPatch(id, patch, relatives);
+
     const updated = await patchRelativeLinksRaw(id, patch, familyId);
 
     if (options?.skipSync) {
       return updated;
     }
 
-    const relatives = await fetchAllRelatives(familyId);
+    relatives = await fetchAllRelatives(familyId);
     const after: FamilyLinkSnapshot = {
       fatherId: patch.fatherId !== undefined ? patch.fatherId : (before?.fatherId ?? null),
       motherId: patch.motherId !== undefined ? patch.motherId : (before?.motherId ?? null),

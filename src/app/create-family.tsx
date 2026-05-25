@@ -16,6 +16,7 @@ import { FormField } from '@/components/ui/FormField';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useFamily } from '@/hooks/useFamily';
 import { formatInviteCodeDisplay } from '@/utils/family-invite';
+import { safeGoBack, APP_ROUTES } from '@/utils/safe-navigation';
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function CreateFamilyScreen() {
@@ -27,12 +28,7 @@ export default function CreateFamilyScreen() {
   const [saving, setSaving] = useState(false);
 
   const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-
-    router.replace('/');
+    safeGoBack(router, { fallback: APP_ROUTES.onboarding });
   };
 
   const handleCreate = async () => {

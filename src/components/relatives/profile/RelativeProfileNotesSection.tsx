@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { EMPTY_STATE_COPY } from '@/constants/empty-state-content';
+
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
 
 import { RelativeProfileSection } from './RelativeProfileSection';
@@ -21,8 +23,8 @@ export function RelativeProfileNotesSection({ notes }: RelativeProfileNotesSecti
       ) : (
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyIcon}>📝</Text>
-          <Text style={styles.emptyTitle}>Ескертпе жоқ</Text>
-          <Text style={styles.emptyText}>Заметок пока нет · Можно добавить при редактировании</Text>
+          <Text style={styles.emptyTitle}>{EMPTY_STATE_COPY.notes.title}</Text>
+          <Text style={styles.emptyText}>{EMPTY_STATE_COPY.notes.hint}</Text>
         </View>
       )}
     </RelativeProfileSection>

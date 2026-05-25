@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { kk, FAMILY_LANGUAGE } from '@/content/family-language';
 import type { Relative } from '@/types/relative';
 import { analyzeUnlinkedRelative } from '@/utils/unlinked-relative-ux';
 
@@ -30,7 +31,7 @@ test('missing parents shows warm reason and parent action', () => {
   const person = mockRelative('p', 'Майя', { relationship: 'Бауыр' });
   const insight = analyzeUnlinkedRelative(person, [person]);
 
-  assert.ok(insight.reasons.includes('Ата-анасы байланыстырылмаған'));
+  assert.ok(insight.reasons.includes(kk(FAMILY_LANGUAGE.unlinked.parentMissing)));
   assert.ok(insight.actions.some((action) => action.id === 'link_parents'));
   assert.ok(insight.actions.some((action) => action.id === 'focus_tree'));
 });
@@ -46,7 +47,7 @@ test('parent without spouse suggests spouse link', () => {
 
   const insight = analyzeUnlinkedRelative(parent, relatives);
 
-  assert.ok(insight.reasons.includes('Жұбайы көрсетілмеген'));
+  assert.ok(insight.reasons.includes(kk(FAMILY_LANGUAGE.unlinked.spouseMissing)));
   assert.ok(insight.actions.some((action) => action.id === 'link_spouse'));
 });
 
@@ -58,5 +59,5 @@ test('linked but isolated relative gets soft shezhire reason', () => {
 
   const insight = analyzeUnlinkedRelative(person, [person, father, mother]);
 
-  assert.ok(insight.reasons.includes('Шежіредегі орны анықталмаған'));
+  assert.ok(insight.reasons.includes(kk(FAMILY_LANGUAGE.unlinked.placeUnknown)));
 });

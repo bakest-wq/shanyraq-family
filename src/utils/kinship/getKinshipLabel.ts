@@ -1,23 +1,30 @@
 import type { Relative } from '@/types/relative';
-import { classifyKinship } from '@/utils/kinship/classify';
-import { explainKinship } from '@/utils/kinship/explainKinship';
+import {
+  getKinshipCardLine as getKinshipCardLineFromService,
+  getKinshipExplanation,
+  getKinshipExplanationBetween,
+  getKinshipLabel as getKinshipLabelFromService,
+} from '@/services/kinship.service';
 import { formatKinshipBadge, formatKinshipCardLine } from '@/utils/kinship/labels.kz';
+import { formatKinshipDetailSummary } from '@/utils/kinship/kinship-display';
 import type { KinshipResult } from '@/utils/kinship/types';
 
+/** @see kinshipService.getKinshipLabel */
 export function getKinshipLabel(
   rootPerson: Relative,
   targetPerson: Relative,
   allRelatives: Relative[],
 ): KinshipResult {
-  return classifyKinship(rootPerson, targetPerson, allRelatives);
+  return getKinshipLabelFromService(rootPerson, targetPerson, allRelatives);
 }
 
+/** @see kinshipService.getKinshipCardLine */
 export function getKinshipCardLine(
   rootPerson: Relative,
   targetPerson: Relative,
   allRelatives: Relative[],
 ): string {
-  return formatKinshipCardLine(getKinshipLabel(rootPerson, targetPerson, allRelatives));
+  return getKinshipCardLineFromService(rootPerson, targetPerson, allRelatives);
 }
 
 export function getKinshipShortExplanation(
@@ -25,7 +32,19 @@ export function getKinshipShortExplanation(
   targetPerson: Relative,
   allRelatives: Relative[],
 ): string {
-  return explainKinship(rootPerson, targetPerson, allRelatives).summary;
+  return formatKinshipDetailSummary(
+    getKinshipExplanationBetween(rootPerson, targetPerson, allRelatives),
+  );
+}
+
+export function getKinshipDetailExplanation(
+  anchorPerson: Relative,
+  targetPerson: Relative,
+  allRelatives: Relative[],
+): string {
+  return formatKinshipDetailSummary(
+    getKinshipExplanation(anchorPerson, targetPerson, allRelatives),
+  );
 }
 
 export function getKinshipBadge(

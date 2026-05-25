@@ -22,6 +22,8 @@ export const BIRTHDAY_MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => (
 
 const MIN_BIRTH_YEAR = 1900;
 
+export { MIN_BIRTH_YEAR };
+
 export function getMaxBirthYear(referenceDate = new Date()): number {
   return referenceDate.getFullYear();
 }
@@ -105,6 +107,17 @@ export function syncBirthdayFields<T extends BirthdayPartsInput>(input: T): T & 
   let day = input.birthdayDay ?? null;
   let month = input.birthdayMonth ?? null;
   let year = yearUnknown ? null : input.birthdayYear ?? null;
+
+  if ((!day || !month) && input.birthday?.trim()) {
+    const parsed = parseBirthdayIso(input.birthday.trim());
+    if (parsed) {
+      day = day ?? parsed.day;
+      month = month ?? parsed.month;
+      if (!yearUnknown && year == null) {
+        year = parsed.year;
+      }
+    }
+  }
 
   if (day && month) {
     day = clampBirthdayDay(day, month, year);
@@ -265,19 +278,15 @@ export function validateBirthdayPartsInput(input: BirthdayPartsInput): string | 
   const yearUnknown = input.birthdayYearUnknown ?? false;
   const year = yearUnknown ? null : input.birthdayYear ?? null;
 
+  const maxDay = getDaysInMonth(input.birthdayMonth, year);
+  if (input.birthdayDay < 1 || input.birthdayDay > maxDay) {
+    return 'Некорректная дата · Қате күн';
+  }
+
   if (!yearUnknown && year) {
     if (year < MIN_BIRTH_YEAR || year > getMaxBirthYear()) {
       return `Год: ${MIN_BIRTH_YEAR}–${getMaxBirthYear()}`;
     }
-  }
-
-  if (!yearUnknown && !year) {
-    return undefined;
-  }
-
-  const maxDay = getDaysInMonth(input.birthdayMonth, year);
-  if (input.birthdayDay < 1 || input.birthdayDay > maxDay) {
-    return 'Некорректная дата · Қате күн';
   }
 
   return undefined;

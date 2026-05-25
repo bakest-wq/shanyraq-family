@@ -1,36 +1,45 @@
-import { useMemo } from 'react';
+import { useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { BirthdayPicker } from '@/components/relatives/BirthdayPicker';
 import { FamilyLinkSections } from '@/components/relatives/FamilyLinkSections';
+import { GuidedLinkingAssistant } from '@/components/relatives/GuidedLinkingAssistant';
 import { RelativePhotoPicker } from '@/components/relatives/RelativePhotoPicker';
 import { RuPicker } from '@/components/relatives/RuPicker';
 import { RelationshipSelector } from '@/components/relatives/RelationshipSelector';
 import { Card } from '@/components/ui/Card';
 import { FormField } from '@/components/ui/FormField';
 import { HelperHintBanner } from '@/components/ui/HelperHintBanner';
+import { DisclosureSection } from '@/components/ui/motion/DisclosureSection';
 import {
   CreateRelativeInput,
   GENDER_OPTIONS,
   MARITAL_STATUS_OPTIONS,
   Relative,
 } from '@/types/relative';
+import { useKinshipAnchor } from '@/hooks/useKinshipAnchor';
+import { useUserIdentity } from '@/hooks/useUserIdentity';
 import {
-  findFamilyAnchor,
-  formatRelationshipPath,
-  getRelationshipPath,
-} from '@/utils/kinship-path';
+  buildGuidedFamilyStep,
+  resolvePendingRootLinkPatch,
+  type GuidedLinkAction,
+  type PendingRootLinkAfterSave,
+} from '@/services/guided-family-builder.service';
+import { buildKinshipCardLineMap } from '@/services/kinship.service';
 import { SECTION_HELPER_TEXT } from '@/constants/family-ux-content';
+import { COGNITIVE_LOAD_COPY } from '@/constants/cognitive-load-content';
 import { getRelativeDisplayName } from '@/utils/relative-names';
 import {
   getParentSideAutoLabelHelperText,
   getParentSideSiblingHelperText,
   isParentSideSiblingRelationship,
 } from '@/utils/parent-side-sibling-add';
+import { syncBirthdayFields } from '@/utils/birthday-parts';
 import { pickAvatarColor } from '@/utils/relative.mapper';
 import { RelativeFormErrors } from '@/utils/validation';
 import { RuSelection } from '@/utils/ru-dictionary';
-import { Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
 
 type RelativeFormFieldsProps = {
   form: CreateRelativeInput;
@@ -47,6 +56,7 @@ type RelativeFormFieldsProps = {
   ) => void;
   onPatch?: (patch: Partial<CreateRelativeInput>) => void;
   onSiblingParentSync?: (siblingId: string, patch: Partial<CreateRelativeInput>) => void;
+  onPendingRootLinkChange?: (pending: PendingRootLinkAfterSave | null) => void;
 };
 
 export function RelativeFormFields({
@@ -61,7 +71,109 @@ export function RelativeFormFields({
   onChange,
   onPatch,
   onSiblingParentSync,
+  onPendingRootLinkChange,
 }: RelativeFormFieldsProps) {
+  const router = useRouter();
+  const { myRelative } = useUserIdentity();
+  const anchorPerson = useKinshipAnchor();
+  const [dismissedStepIds, setDismissedStepIds] = useState<Set<string>>(() => new Set());
+  const [confirmedRootParentLink, setConfirmedRootParentLink] = useState(false);
+
+  const guidedRootId = referenceRootId ?? myRelative?.id ?? null;
+
+  useEffect(() => {
+    setDismissedStepIds(new Set());
+    setConfirmedRootParentLink(false);
+    onPendingRootLinkChange?.(null);
+  }, [form.relationship]);
+
+  const guidedStep = useMemo(
+    () =>
+      buildGuidedFamilyStep({
+        relationship: form.relationship,
+        relatives,
+        rootPersonId: guidedRootId,
+        editingRelativeId,
+        formLinks: {
+          fatherId: form.fatherId,
+          motherId: form.motherId,
+          spouseId: form.spouseId,
+        },
+        linkedChildIds,
+        dismissedStepIds,
+        confirmedRootParentLink,
+      }),
+    [
+      confirmedRootParentLink,
+      dismissedStepIds,
+      editingRelativeId,
+      form.fatherId,
+      form.motherId,
+      form.relationship,
+      form.spouseId,
+      guidedRootId,
+      linkedChildIds,
+      relatives,
+    ],
+  );
+
+  const applyLinkPatch = (patch: Partial<CreateRelativeInput>) => {
+    if (onPatch) {
+      onPatch(patch);
+      return;
+    }
+
+    if (patch.fatherId !== undefined) {
+      onChange('fatherId', patch.fatherId);
+    }
+
+    if (patch.motherId !== undefined) {
+      onChange('motherId', patch.motherId);
+    }
+
+    if (patch.spouseId !== undefined) {
+      onChange('spouseId', patch.spouseId);
+    }
+  };
+
+  const handleGuidedPrimary = (action: GuidedLinkAction) => {
+    if (action.type === 'patch_form') {
+      applyLinkPatch(action.patch);
+      if (guidedStep) {
+        setDismissedStepIds((current) => new Set(current).add(guidedStep.id));
+      }
+      return;
+    }
+
+    if (action.type === 'confirm_root_parent_link') {
+      setConfirmedRootParentLink(true);
+      onPendingRootLinkChange?.(resolvePendingRootLinkPatch(action));
+      if (guidedStep) {
+        setDismissedStepIds((current) => new Set(current).add(guidedStep.id));
+      }
+      return;
+    }
+
+    if (action.type === 'navigate_add_child') {
+      router.push({
+        pathname: '/add-relative',
+        params: action.params,
+      });
+      if (guidedStep) {
+        setDismissedStepIds((current) => new Set(current).add(guidedStep.id));
+      }
+      return;
+    }
+
+    if (action.type === 'focus_children_picker' && guidedStep) {
+      setDismissedStepIds((current) => new Set(current).add(guidedStep.id));
+    }
+  };
+
+  const handleGuidedSkip = (stepId: string) => {
+    setDismissedStepIds((current) => new Set(current).add(stepId));
+  };
+
   const previewRelative = useMemo((): Relative | null => {
     if (editingRelativeId) {
       return relatives.find((relative) => relative.id === editingRelativeId) ?? null;
@@ -98,9 +210,13 @@ export function RelativeFormFields({
       return null;
     }
 
-    const anchor = findFamilyAnchor(relatives);
-    return formatRelationshipPath(getRelationshipPath(previewRelative, relatives, anchor));
-  }, [previewRelative, relatives]);
+    const anchor = anchorPerson ?? myRelative;
+    if (!anchor) {
+      return null;
+    }
+
+    return buildKinshipCardLineMap(anchor, [previewRelative], relatives).get(previewRelative.id) ?? null;
+  }, [anchorPerson, myRelative, previewRelative, relatives]);
 
   const handleBirthdayChange = (
     patch: Pick<
@@ -108,12 +224,20 @@ export function RelativeFormFields({
       'birthday' | 'birthdayDay' | 'birthdayMonth' | 'birthdayYear' | 'birthdayYearUnknown'
     >,
   ) => {
+    const synced = syncBirthdayFields({
+      birthdayDay: patch.birthdayDay ?? form.birthdayDay ?? null,
+      birthdayMonth: patch.birthdayMonth ?? form.birthdayMonth ?? null,
+      birthdayYear: patch.birthdayYear ?? form.birthdayYear ?? null,
+      birthdayYearUnknown: patch.birthdayYearUnknown ?? form.birthdayYearUnknown ?? false,
+      birthday: patch.birthday ?? form.birthday ?? '',
+    });
+
     const birthdayPatch: Partial<CreateRelativeInput> = {
-      birthdayDay: patch.birthdayDay ?? null,
-      birthdayMonth: patch.birthdayMonth ?? null,
-      birthdayYear: patch.birthdayYear ?? null,
-      birthdayYearUnknown: patch.birthdayYearUnknown ?? false,
-      birthday: patch.birthday ?? '',
+      birthdayDay: synced.birthdayDay,
+      birthdayMonth: synced.birthdayMonth,
+      birthdayYear: synced.birthdayYear,
+      birthdayYearUnknown: synced.birthdayYearUnknown,
+      birthday: synced.birthday,
     };
 
     if (onPatch) {
@@ -195,6 +319,14 @@ export function RelativeFormFields({
         ) : null}
       </Card>
 
+      {guidedStep ? (
+        <GuidedLinkingAssistant
+          step={guidedStep}
+          onPrimary={handleGuidedPrimary}
+          onSkip={handleGuidedSkip}
+        />
+      ) : null}
+
       <Card style={styles.sectionCard}>
         <Text style={styles.sectionLabel}>Жынысы · Пол</Text>
         <View style={styles.optionRow}>
@@ -214,36 +346,37 @@ export function RelativeFormFields({
         </View>
       </Card>
 
-      <FormField
-        label="Аты · Имя *"
-        placeholder="Мысалы: Айгуль"
-        value={form.firstName}
-        onChangeText={(value) => onChange('firstName', value)}
-        error={errors.firstName}
-        autoCapitalize="words"
-      />
-
-      <FormField
-        label="Әke аты · Отчество"
-        placeholder="Мысалы: Нұрланқызы"
-        value={form.middleName ?? ''}
-        onChangeText={(value) => onChange('middleName', value)}
-        autoCapitalize="words"
-        hint="Тек көрсету үшін · Display only, does not affect tree links"
-      />
-
-      <FormField
-        label="Тегі · Текущая фамилия"
-        placeholder="Мысалы: Қасымова"
-        value={form.currentSurname ?? ''}
-        onChangeText={(value) => onChange('currentSurname', value)}
-        autoCapitalize="words"
-      />
+      <Card style={styles.sectionCard}>
+        <Text style={styles.sectionLabel}>Аты-жөні · ФИО</Text>
+        <FormField
+          label="Аты · Имя"
+          placeholder="Мысалы: Айгül"
+          value={form.firstName}
+          onChangeText={(value) => onChange('firstName', value)}
+          error={errors.firstName}
+          autoCapitalize="words"
+        />
+        <FormField
+          label="Тегі · Фамилия"
+          placeholder="Мысалы: Қасымова"
+          value={form.fullName}
+          onChangeText={(value) => onChange('fullName', value)}
+          error={errors.fullName}
+          autoCapitalize="words"
+        />
+        <FormField
+          label="Әke adı · Отчество"
+          placeholder="Необязательно"
+          value={form.middleName ?? ''}
+          onChangeText={(value) => onChange('middleName', value)}
+          autoCapitalize="words"
+        />
+      </Card>
 
       {showBirthSurname ? (
         <FormField
-          label="Туған тегі · Фамилия при рождении"
-          placeholder="Мысалы: Сейтова"
+          label="Күйеу тегі · Девичья фамилия"
+          placeholder="Необязательно"
           value={form.birthSurname ?? ''}
           onChangeText={(value) => onChange('birthSurname', value)}
           autoCapitalize="words"
@@ -251,159 +384,135 @@ export function RelativeFormFields({
         />
       ) : null}
 
-      <FormField
-        label="Көрсету аты · Display name"
-        placeholder="Как показывать в приложении"
-        value={form.displayName ?? ''}
-        onChangeText={(value) => onChange('displayName', value)}
-        autoCapitalize="words"
-        hint="Необязательно · по умолчанию — полное имя"
-      />
-
-      <Card style={styles.sectionCard}>
-        <Text style={styles.sectionLabel}>Неке · Семейное положение</Text>
-        <View style={styles.optionRow}>
-          {MARITAL_STATUS_OPTIONS.map((option) => {
-            const selected = form.maritalStatus === option.id;
-            return (
-              <Pressable
-                key={option.id}
-                onPress={() => onChange('maritalStatus', option.id)}
-                style={[styles.optionChipWide, selected && styles.optionChipSelected]}>
-                <Text style={[styles.optionChipText, selected && styles.optionChipTextSelected]}>
-                  {option.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </Card>
-
       <FamilyLinkSections
         form={form}
         errors={errors}
         relatives={relatives}
         editingRelativeId={editingRelativeId}
-        referenceRootId={referenceRootId}
+        referenceRootId={guidedRootId}
         linkedChildIds={linkedChildIds}
         onLinkedChildIdsChange={onLinkedChildIdsChange}
         onChange={onChange}
         onPatch={onPatch}
         onSiblingParentSync={onSiblingParentSync}
+        hideSiblingGuidance={Boolean(guidedStep?.kind === 'sibling' || guidedStep?.kind === 'info')}
       />
 
-      <Card goldBorder style={styles.sectionCard}>
-        <Text style={styles.sectionLabel}>Шежіре деректері · Shezhire</Text>
-        <HelperHintBanner
-          icon="🌿"
-          text={SECTION_HELPER_TEXT.ruSelection.text}
-          subtext={SECTION_HELPER_TEXT.ruSelection.subtext}
-          tone="cream"
-        />
-        <RuPicker
-          zhuz={form.zhuz}
-          ru={form.ru}
-          tribeBranch={form.tribeBranch}
-          ataLine={form.ataLine}
-          onChange={handleRuChange}
-        />
+      <Card style={styles.sectionCard}>
+        <DisclosureSection
+          title={COGNITIVE_LOAD_COPY.optionalFields}
+          subtitle={COGNITIVE_LOAD_COPY.optionalFieldsHint}>
+          <Card style={styles.nestedCard}>
+            <Text style={styles.sectionLabel}>Неке · Семейное положение</Text>
+            <View style={styles.optionRow}>
+              {MARITAL_STATUS_OPTIONS.map((option) => {
+                const selected = form.maritalStatus === option.id;
+                return (
+                  <Pressable
+                    key={option.id}
+                    onPress={() => onChange('maritalStatus', option.id)}
+                    style={[styles.optionChipWide, selected && styles.optionChipSelected]}>
+                    <Text
+                      style={[styles.optionChipText, selected && styles.optionChipTextSelected]}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Card>
+
+          <FormField
+            label="Көрсету аты · Display name"
+            placeholder="Как показывать в приложении"
+            value={form.displayName ?? ''}
+            onChangeText={(value) => onChange('displayName', value)}
+            autoCapitalize="words"
+            hint="Необязательно · по умолчанию — полное имя"
+          />
+
+          <Card goldBorder style={styles.nestedCard}>
+            <Text style={styles.sectionLabel}>Шежіре деректері · Shezhire</Text>
+            <HelperHintBanner
+              icon="🌿"
+              text={SECTION_HELPER_TEXT.ruSelection.text}
+              subtext={SECTION_HELPER_TEXT.ruSelection.subtext}
+              tone="cream"
+            />
+            <RuPicker
+              zhuz={form.zhuz}
+              ru={form.ru}
+              tribeBranch={form.tribeBranch}
+              ataLine={form.ataLine}
+              onChange={handleRuChange}
+            />
+          </Card>
+
+          <Card style={styles.nestedCard}>
+            <Text style={styles.sectionLabel}>Туған күн · День рождения</Text>
+            <BirthdayPicker
+              day={form.birthdayDay}
+              month={form.birthdayMonth}
+              year={form.birthdayYear}
+              yearUnknown={form.birthdayYearUnknown ?? false}
+              error={errors.birthday}
+              onChange={handleBirthdayChange}
+            />
+          </Card>
+
+          <Card style={styles.nestedCard}>
+            <Text style={styles.sectionLabel}>Байланыс · Контакты</Text>
+            <FormField
+              label="Телефон · Phone"
+              placeholder="+7 777 123 4567"
+              value={form.phone ?? ''}
+              onChangeText={(value) => onChange('phone', value)}
+              error={errors.phone}
+              keyboardType="phone-pad"
+            />
+          </Card>
+
+          <Card style={styles.nestedCard}>
+            <View style={styles.switchRow}>
+              <View style={styles.switchTextWrap}>
+                <Text style={styles.switchLabel}>Марқұм · Умер(ла)</Text>
+                <Text style={styles.switchHint}>Еске алу бөлімінде сақталады</Text>
+              </View>
+              <Switch
+                value={form.isDeceased ?? false}
+                onValueChange={(value) => onChange('isDeceased', value)}
+                trackColor={{ false: Palette.creamDark, true: Palette.greenSoft }}
+                thumbColor={form.isDeceased ? Palette.greenDeep : Palette.white}
+              />
+            </View>
+          </Card>
+        </DisclosureSection>
       </Card>
 
-      <BirthdayPicker
-        day={form.birthdayDay}
-        month={form.birthdayMonth}
-        year={form.birthdayYear}
-        yearUnknown={form.birthdayYearUnknown ?? false}
-        error={errors.birthday}
-        onChange={handleBirthdayChange}
-      />
-
-      <FormField
-        label="Телефон · WhatsApp"
-        placeholder="+77001234567"
-        value={form.phone ?? ''}
-        onChangeText={(value) => onChange('phone', value)}
-        keyboardType="phone-pad"
-        error={errors.phone}
-        hint="Қазақстан форматы · +7XXXXXXXXXX"
-      />
-
-      <FormField
-        label="Ескертпе · Заметки"
-        placeholder="Мысалы: Алматыда тұрады"
-        value={form.notes ?? ''}
-        onChangeText={(value) => onChange('notes', value)}
-        multiline
-        style={styles.textArea}
-      />
-
-      <View style={styles.switchRow}>
-        <View style={styles.switchTextWrap}>
-          <Text style={styles.sectionLabel}>Марқұм · Ушедший</Text>
-          <Text style={styles.hint}>Отметьте, если родственник ушёл из жизни</Text>
-        </View>
-        <Switch
-          value={form.isDeceased ?? false}
-          onValueChange={(value) => onChange('isDeceased', value)}
-          trackColor={{ false: Palette.creamDark, true: Palette.greenSoft }}
-          thumbColor={form.isDeceased ? Palette.greenDeep : Palette.white}
-        />
-      </View>
-
-      {form.isDeceased ? (
-        <>
-          <FormField
-            label="Жылы · Год смерти *"
-            placeholder="2015"
-            value={form.deathYear ? String(form.deathYear) : ''}
-            onChangeText={(value) => onChange('deathYear', value ? Number(value) : undefined)}
-            keyboardType="number-pad"
-            error={errors.deathYear}
-            hint="4 цифры · например 2015"
-            maxLength={4}
-          />
-          <FormField
-            label="Дұға · Памятная фраза"
-            placeholder="Аллаh разы болсын..."
-            value={form.duaText ?? ''}
-            onChangeText={(value) => onChange('duaText', value)}
-            multiline
-            style={styles.textArea}
-          />
-        </>
-      ) : null}
-
-      {saveError ? <Text style={styles.errorText}>{saveError}</Text> : null}
+      {saveError ? <Text style={styles.saveError}>{saveError}</Text> : null}
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  pathCard: {
-    gap: Spacing.sm,
-  },
-  pathText: {
-    ...Typography.body,
-    color: Palette.greenMid,
-    fontWeight: '700',
-    lineHeight: 26,
-  },
   sectionCard: {
     gap: Spacing.md,
+  },
+  nestedCard: {
+    gap: Spacing.md,
+  },
+  pathCard: {
+    gap: Spacing.sm,
   },
   sectionLabel: {
     ...Typography.bodySmall,
     color: Palette.textPrimary,
     fontWeight: '700',
   },
-  hint: {
-    ...Typography.caption,
+  pathText: {
+    ...Typography.bodySmall,
     color: Palette.textSecondary,
-  },
-  errorText: {
-    ...Typography.caption,
-    color: Palette.danger,
-    fontWeight: '600',
+    lineHeight: 22,
   },
   optionRow: {
     flexDirection: 'row',
@@ -411,24 +520,25 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   optionChip: {
-    minWidth: '47%',
-    flexGrow: 1,
-    borderRadius: Radius.md,
+    minHeight: 44,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
     borderWidth: 1.5,
     borderColor: Palette.creamDark,
-    backgroundColor: Palette.cream,
-    padding: Spacing.sm,
+    backgroundColor: Palette.white,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   optionChipWide: {
-    width: '48%',
-    borderRadius: Radius.md,
+    flexGrow: 1,
+    flexBasis: '45%',
+    minHeight: 44,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
     borderWidth: 1.5,
     borderColor: Palette.creamDark,
-    backgroundColor: Palette.cream,
-    padding: Spacing.sm,
+    backgroundColor: Palette.white,
     alignItems: 'center',
-    minHeight: 52,
     justifyContent: 'center',
   },
   optionChipSelected: {
@@ -438,8 +548,7 @@ const styles = StyleSheet.create({
   optionChipText: {
     ...Typography.bodySmall,
     color: Palette.textPrimary,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: '600',
   },
   optionChipTextSelected: {
     color: Palette.white,
@@ -448,18 +557,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: Palette.white,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
     gap: Spacing.md,
-    ...Shadow.soft,
   },
   switchTextWrap: {
     flex: 1,
-    gap: Spacing.xs,
+    gap: 2,
   },
-  textArea: {
-    minHeight: 96,
-    textAlignVertical: 'top',
+  switchLabel: {
+    ...Typography.bodySmall,
+    color: Palette.textPrimary,
+    fontWeight: '700',
+  },
+  switchHint: {
+    ...Typography.caption,
+    color: Palette.textSecondary,
+  },
+  saveError: {
+    ...Typography.bodySmall,
+    color: Palette.danger,
+    textAlign: 'center',
   },
 });

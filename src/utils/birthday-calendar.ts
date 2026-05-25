@@ -1,6 +1,8 @@
 import { Relative } from '@/types/relative';
+import { BIRTHDAY_MILESTONE_AGES, BIRTHDAY_UPCOMING_DAYS } from '@/constants/birthday-content';
 import {
   daysUntilBirthdayForRelative,
+  getAgeTurningOnNextBirthdayForRelative,
   hasBirthdayDayMonth,
   resolveBirthdayParts,
 } from '@/utils/birthday-parts';
@@ -17,37 +19,113 @@ export type MonthBirthdayGroup = {
   entries: BirthdayEntry[];
 };
 
-const UPCOMING_HIGHLIGHT_DAYS = 14;
+export type BirthdaySections = {
+  today: BirthdayEntry[];
+  upcoming: BirthdayEntry[];
+  thisMonth: BirthdayEntry[];
+  all: BirthdayEntry[];
+  monthGroups: MonthBirthdayGroup[];
+};
 
-export function getLivingWithBirthdays(relatives: Relative[]): Relative[] {
-  return relatives.filter(
-    (relative) => !relative.isDeceased && hasBirthdayDayMonth(relative),
-  );
+function compareEntries(a: BirthdayEntry, b: BirthdayEntry): number {
+  if (a.daysUntil !== b.daysUntil) {
+    return a.daysUntil - b.daysUntil;
+  }
+
+  return a.relative.fullName.localeCompare(b.relative.fullName, 'ru');
+}
+
+export function getRelativesWithBirthdays(
+  relatives: Relative[],
+  includeDeceased: boolean,
+): Relative[] {
+  return relatives.filter((relative) => {
+    if (!hasBirthdayDayMonth(relative)) {
+      return false;
+    }
+
+    if (!includeDeceased && relative.isDeceased) {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 export function buildBirthdayEntries(
   relatives: Relative[],
-  referenceDate = new Date(),
+  options?: {
+    includeDeceased?: boolean;
+    referenceDate?: Date;
+  },
 ): BirthdayEntry[] {
-  return getLivingWithBirthdays(relatives)
+  const referenceDate = options?.referenceDate ?? new Date();
+  const includeDeceased = options?.includeDeceased ?? false;
+
+  return getRelativesWithBirthdays(relatives, includeDeceased)
     .map((relative) => ({
       relative,
       daysUntil: daysUntilBirthdayForRelative(relative, referenceDate),
     }))
-    .sort((a, b) => {
-      if (a.daysUntil !== b.daysUntil) {
-        return a.daysUntil - b.daysUntil;
-      }
+    .sort(compareEntries);
+}
 
-      return a.relative.fullName.localeCompare(b.relative.fullName, 'ru');
-    });
+export function buildBirthdaySections(
+  relatives: Relative[],
+  options?: {
+    includeDeceased?: boolean;
+    referenceDate?: Date;
+    upcomingDays?: number;
+  },
+): BirthdaySections {
+  const referenceDate = options?.referenceDate ?? new Date();
+  const upcomingDays = options?.upcomingDays ?? BIRTHDAY_UPCOMING_DAYS;
+  const entries = buildBirthdayEntries(relatives, {
+    includeDeceased: options?.includeDeceased,
+    referenceDate,
+  });
+
+  const today = entries.filter((entry) => entry.daysUntil === 0);
+  const todayIds = new Set(today.map((entry) => entry.relative.id));
+
+  const upcoming = entries.filter(
+    (entry) => entry.daysUntil >= 1 && entry.daysUntil <= upcomingDays,
+  );
+  const upcomingIds = new Set(upcoming.map((entry) => entry.relative.id));
+
+  const currentMonth = referenceDate.getMonth();
+
+  const thisMonth = entries.filter((entry) => {
+    if (todayIds.has(entry.relative.id) || upcomingIds.has(entry.relative.id)) {
+      return false;
+    }
+
+    const parts = resolveBirthdayParts(entry.relative);
+    return parts?.month === currentMonth + 1;
+  });
+
+  const sectionIds = new Set([
+    ...todayIds,
+    ...upcomingIds,
+    ...thisMonth.map((entry) => entry.relative.id),
+  ]);
+
+  const all = entries.filter((entry) => !sectionIds.has(entry.relative.id));
+
+  return {
+    today,
+    upcoming,
+    thisMonth,
+    all,
+    monthGroups: groupBirthdaysByMonth(all, referenceDate),
+  };
 }
 
 export function getUpcomingBirthdayEntries(
   entries: BirthdayEntry[],
-  maxDays = UPCOMING_HIGHLIGHT_DAYS,
+  maxDays = BIRTHDAY_UPCOMING_DAYS,
 ): BirthdayEntry[] {
-  return entries.filter((entry) => entry.daysUntil <= maxDays);
+  return entries.filter((entry) => entry.daysUntil >= 0 && entry.daysUntil <= maxDays);
 }
 
 export function groupBirthdaysByMonth(
@@ -89,6 +167,47 @@ export function groupBirthdaysByMonth(
     }));
 }
 
-export function hasBirthdayData(relatives: Relative[]): boolean {
-  return getLivingWithBirthdays(relatives).length > 0;
+export function hasBirthdayData(
+  relatives: Relative[],
+  includeDeceased = false,
+): boolean {
+  return getRelativesWithBirthdays(relatives, includeDeceased).length > 0;
 }
+
+export function getAgeTurningForEntry(entry: BirthdayEntry): number | null {
+  return getAgeTurningOnNextBirthdayForRelative(entry.relative);
+}
+
+export function getMilestoneAge(entry: BirthdayEntry): number | null {
+  const turning = getAgeTurningForEntry(entry);
+  if (turning === null) {
+    return null;
+  }
+
+  return BIRTHDAY_MILESTONE_AGES.includes(turning as (typeof BIRTHDAY_MILESTONE_AGES)[number])
+    ? turning
+    : null;
+}
+
+export function isMilestoneBirthday(entry: BirthdayEntry): boolean {
+  return getMilestoneAge(entry) !== null;
+}
+
+export function getSmartReminderHint(daysUntil: number): 'today' | 'soon' | null {
+  if (daysUntil === 0) {
+    return 'today';
+  }
+
+  if (daysUntil >= 1 && daysUntil <= 7) {
+    return 'soon';
+  }
+
+  return null;
+}
+
+/** @deprecated Use getLivingWithBirthdays via buildBirthdayEntries */
+export function getLivingWithBirthdays(relatives: Relative[]): Relative[] {
+  return getRelativesWithBirthdays(relatives, false);
+}
+
+export const UPCOMING_HIGHLIGHT_DAYS = BIRTHDAY_UPCOMING_DAYS;

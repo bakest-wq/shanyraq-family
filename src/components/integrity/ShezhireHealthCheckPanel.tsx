@@ -1,249 +1,95 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
 
+import { HealthCheckSection } from '@/components/integrity/HealthCheckIssueCard';
 import { Card } from '@/components/ui/Card';
 import { HelperHintBanner } from '@/components/ui/HelperHintBanner';
-import { PrimaryButton } from '@/components/ui/PrimaryButton';
-import { GRAPH_INTEGRITY_COPY } from '@/constants/graph-integrity-content';
-import { useShezhireHealthCheck } from '@/hooks/useShezhireHealthCheck';
+import {
+  HEALTH_CHECK_COPY,
+  HEALTH_CHECK_SECTION_ORDER,
+} from '@/constants/health-check-content';
+import { useFamilyIntelligenceHealthCheck } from '@/hooks/useFamilyIntelligenceHealthCheck';
 import { useToast } from '@/hooks/useToast';
-import type { GraphIntegrityHealthItem } from '@/services/graph-integrity.service';
-import { getRelativeDisplayName } from '@/utils/relative-names';
-import { findRelativeById } from '@/utils/family-link-picker';
-import { useRelativesContext } from '@/providers/RelativesProvider';
-import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
-
-function HealthIssueList({
-  items,
-  emptyLabel,
-}: {
-  items: GraphIntegrityHealthItem[];
-  emptyLabel: string;
-}) {
-  const { relatives } = useRelativesContext();
-
-  if (items.length === 0) {
-    return <Text style={styles.emptyLine}>{emptyLabel}</Text>;
-  }
-
-  return (
-    <View style={styles.issueList}>
-      {items.map((item) => {
-        const person = findRelativeById(relatives, item.relativeId);
-        const related = item.relatedId ? findRelativeById(relatives, item.relatedId) : null;
-
-        return (
-          <View key={`${item.relativeId}:${item.code}:${item.field ?? ''}:${item.relatedId ?? ''}`} style={styles.issueRow}>
-            <Text style={styles.issueName}>
-              {person ? getRelativeDisplayName(person) : item.relativeId}
-            </Text>
-            <Text style={styles.issueMessage}>{item.message}</Text>
-            {related ? (
-              <Text style={styles.issueMeta}>→ {getRelativeDisplayName(related)}</Text>
-            ) : null}
-          </View>
-        );
-      })}
-    </View>
-  );
-}
+import { buildEditRelativeHref } from '@/utils/edit-relative-navigation';
+import type { HealthCheckIssue } from '@/utils/health-check-issues';
 
 export function ShezhireHealthCheckPanel() {
+  const router = useRouter();
   const { showToast } = useToast();
-  const { relatives } = useRelativesContext();
-  const { report, repairing, repairCounts, applyRepairs, applyAllSafeRepairs } =
-    useShezhireHealthCheck();
+  const { repairing, sections, issueCount, applyIssueAction } = useFamilyIntelligenceHealthCheck();
 
-  const handleRepair = async (kinds: Parameters<typeof applyRepairs>[0], label: string) => {
-    const applied = await applyRepairs(kinds);
+  const isHealthy = issueCount === 0;
 
-    showToast({
-      type: applied > 0 ? 'success' : 'error',
-      title: applied > 0 ? GRAPH_INTEGRITY_COPY.repairs.applied : label,
-      message:
-        applied > 0
-          ? `${applied} түзету сақталды · Repairs saved`
-          : 'Түзету қажет емес · Nothing to repair',
-    });
+  const handleIssueAction = (issue: HealthCheckIssue) => {
+    void (async () => {
+      const outcome = await applyIssueAction(issue.action);
+
+      if (outcome === 'done') {
+        showToast({
+          type: 'success',
+          title:
+            issue.action.type === 'sync_spouse'
+              ? HEALTH_CHECK_COPY.toast.spouseSynced
+              : HEALTH_CHECK_COPY.toast.linkCleared,
+        });
+        return;
+      }
+
+      switch (issue.action.type) {
+        case 'connect_parents':
+          router.push({
+            pathname: '/connect-relative/[id]',
+            params: { id: issue.action.relativeId },
+          });
+          return;
+        case 'edit_relative':
+        case 'review_duplicate':
+          router.push(buildEditRelativeHref(issue.action.relativeId, 'shezhire'));
+          return;
+        default:
+          return;
+      }
+    })();
   };
-
-  const isHealthy =
-    report.brokenParentLinks.length === 0 &&
-    report.brokenSpouseLinks.length === 0 &&
-    report.circularRelations.length === 0 &&
-    report.invalidChildParentLinks.length === 0 &&
-    report.duplicatePeople.length === 0 &&
-    report.orphanRelatives.length === 0;
 
   return (
     <View style={styles.wrap}>
       {isHealthy ? (
         <HelperHintBanner
-          text={GRAPH_INTEGRITY_COPY.allClear}
-          subtext={GRAPH_INTEGRITY_COPY.allClearHint}
+          icon="🌿"
+          text={HEALTH_CHECK_COPY.allClear}
+          subtext={HEALTH_CHECK_COPY.allClearHint}
           tone="cream"
         />
       ) : (
         <HelperHintBanner
-          text="Деректерде түзету қажет болуы мүмкін"
-          subtext="Тек қауіпсіз автоматты түзетулер ұсынылады · Safe automatic repairs only"
+          icon="🌿"
+          text={HEALTH_CHECK_COPY.needsAttention}
+          subtext={HEALTH_CHECK_COPY.needsAttentionHint}
+          tone="cream"
         />
       )}
 
-      <Card goldBorder style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>{GRAPH_INTEGRITY_COPY.sections.brokenParents}</Text>
-        <HealthIssueList
-          items={report.brokenParentLinks}
-          emptyLabel="Жарамсыз ата-ана сілтемесі жоқ"
-        />
-        {repairCounts.clearBrokenParents > 0 ? (
-          <PrimaryButton
-            label={GRAPH_INTEGRITY_COPY.repairs.clearBrokenParents}
-            sublabel={`${repairCounts.clearBrokenParents} түзету`}
-            variant="gold"
-            onPress={
-              repairing
-                ? undefined
-                : () => void handleRepair(['clear_broken_parents'], 'Ата-ана')
-            }
+      {HEALTH_CHECK_SECTION_ORDER.map((sectionKey) => (
+        <Card key={sectionKey} style={styles.sectionCard}>
+          <HealthCheckSection
+            title={HEALTH_CHECK_COPY.sections[sectionKey]}
+            emptyLabel={HEALTH_CHECK_COPY.empty[sectionKey]}
+            issues={sections[sectionKey]}
+            disabled={repairing}
+            onAction={handleIssueAction}
           />
-        ) : null}
-      </Card>
-
-      <Card style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>{GRAPH_INTEGRITY_COPY.sections.brokenSpouses}</Text>
-        <HealthIssueList
-          items={report.brokenSpouseLinks}
-          emptyLabel="Жарамсыз жұбай сілтемесі жоқ"
-        />
-        {repairCounts.syncSpouses > 0 ? (
-          <PrimaryButton
-            label={GRAPH_INTEGRITY_COPY.repairs.syncSpouses}
-            sublabel={`${repairCounts.syncSpouses} түзету`}
-            variant="gold"
-            onPress={
-              repairing ? undefined : () => void handleRepair(['sync_spouses'], 'Жұбай')
-            }
-          />
-        ) : null}
-      </Card>
-
-      <Card style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>{GRAPH_INTEGRITY_COPY.sections.duplicates}</Text>
-        {report.duplicatePeople.length === 0 ? (
-          <Text style={styles.emptyLine}>Қайталану белгісі жоқ</Text>
-        ) : (
-          <View style={styles.issueList}>
-            {report.duplicatePeople.map((pair) => {
-              const left = findRelativeById(relatives, pair.leftId);
-              const right = findRelativeById(relatives, pair.rightId);
-
-              return (
-                <View key={`${pair.leftId}:${pair.rightId}`} style={styles.issueRow}>
-                  <Text style={styles.issueName}>
-                    {left ? getRelativeDisplayName(left) : pair.leftId} ·{' '}
-                    {right ? getRelativeDisplayName(right) : pair.rightId}
-                  </Text>
-                  <Text style={styles.issueMessage}>{pair.reason}</Text>
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </Card>
-
-      <Card style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>{GRAPH_INTEGRITY_COPY.sections.circular}</Text>
-        <HealthIssueList
-          items={report.circularRelations}
-          emptyLabel="Шеңберлі ата-ана байланысы жоқ"
-        />
-      </Card>
-
-      <Card style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>{GRAPH_INTEGRITY_COPY.sections.invalidChildParent}</Text>
-        <HealthIssueList
-          items={report.invalidChildParentLinks}
-          emptyLabel="Қате ата-ана/бala байланысы жоқ"
-        />
-      </Card>
-
-      <Card style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>{GRAPH_INTEGRITY_COPY.sections.orphans}</Text>
-        {report.orphanRelatives.length === 0 ? (
-          <Text style={styles.emptyLine}>Барлық туыс ағашқа байланысты</Text>
-        ) : (
-          <View style={styles.issueList}>
-            {report.orphanRelatives.map((relative) => (
-              <View key={relative.id} style={styles.issueRow}>
-                <Text style={styles.issueName}>{getRelativeDisplayName(relative)}</Text>
-                <Text style={styles.issueMessage}>Шежіреде орны анықталмаған</Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </Card>
-
-      {report.hasRepairableIssues ? (
-        <PrimaryButton
-          label={GRAPH_INTEGRITY_COPY.repairs.runAllSafe}
-          sublabel={`${repairCounts.total} қауіпсіз түзету`}
-          variant="green"
-          onPress={repairing ? undefined : () => void applyAllSafeRepairs().then((applied) => {
-            showToast({
-              type: applied > 0 ? 'success' : 'error',
-              title: applied > 0 ? GRAPH_INTEGRITY_COPY.repairs.applied : GRAPH_INTEGRITY_COPY.allClear,
-              message:
-                applied > 0
-                  ? `${applied} түзету сақталды`
-                  : 'Түзету қажет емес',
-            });
-          })}
-        />
-      ) : null}
+        </Card>
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
-    gap: Spacing.lg,
+    gap: 16,
   },
   sectionCard: {
-    gap: Spacing.md,
-  },
-  sectionTitle: {
-    ...Typography.bodySmall,
-    color: Palette.greenDeep,
-    fontWeight: '800',
-  },
-  issueList: {
-    gap: Spacing.sm,
-  },
-  issueRow: {
-    gap: 2,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: '#ECE6DA',
-    backgroundColor: '#FCFBF8',
-    padding: Spacing.sm,
-  },
-  issueName: {
-    ...Typography.bodySmall,
-    color: Palette.greenDeep,
-    fontWeight: '700',
-  },
-  issueMessage: {
-    ...Typography.caption,
-    color: Palette.textSecondary,
-    lineHeight: 18,
-  },
-  issueMeta: {
-    ...Typography.caption,
-    color: Palette.textMuted,
-  },
-  emptyLine: {
-    ...Typography.caption,
-    color: Palette.textMuted,
-    lineHeight: 20,
+    gap: 12,
   },
 });

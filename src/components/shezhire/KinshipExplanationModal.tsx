@@ -2,8 +2,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import type { Relative } from '@/types/relative';
-import { explainKinship } from '@/utils/kinship/explainKinship';
-import { formatKinshipCardLine } from '@/utils/kinship/labels.kz';
+import { getKinshipExplanation } from '@/services/kinship.service';
 import { getRelativeDisplayName } from '@/utils/relative-names';
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
 
@@ -26,22 +25,15 @@ export function KinshipExplanationModal({
     return null;
   }
 
-  const explanation = explainKinship(rootPerson, targetPerson, relatives);
-  const cardLine = formatKinshipCardLine(explanation.result);
+  const explanation = getKinshipExplanation(rootPerson, targetPerson, relatives);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
-          <Text style={styles.title}>Туыстық түсіндірме</Text>
-          <Text style={styles.names}>
-            {getRelativeDisplayName(targetPerson)} · {getRelativeDisplayName(rootPerson)} орталығы
-          </Text>
-          <Text style={styles.label}>{cardLine}</Text>
+          <Text style={styles.title}>{explanation.title}</Text>
+          <Text style={styles.names}>{getRelativeDisplayName(targetPerson)}</Text>
           <Text style={styles.summary}>{explanation.summary}</Text>
-          {explanation.pathText ? (
-            <Text style={styles.path}>{explanation.pathText}</Text>
-          ) : null}
           {explanation.hint ? <Text style={styles.hint}>{explanation.hint}</Text> : null}
           <PrimaryButton label="Жабу" variant="gold" onPress={onClose} />
         </Pressable>
@@ -66,32 +58,20 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   title: {
-    ...Typography.body,
+    ...Typography.hero,
     color: Palette.greenDeep,
     fontWeight: '800',
     textAlign: 'center',
   },
   names: {
-    ...Typography.caption,
+    ...Typography.bodySmall,
     color: Palette.textMuted,
     textAlign: 'center',
   },
-  label: {
-    ...Typography.body,
-    color: Palette.greenDeep,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
   summary: {
-    ...Typography.bodySmall,
+    ...Typography.body,
     color: Palette.textPrimary,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  path: {
-    ...Typography.caption,
-    color: Palette.textSecondary,
-    lineHeight: 20,
+    lineHeight: 24,
     textAlign: 'center',
   },
   hint: {

@@ -1,19 +1,41 @@
-import { Relative, RelativeGender, GENDER_OPTIONS } from '@/types/relative';
+import type { Relative } from '@/types/relative';
+import { RELATIVE_PROFILE_COPY } from '@/constants/relative-profile-content';
+import { formatRelativeBirthday } from '@/utils/birthday-parts';
+import { calculateAge } from '@/utils/dates';
 
-export function getGenderLabel(gender?: RelativeGender): string {
-  if (!gender) {
-    return '—';
+import {
+  resolveFamilyRing,
+  type FamilyRing,
+} from '@/services/family-graph.service';
+
+export type ProfileFamilyRing = FamilyRing;
+
+/** @deprecated Use resolveFamilyRing from family-graph.service */
+export const resolveProfileFamilyRing = resolveFamilyRing;
+
+export function formatProfileBirthday(relative: Relative): string | null {
+  const formatted = formatRelativeBirthday(relative);
+  if (!formatted || formatted === '—') {
+    return null;
   }
 
-  return GENDER_OPTIONS.find((option) => option.id === gender)?.label ?? '—';
+  return formatted.replace(' · Жыл белгісіз', '').trim();
 }
 
-export function getShezhireHeaderLine(relative: Relative): string | null {
+export function formatProfileAgeLine(relative: Relative): string | null {
+  const age = calculateAge(relative);
+  if (age === null) {
+    return null;
+  }
+
+  return `${age} ${RELATIVE_PROFILE_COPY.ageSuffix}`;
+}
+
+export function getShortFamilyInfo(relative: Relative): string | null {
   const parts = [
     relative.zhuz?.trim(),
     relative.ru?.trim(),
     relative.tribeBranch?.trim(),
-    relative.ataLine?.trim(),
   ].filter(Boolean);
 
   if (parts.length === 0) {
@@ -23,13 +45,18 @@ export function getShezhireHeaderLine(relative: Relative): string | null {
   return parts.join(' · ');
 }
 
-export function getKinshipPathSubtitle(path: string, relationship: string): string | null {
-  const trimmedPath = path.trim();
-  const trimmedRelationship = relationship.trim();
+export function getShezhireHeaderLine(relative: Relative): string | null {
+  return getShortFamilyInfo(relative);
+}
 
-  if (!trimmedPath || trimmedPath === trimmedRelationship) {
-    return null;
+export function getGenderLabel(gender?: Relative['gender']): string {
+  if (gender === 'male') {
+    return 'Ер';
   }
 
-  return trimmedPath;
+  if (gender === 'female') {
+    return 'Әйел';
+  }
+
+  return '—';
 }

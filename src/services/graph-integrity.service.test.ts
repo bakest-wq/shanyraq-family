@@ -11,6 +11,7 @@ import {
   findCircularParentChains,
   validateRelativeBeforeSave,
 } from '@/services/graph-integrity.service';
+import { RELATIONSHIP_SAFETY_MESSAGES } from '@/utils/relationship-safety-validation';
 import { buildSpouseReciprocalPatches, buildFamilyGraph } from '@/utils/family-graph';
 
 function mockRelative(
@@ -59,7 +60,7 @@ test('brother must not become child via save validation', () => {
   );
 
   assert.equal(result.valid, false);
-  assert.equal(result.errors.fatherId, GRAPH_INTEGRITY_COPY.validation.siblingAsParent);
+  assert.equal(result.errors.fatherId, RELATIONSHIP_SAFETY_MESSAGES.siblingAsParent);
 });
 
 test('spouse sync repair patches work both directions', () => {
@@ -110,10 +111,7 @@ test('circular parent chain is blocked before save', () => {
   );
 
   assert.equal(result.valid, false);
-  assert.ok(
-    result.issues.some((issue) => issue.code === 'ancestor_cycle') ||
-      Boolean(result.errors.fatherId),
-  );
+  assert.equal(result.errors.fatherId, RELATIONSHIP_SAFETY_MESSAGES.circularParents);
 });
 
 test('run health check surfaces circular relations', () => {

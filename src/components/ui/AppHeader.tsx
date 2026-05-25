@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Palette, Spacing, Typography } from '@/constants/theme';
+import { SettingsAccessButton } from '@/components/ui/SettingsAccessButton';
+import { useAppTheme } from '@/hooks/useElderMode';
 
 type AppHeaderProps = {
   title: string;
@@ -9,6 +11,8 @@ type AppHeaderProps = {
   onBadgePress?: () => void;
   onRefresh?: () => void;
   refreshing?: boolean;
+  /** Settings gear stays visible by default — critical navigation. */
+  showSettings?: boolean;
 };
 
 export function AppHeader({
@@ -18,114 +22,149 @@ export function AppHeader({
   onBadgePress,
   onRefresh,
   refreshing = false,
+  showSettings = true,
 }: AppHeaderProps) {
+  const theme = useAppTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const touchTarget = Math.max(theme.layout.touchTarget, 44);
+
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <View style={styles.brandMark}>
-          <Text style={styles.brandIcon}>🏠</Text>
+        <View style={styles.leading}>
+          <View style={[styles.brandMark, { width: touchTarget, height: touchTarget }]}>
+            <Text style={styles.brandIcon}>🏠</Text>
+          </View>
         </View>
-        <View style={styles.actions}>
+
+        <View style={styles.trailing}>
           {onRefresh ? (
             <Pressable
               onPress={refreshing ? undefined : onRefresh}
               style={({ pressed }) => [
                 styles.refreshButton,
+                { width: touchTarget, height: touchTarget, borderRadius: touchTarget / 2 },
                 refreshing && styles.refreshButtonDisabled,
                 pressed && !refreshing && styles.pressed,
               ]}
               accessibilityRole="button"
-              accessibilityLabel="Жаңарту · Refresh">
+              accessibilityLabel="Жаңарту">
               <Text style={styles.refreshText}>{refreshing ? '…' : '↻'}</Text>
             </Pressable>
           ) : null}
           {badge ? (
             onBadgePress ? (
               <Pressable onPress={onBadgePress} style={styles.badge}>
-                <Text style={styles.badgeText}>{badge}</Text>
+                <Text style={styles.badgeText} numberOfLines={1}>
+                  {badge}
+                </Text>
               </Pressable>
             ) : (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{badge}</Text>
+                <Text style={styles.badgeText} numberOfLines={1}>
+                  {badge}
+                </Text>
               </View>
             )
           ) : null}
+          {showSettings ? <SettingsAccessButton /> : null}
         </View>
       </View>
-      <Text style={styles.title}>{title}</Text>
-      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+
+      <Text style={styles.title} accessibilityRole="header">
+        {title}
+      </Text>
+      {subtitle && !theme.elderMode ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.md,
-    gap: Spacing.sm,
-    backgroundColor: Palette.cream,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  refreshButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Palette.white,
-    borderWidth: 1,
-    borderColor: Palette.goldLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  refreshButtonDisabled: {
-    opacity: 0.5,
-  },
-  refreshText: {
-    ...Typography.body,
-    color: Palette.greenDeep,
-    fontWeight: '700',
-    lineHeight: 22,
-  },
-  pressed: {
-    opacity: 0.85,
-  },
-  brandMark: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: Palette.greenDeep,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandIcon: {
-    fontSize: 22,
-  },
-  badge: {
-    backgroundColor: Palette.goldLight,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: 999,
-  },
-  badgeText: {
-    ...Typography.caption,
-    color: Palette.greenDeep,
-    fontWeight: '700',
-  },
-  title: {
-    ...Typography.hero,
-    color: Palette.greenDeep,
-  },
-  subtitle: {
-    ...Typography.body,
-    color: Palette.textSecondary,
-  },
-});
+function createStyles(theme: ReturnType<typeof useAppTheme>) {
+  return StyleSheet.create({
+    container: {
+      paddingHorizontal: theme.spacing.lg,
+      paddingTop: theme.spacing.sm,
+      paddingBottom: theme.spacing.md,
+      gap: theme.spacing.sm,
+      backgroundColor: theme.palette.cream,
+      overflow: 'visible',
+    },
+    topRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: theme.spacing.sm,
+      overflow: 'visible',
+    },
+    leading: {
+      flexShrink: 1,
+      minWidth: 0,
+    },
+    trailing: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      flexShrink: 0,
+      gap: theme.spacing.sm,
+      zIndex: 10,
+    },
+    refreshButton: {
+      backgroundColor: theme.palette.white,
+      borderWidth: theme.elderMode ? 2 : 1,
+      borderColor: theme.palette.goldLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    refreshButtonDisabled: {
+      opacity: 0.5,
+    },
+    refreshText: {
+      ...theme.typography.body,
+      color: theme.palette.greenDeep,
+      fontWeight: '800',
+      lineHeight: 24,
+    },
+    pressed: {
+      opacity: 0.85,
+    },
+    brandMark: {
+      borderRadius: 14,
+      backgroundColor: theme.palette.greenDeep,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    brandIcon: {
+      fontSize: theme.elderMode ? 26 : 22,
+    },
+    badge: {
+      backgroundColor: theme.palette.goldLight,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.xs,
+      borderRadius: 999,
+      minHeight: Math.max(theme.layout.touchTarget, 44),
+      maxWidth: 120,
+      justifyContent: 'center',
+      flexShrink: 1,
+    },
+    badgeText: {
+      ...theme.typography.caption,
+      color: theme.palette.greenDeep,
+      fontWeight: '800',
+      textAlign: 'center',
+    },
+    title: {
+      ...theme.typography.hero,
+      color: theme.palette.greenDeep,
+      flexShrink: 1,
+      flexWrap: 'wrap',
+    },
+    subtitle: {
+      ...theme.typography.body,
+      color: theme.palette.textSecondary,
+      flexShrink: 1,
+      flexWrap: 'wrap',
+    },
+  });
+}

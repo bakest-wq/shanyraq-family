@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -10,6 +10,7 @@ import {
 
 import { AvatarPlaceholder } from '@/components/ui/RelativeCard';
 import { SearchField } from '@/components/ui/SearchField';
+import { EMPTY_STATE_COPY } from '@/constants/empty-state-content';
 import { Relative } from '@/types/relative';
 import {
   filterChildLinkCandidates,
@@ -94,10 +95,8 @@ export function RelativeChildrenSelectModal({
           <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
             {filteredCandidates.length === 0 ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>Туыс табылмады</Text>
-                <Text style={styles.emptyText}>
-                  Іздеу сөзін өзгертіңіз · немесе таңдауға болатын туыс жоқ.
-                </Text>
+                <Text style={styles.emptyTitle}>{EMPTY_STATE_COPY.pickerNoMatch.title}</Text>
+                <Text style={styles.emptyText}>{EMPTY_STATE_COPY.pickerNoMatch.hint}</Text>
               </View>
             ) : (
               filteredCandidates.map((candidate) => {

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 import { isSupabaseReady } from '@/lib/supabase';
 import { useFamilyContext } from '@/providers/FamilyProvider';
+import { kinshipCacheService } from '@/services/kinship/kinship-cache.service';
 import { relativesService } from '@/services/relatives.service';
 import { Relative } from '@/types/relative';
 import { filterDeceasedRelatives, filterLivingRelatives } from '@/utils/relative.mapper';
@@ -84,6 +85,10 @@ export function RelativesProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void refetch();
   }, [refetch]);
+
+  useEffect(() => {
+    kinshipCacheService.syncStructuralState(relatives, familyId);
+  }, [familyId, relatives]);
 
   const upsertRelative = useCallback((relative: Relative) => {
     setRelatives((current) => {

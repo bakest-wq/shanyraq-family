@@ -155,16 +155,33 @@ export function formatDaysUntil(days: number): string {
   return `Через ${days} дн. · ${days} күннен кейін`;
 }
 
-export function formatBirthdayCountdownLabel(days: number): string {
+export function formatBirthdayCountdownKz(days: number): string {
   if (days === 0) {
-    return 'Сегодня';
+    return 'Бүгін';
   }
 
   if (days === 1) {
-    return 'Завтра';
+    return 'Ертең';
   }
 
-  return `Через ${days} дней`;
+  return `${days} күн қалды`;
+}
+
+export function formatBirthdayCountdownLabel(days: number): string {
+  return formatBirthdayCountdownKz(days);
+}
+
+export function getAgeTurningLabelKz(source: BirthdaySource, referenceDate = new Date()): string | null {
+  const age = getAgeTurningOnNextBirthday(source, referenceDate);
+  if (age === null) {
+    return null;
+  }
+
+  return `${age} жас`;
+}
+
+export function getAgeTurningLabel(source: BirthdaySource, referenceDate = new Date()): string | null {
+  return getAgeTurningLabelKz(source, referenceDate);
 }
 
 export function getAgeTurningOnNextBirthday(
@@ -191,15 +208,6 @@ export function getAgeTurningOnNextBirthday(
   }
 
   return age;
-}
-
-export function getAgeTurningLabel(source: BirthdaySource, referenceDate = new Date()): string | null {
-  const age = getAgeTurningOnNextBirthday(source, referenceDate);
-  if (age === null) {
-    return null;
-  }
-
-  return `Исполнится ${age} ${pluralYears(age)}`;
 }
 
 export function getUpcomingBirthdayLabel(

@@ -51,7 +51,8 @@
           "photosPermission": "Shanyraq Family галереядан профиль фотосын таңдау үшін фотоға қол жеткізеді.",
           "cameraPermission": "Shanyraq Family камера арқылы профиль фотосын түсіру үшін рұқсат сұрайды."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

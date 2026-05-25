@@ -1,22 +1,30 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   AvatarLoadingOverlay,
   RelativeAvatar,
 } from '@/components/ui/RelativeAvatar';
-import { RelativeRelationshipBadges } from '@/components/relatives/RelativeRelationshipBadges';
-import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { Card } from '@/components/ui/Card';
+import { KinshipBadge } from '@/components/ui/KinshipBadge';
+import { FadeTransition } from '@/components/ui/motion/FadeTransition';
+import { RELATIVE_PROFILE_COPY } from '@/constants/relative-profile-content';
+import { useAppTheme } from '@/hooks/useElderMode';
 import { Relative } from '@/types/relative';
-import { getShezhireHeaderLine } from '@/utils/relative-profile';
-import { getRelationshipLabel } from '@/utils/relationship-presets';
-import { Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+import {
+  formatProfileAgeLine,
+  formatProfileBirthday,
+  getShortFamilyInfo,
+} from '@/utils/relative-profile';
+import { Palette, Radius } from '@/constants/theme';
 
 type RelativeProfileHeaderProps = {
   relative: Relative;
-  relatives: Relative[];
   displayName: string;
-  kinshipSubtitle?: string | null;
+  kinshipLabel?: string | null;
+  kinshipMemoryLine?: string | null;
+  kinshipDetail?: string | null;
+  familySummaries?: string[];
   uploading?: boolean;
   onPickPhoto?: () => void;
   onRemovePhoto?: () => void;
@@ -24,150 +32,209 @@ type RelativeProfileHeaderProps = {
 
 export function RelativeProfileHeader({
   relative,
-  relatives,
   displayName,
-  kinshipSubtitle,
+  kinshipLabel,
+  kinshipMemoryLine,
+  kinshipDetail,
+  familySummaries = [],
   uploading = false,
   onPickPhoto,
   onRemovePhoto,
 }: RelativeProfileHeaderProps) {
-  const shezhireLine = getShezhireHeaderLine(relative);
+  const theme = useAppTheme();
+  const styles = useMemo(() => createStyles(theme), [theme]);
+  const birthday = formatProfileBirthday(relative);
+  const ageLine = formatProfileAgeLine(relative);
+  const familyInfo = getShortFamilyInfo(relative);
   const hasPhoto = Boolean(relative.photoUrl);
+  const avatarSize = theme.elderMode ? 132 : 120;
 
   return (
-    <Card goldBorder style={styles.card}>
-      <View style={styles.avatarWrap}>
-        <View style={styles.avatarInner}>
-          <RelativeAvatar
-            name={displayName}
-            color={relative.avatarColor}
-            photoUrl={relative.photoUrl}
-            size={112}
-            deceased={relative.isDeceased}
-          />
-          {uploading ? <AvatarLoadingOverlay size={112} /> : null}
-        </View>
-
-        {onPickPhoto ? (
-          <View style={styles.photoActions}>
-            <PrimaryButton
-              label={hasPhoto ? 'Фотоны өзгерту · Change' : 'Фото қосу · Add photo'}
-              sublabel={uploading ? 'Жүктелуде...' : 'Галереядан таңдау'}
-              variant="green"
-              onPress={uploading ? undefined : onPickPhoto}
-            />
-            {hasPhoto && onRemovePhoto ? (
-              <PrimaryButton
-                label="Фотоны алу · Remove"
-                sublabel="Жою · Delete photo"
-                variant="gold"
-                onPress={uploading ? undefined : onRemovePhoto}
+    <FadeTransition transitionKey={relative.id}>
+      <Card goldBorder style={styles.card}>
+        <View style={styles.avatarWrap}>
+          <Pressable
+            onPress={onPickPhoto && !uploading ? onPickPhoto : undefined}
+            style={styles.avatarPressable}
+            accessibilityRole={onPickPhoto ? 'button' : undefined}
+            accessibilityLabel={
+              hasPhoto ? RELATIVE_PROFILE_COPY.photo.change : RELATIVE_PROFILE_COPY.photo.add
+            }>
+            <View style={styles.avatarInner}>
+              <RelativeAvatar
+                name={displayName}
+                color={relative.avatarColor}
+                photoUrl={relative.photoUrl}
+                size={avatarSize}
+                deceased={relative.isDeceased}
               />
-            ) : null}
-          </View>
-        ) : null}
+              {uploading ? <AvatarLoadingOverlay size={avatarSize} /> : null}
+            </View>
+          </Pressable>
+          {onPickPhoto ? (
+            <Text style={styles.photoHint}>
+              {hasPhoto ? RELATIVE_PROFILE_COPY.photo.change : RELATIVE_PROFILE_COPY.photo.add}
+            </Text>
+          ) : null}
+          {hasPhoto && onRemovePhoto ? (
+            <Pressable
+              onPress={uploading ? undefined : onRemovePhoto}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={RELATIVE_PROFILE_COPY.photo.remove}>
+              <Text style={styles.photoRemove}>{RELATIVE_PROFILE_COPY.photo.remove}</Text>
+            </Pressable>
+          ) : null}
+        </View>
 
         {relative.isDeceased ? (
           <View style={styles.deceasedBadge}>
-            <Text style={styles.deceasedBadgeText}>🕊️ Марқұм</Text>
+            <Text style={styles.deceasedBadgeText}>🕊️ {RELATIVE_PROFILE_COPY.deceased}</Text>
           </View>
         ) : null}
-      </View>
 
-      <View style={styles.relationshipBadge}>
-        <Text style={styles.relationshipText}>{getRelationshipLabel(relative.relationship)}</Text>
-      </View>
+        <Text style={styles.name} accessibilityRole="header">
+          {displayName}
+        </Text>
 
-      <RelativeRelationshipBadges relative={relative} relatives={relatives} />
+        {kinshipLabel ? <KinshipBadge label={kinshipLabel} /> : null}
 
-      <Text style={styles.name}>{displayName}</Text>
+        {kinshipMemoryLine ? (
+          <Text style={styles.kinshipMemoryLine}>{kinshipMemoryLine}</Text>
+        ) : null}
 
-      {kinshipSubtitle ? <Text style={styles.kinshipPath}>{kinshipSubtitle}</Text> : null}
+        {familySummaries.length > 0 ? (
+          <View style={styles.summaryWrap}>
+            {familySummaries.map((summary) => (
+              <Text key={summary} style={styles.summaryLine}>
+                {summary}
+              </Text>
+            ))}
+          </View>
+        ) : null}
 
-      {shezhireLine ? (
-        <View style={styles.shezhireLineWrap}>
-          <Text style={styles.shezhireLine}>{shezhireLine}</Text>
+        {kinshipDetail ? <Text style={styles.kinshipDetail}>{kinshipDetail}</Text> : null}
+
+        <View style={styles.metaBlock}>
+          {birthday || ageLine ? (
+            <Text style={styles.metaLine}>
+              {[birthday, ageLine].filter(Boolean).join(' · ')}
+            </Text>
+          ) : (
+            <Text style={styles.metaMuted}>{RELATIVE_PROFILE_COPY.empty.birthday}</Text>
+          )}
+          {familyInfo ? (
+            <Text style={styles.metaLineMuted}>{familyInfo}</Text>
+          ) : null}
         </View>
-      ) : null}
-    </Card>
+      </Card>
+    </FadeTransition>
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.xl,
-    ...Shadow.card,
-  },
-  avatarWrap: {
-    alignItems: 'center',
-    gap: Spacing.md,
-    width: '100%',
-  },
-  avatarInner: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  photoActions: {
-    width: '100%',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-  },
-  deceasedBadge: {
-    backgroundColor: Palette.creamDark,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-  },
-  deceasedBadgeText: {
-    ...Typography.caption,
-    color: Palette.textSecondary,
-    fontWeight: '700',
-  },
-  relationshipBadge: {
-    marginTop: Spacing.sm,
-    backgroundColor: '#F4EFE4',
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    borderColor: Palette.goldLight,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-  },
-  relationshipText: {
-    ...Typography.caption,
-    color: Palette.gold,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    textAlign: 'center',
-  },
-  name: {
-    ...Typography.hero,
-    color: Palette.greenDeep,
-    textAlign: 'center',
-    marginTop: Spacing.xs,
-  },
-  kinshipPath: {
-    ...Typography.bodySmall,
-    color: Palette.greenMid,
-    textAlign: 'center',
-    fontWeight: '600',
-    lineHeight: 24,
-    paddingHorizontal: Spacing.sm,
-  },
-  shezhireLineWrap: {
-    marginTop: Spacing.xs,
-    backgroundColor: Palette.cream,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-  },
-  shezhireLine: {
-    ...Typography.bodySmall,
-    color: Palette.textSecondary,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-});
+function createStyles(theme: ReturnType<typeof useAppTheme>) {
+  return StyleSheet.create({
+    card: {
+      alignItems: 'center',
+      gap: theme.spacing.sm,
+      paddingVertical: theme.spacing.xl,
+    },
+    avatarWrap: {
+      alignItems: 'center',
+      gap: theme.spacing.xs,
+    },
+    avatarPressable: {
+      alignItems: 'center',
+    },
+    avatarInner: {
+      position: 'relative',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    photoHint: {
+      ...theme.typography.caption,
+      color: theme.palette.greenDeep,
+      fontWeight: '700',
+      marginTop: theme.spacing.xs,
+    },
+    photoRemove: {
+      ...theme.typography.caption,
+      color: theme.palette.textMuted,
+      fontWeight: '600',
+    },
+    deceasedBadge: {
+      backgroundColor: theme.palette.creamDark,
+      borderRadius: Radius.full,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.xs,
+    },
+    deceasedBadgeText: {
+      ...theme.typography.caption,
+      color: theme.palette.textSecondary,
+      fontWeight: '700',
+    },
+    name: {
+      fontSize: theme.elderMode ? 36 : 32,
+      lineHeight: theme.elderMode ? 44 : 40,
+      fontWeight: '800',
+      color: theme.palette.greenDeep,
+      textAlign: 'center',
+      marginTop: theme.spacing.xs,
+      flexShrink: 1,
+      flexWrap: 'wrap',
+    },
+    kinshipMemoryLine: {
+      ...theme.typography.bodySmall,
+      color: theme.palette.greenMid,
+      textAlign: 'center',
+      fontWeight: '600',
+      lineHeight: 22,
+      paddingHorizontal: theme.spacing.md,
+      fontStyle: 'italic',
+    },
+    summaryWrap: {
+      gap: 4,
+      paddingHorizontal: theme.spacing.md,
+    },
+    summaryLine: {
+      ...theme.typography.bodySmall,
+      color: theme.palette.greenMid,
+      textAlign: 'center',
+      fontWeight: '600',
+      lineHeight: 22,
+    },
+    kinshipDetail: {
+      ...theme.typography.caption,
+      color: theme.palette.textSecondary,
+      textAlign: 'center',
+      lineHeight: 20,
+      paddingHorizontal: theme.spacing.md,
+    },
+    metaBlock: {
+      width: '100%',
+      marginTop: theme.spacing.sm,
+      gap: theme.spacing.xs,
+      backgroundColor: theme.palette.cream,
+      borderRadius: Radius.md,
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: theme.spacing.md,
+    },
+    metaLine: {
+      ...theme.typography.bodySmall,
+      color: theme.palette.textPrimary,
+      textAlign: 'center',
+      lineHeight: 22,
+    },
+    metaLineMuted: {
+      ...theme.typography.caption,
+      color: theme.palette.textMuted,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    metaMuted: {
+      ...theme.typography.caption,
+      color: theme.palette.textMuted,
+      textAlign: 'center',
+    },
+  });
+}

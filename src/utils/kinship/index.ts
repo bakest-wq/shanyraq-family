@@ -30,19 +30,28 @@ export {
 } from '@/utils/kinship/labels.kz';
 
 export {
-  buildKinshipEdges,
-  describeKinshipPath,
-  findKinshipPath,
-  summarizeStructuralBridge,
-} from '@/utils/kinship/path';
-
-export {
   getKinshipBadge,
   getKinshipCardLine,
+  getKinshipDetailExplanation,
   getKinshipLabel,
   getKinshipShortExplanation,
 } from '@/utils/kinship/getKinshipLabel';
 
-export { classifyKinship } from '@/utils/kinship/classify';
+export {
+  getKinshipCardLabel,
+  getKinshipExplanation,
+  getKinshipExplanationBetween,
+  getKinshipPath,
+  getKinshipPathDescription,
+  getRelationshipConfidence,
+  getThreeJurtGroup,
+  kinshipService,
+  mapThreeJurtGroupToJurtKind,
+  type KinshipConfidence,
+  type ThreeJurtGroup,
+} from '@/services/kinship.service';
 
-export { explainKinship, explainKinshipToMe } from '@/utils/kinship/explainKinship';
+export {
+  formatKinshipMainLabel,
+  formatKinshipDetailSummary,
+} from '@/utils/kinship/kinship-display';

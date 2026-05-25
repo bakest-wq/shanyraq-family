@@ -1,16 +1,25 @@
 import type { RefObject } from 'react';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, FlatList } from 'react-native';
 
+import { FamilyRecentPeopleSection } from '@/components/family/FamilyRecentPeopleSection';
+import { FamilySearchResultRow } from '@/components/family/FamilySearchResultRow';
+import { RootPersonIdentityBanner } from '@/components/identity/RootPersonIdentityBanner';
 import { PresetEmptyState, ErrorState } from '@/components/ui/EmptyState';
 import { OnboardingHintsCard } from '@/components/ui/OnboardingHintsCard';
+import { CALM_UX } from '@/constants/calm-ux';
 import { EMPTY_STATE_PRESETS } from '@/constants/family-ux-content';
+import { FAMILY_SEARCH_COPY } from '@/constants/family-search-content';
 import { FilterChips } from '@/components/ui/FilterChips';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { RelativeListCard } from '@/components/ui/RelativeListCard';
 import { SearchField } from '@/components/ui/SearchField';
 import { SectionTitle } from '@/components/ui/SectionTitle';
+import { useKinshipAnchor } from '@/hooks/useKinshipAnchor';
+import { useRecentPeople } from '@/hooks/useRecentPeople';
+import { useRelativesListPreparedView } from '@/hooks/useShezhirePreparedView';
 import { Relative } from '@/types/relative';
 import {
   filterRelatives,
@@ -39,10 +48,24 @@ export function RelativesListPanel({
   onRetry,
 }: RelativesListPanelProps) {
   const router = useRouter();
+  const anchorPerson = useKinshipAnchor();
+  const { kinshipLabels } = useRelativesListPreparedView();
+  const { recentPeople, refreshRecent } = useRecentPeople();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<RelativeFilter>('all');
   const listOffsetRef = useRef(0);
   const itemOffsetsRef = useRef<Record<string, number>>({});
+
+  const isSearching = searchQuery.trim().length > 0;
+
+  const searchContext = useMemo(
+    () => ({
+      anchorPerson,
+      allRelatives: relatives,
+      kinshipLabels,
+    }),
+    [anchorPerson, kinshipLabels, relatives],
+  );
 
   useEffect(() => {
     if (!highlightId) {
@@ -53,9 +76,28 @@ export function RelativesListPanel({
     setActiveFilter('all');
   }, [highlightId]);
 
+  useFocusEffect(
+    useCallback(() => {
+      void refreshRecent();
+    }, [refreshRecent]),
+  );
+
   const filteredRelatives = useMemo(
-    () => filterRelatives(relatives, searchQuery, activeFilter),
-    [relatives, searchQuery, activeFilter],
+    () => filterRelatives(relatives, searchQuery, activeFilter, new Date(), searchContext),
+    [relatives, searchQuery, activeFilter, searchContext],
+  );
+
+  const virtualizeThreshold = CALM_UX.performance.virtualizeListThreshold;
+  const shouldVirtualizeList = filteredRelatives.length >= virtualizeThreshold;
+
+  const openRelativeProfile = useCallback(
+    (relativeId: string) => {
+      router.push({
+        pathname: '/relative/[id]',
+        params: { id: relativeId },
+      });
+    },
+    [router],
   );
 
   const scrollToHighlightedRelative = useCallback(() => {
@@ -109,7 +151,10 @@ export function RelativesListPanel({
   if (isEmpty) {
     return (
       <View style={styles.emptyWrap}>
-        <PresetEmptyState preset={EMPTY_STATE_PRESETS.relatives} />
+        <PresetEmptyState
+          preset={EMPTY_STATE_PRESETS.relatives}
+          onAction={() => router.push('/add-relative')}
+        />
         <OnboardingHintsCard />
       </View>
     );
@@ -117,18 +162,37 @@ export function RelativesListPanel({
 
   return (
     <>
-      <SectionTitle title="Отбасыңыз" subtitle="Поиск, фильтры и быстрые действия" />
+      <RootPersonIdentityBanner />
 
-      <SearchField value={searchQuery} onChangeText={setSearchQuery} />
+      <SectionTitle
+        title={isSearching ? FAMILY_SEARCH_COPY.resultsTitle : FAMILY_SEARCH_COPY.allTitle}
+        subtitle={isSearching ? undefined : FAMILY_SEARCH_COPY.allHint}
+      />
 
-      <FilterChips options={RELATIVE_FILTERS} value={activeFilter} onChange={setActiveFilter} />
+      <SearchField
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder={FAMILY_SEARCH_COPY.placeholder}
+      />
+
+      {!isSearching ? (
+        <>
+          <FamilyRecentPeopleSection
+            people={recentPeople}
+            kinshipLabels={kinshipLabels}
+            onOpenRelative={openRelativeProfile}
+          />
+
+          <FilterChips options={RELATIVE_FILTERS} value={activeFilter} onChange={setActiveFilter} />
+        </>
+      ) : null}
 
       {filteredRelatives.length === 0 ? (
         <View style={styles.noResults}>
-          <Text style={styles.noResultsTitle}>Ничего не найдено</Text>
-          <Text style={styles.noResultsText}>Попробуйте другой запрос или фильтр</Text>
+          <Text style={styles.noResultsTitle}>{FAMILY_SEARCH_COPY.noResultsTitle}</Text>
+          <Text style={styles.noResultsText}>{FAMILY_SEARCH_COPY.noResultsHint}</Text>
           <PrimaryButton
-            label="Сбросить фильтры"
+            label={FAMILY_SEARCH_COPY.reset}
             variant="gold"
             onPress={() => {
               setSearchQuery('');
@@ -136,21 +200,57 @@ export function RelativesListPanel({
             }}
           />
         </View>
+      ) : isSearching ? (
+        <View style={styles.compactList}>
+          {filteredRelatives.map((relative) => (
+            <FamilySearchResultRow
+              key={relative.id}
+              relative={relative}
+              kinshipLabel={kinshipLabels.get(relative.id)}
+              highlighted={relative.id === highlightId}
+              onPress={() => openRelativeProfile(relative.id)}
+            />
+          ))}
+        </View>
       ) : (
         <View
           style={styles.list}
           onLayout={(event) => {
             listOffsetRef.current = event.nativeEvent.layout.y;
           }}>
-          {filteredRelatives.map((relative) => (
-            <View
-              key={relative.id}
-              onLayout={(event) => {
-                itemOffsetsRef.current[relative.id] = event.nativeEvent.layout.y;
-              }}>
-              <RelativeListCard relative={relative} highlighted={relative.id === highlightId} />
-            </View>
-          ))}
+          {shouldVirtualizeList ? (
+            <FlatList
+              data={filteredRelatives}
+              scrollEnabled={false}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item: relative }) => (
+                <View
+                  onLayout={(event) => {
+                    itemOffsetsRef.current[relative.id] = event.nativeEvent.layout.y;
+                  }}>
+                  <RelativeListCard
+                    relative={relative}
+                    highlighted={relative.id === highlightId}
+                    kinshipLabel={kinshipLabels.get(relative.id)}
+                  />
+                </View>
+              )}
+            />
+          ) : (
+            filteredRelatives.map((relative) => (
+              <View
+                key={relative.id}
+                onLayout={(event) => {
+                  itemOffsetsRef.current[relative.id] = event.nativeEvent.layout.y;
+                }}>
+                <RelativeListCard
+                  relative={relative}
+                  highlighted={relative.id === highlightId}
+                  kinshipLabel={kinshipLabels.get(relative.id)}
+                />
+              </View>
+            ))
+          )}
         </View>
       )}
     </>
@@ -164,6 +264,9 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: Spacing.md,
+  },
+  compactList: {
+    gap: Spacing.sm,
   },
   noResults: {
     alignItems: 'center',
@@ -181,5 +284,6 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     color: Palette.textSecondary,
     textAlign: 'center',
+    lineHeight: 22,
   },
 });

@@ -1,21 +1,12 @@
-export type TimelineEventType =
-  | 'birth'
-  | 'marriage'
-  | 'death'
-  | 'migration'
-  | 'home_built'
-  | 'education'
-  | 'work'
-  | 'custom';
+export type TimelineEventType = 'birth' | 'marriage' | 'death' | 'anniversary';
 
-export type TimelineEventSource = 'auto' | 'manual';
+export type TimelineEventSource = 'auto';
 
 export type TimelineEvent = {
   id: string;
   type: TimelineEventType;
   source: TimelineEventSource;
   title: string;
-  titleRu: string;
   year: number | null;
   month?: number | null;
   day?: number | null;
@@ -25,37 +16,17 @@ export type TimelineEvent = {
   createdAt: string;
 };
 
-export type ManualTimelineEvent = TimelineEvent & {
-  source: 'manual';
-};
-
-export type CreateTimelineEventInput = {
-  type: TimelineEventType;
-  title: string;
-  year: string;
-  month?: string;
-  day?: string;
-  description: string;
-  relativeIds: string[];
-  relativeNames: string[];
-};
-
 export type TimelineEventTypeOption = {
   id: TimelineEventType;
-  labelKz: string;
-  labelRu: string;
+  label: string;
   icon: string;
 };
 
 export const TIMELINE_EVENT_TYPES: TimelineEventTypeOption[] = [
-  { id: 'birth', labelKz: 'Туған күн', labelRu: 'Рождение', icon: '🎂' },
-  { id: 'marriage', labelKz: 'Үйлену', labelRu: 'Свадьба', icon: '💍' },
-  { id: 'death', labelKz: 'Қайтыс болу', labelRu: 'Уход из жизни', icon: '🕊️' },
-  { id: 'migration', labelKz: 'Көшу', labelRu: 'Переезд', icon: '🚚' },
-  { id: 'home_built', labelKz: 'Үй салу', labelRu: 'Постройка дома', icon: '🏠' },
-  { id: 'education', labelKz: 'Оқу', labelRu: 'Образование', icon: '🎓' },
-  { id: 'work', labelKz: 'Жұмыс', labelRu: 'Работа', icon: '💼' },
-  { id: 'custom', labelKz: 'Естелік', labelRu: 'Воспоминание', icon: '🌿' },
+  { id: 'birth', label: 'Туған күн', icon: '🎂' },
+  { id: 'marriage', label: 'Неке', icon: '💍' },
+  { id: 'death', label: 'Қайтыс болу', icon: '🕊️' },
+  { id: 'anniversary', label: 'Мереке', icon: '🌿' },
 ];
 
 export type TimelineYearSection = {
@@ -65,5 +36,9 @@ export type TimelineYearSection = {
 };
 
 export function getTimelineEventTypeOption(type: TimelineEventType): TimelineEventTypeOption {
-  return TIMELINE_EVENT_TYPES.find((option) => option.id === type) ?? TIMELINE_EVENT_TYPES[7];
+  return TIMELINE_EVENT_TYPES.find((option) => option.id === type) ?? TIMELINE_EVENT_TYPES[0];
+}
+
+export function isTimelineEventType(value: string): value is TimelineEventType {
+  return TIMELINE_EVENT_TYPES.some((option) => option.id === value);
 }

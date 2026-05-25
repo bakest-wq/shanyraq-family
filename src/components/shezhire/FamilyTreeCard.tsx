@@ -1,6 +1,9 @@
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { memo } from 'react';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
+import { KinshipBadge } from '@/components/ui/KinshipBadge';
 import { AvatarPlaceholder } from '@/components/ui/RelativeCard';
+import { AnimatedPressable } from '@/components/ui/motion/AnimatedPressable';
 import { Relative } from '@/types/relative';
 import { getRelativeDisplayName } from '@/utils/relative-names';
 import { Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
@@ -51,12 +54,14 @@ type FamilyTreeCardProps = {
   /** Calculated kinship from current Shezhire root */
   kinshipLine?: string | null;
   kinshipHint?: string | null;
+  /** Show calculated kinship above the name (used in Үш жұрт cards). */
+  kinshipAboveName?: boolean;
   onKinshipPress?: () => void;
   /** Stored preset relationship label from profile */
   structuralRole?: string;
 };
 
-export function FamilyTreeCard({
+export const FamilyTreeCard = memo(function FamilyTreeCard({
   relative,
   onPress,
   onLongPress,
@@ -71,6 +76,7 @@ export function FamilyTreeCard({
   hideRelationship = false,
   kinshipLine = null,
   kinshipHint = null,
+  kinshipAboveName = false,
   onKinshipPress,
   structuralRole,
 }: FamilyTreeCardProps) {
@@ -97,6 +103,25 @@ export function FamilyTreeCard({
   const fallbackRelationship = !hideRelationship && !showKinship ? relative.relationship : null;
   const avatarSize =
     tier === 'core' ? 64 : tier === 'parent' ? 40 : tier === 'child' || mini ? 40 : compact ? 48 : 56;
+  const cardInteractive = Boolean(onPress || onLongPress);
+  const kinshipInteractive = Boolean(onKinshipPress && showKinship);
+
+  const badgeSize = mini ? 'mini' : compact ? 'compact' : 'default';
+
+  const kinshipLabelBlock = showKinship ? (
+    <View style={[styles.kinshipStatic, kinshipAboveName && styles.kinshipStaticAbove]}>
+      <KinshipBadge
+        label={kinshipLine!}
+        size={badgeSize}
+        tone={kinshipAboveName ? 'softGreen' : 'muted'}
+      />
+      {kinshipHint && !kinshipAboveName ? (
+        <Text style={[styles.kinshipHint, mini && styles.kinshipHintMini]} numberOfLines={2}>
+          {kinshipHint}
+        </Text>
+      ) : null}
+    </View>
+  ) : null;
 
   return (
     <View
@@ -108,13 +133,18 @@ export function FamilyTreeCard({
         gridItem && styles.gridItem,
         highlighted && styles.highlighted,
       ]}>
-      <Pressable
+      <AnimatedPressable
         onPress={onPress}
         onLongPress={onLongPress}
-        disabled={!onPress && !onLongPress}
-        style={({ pressed }) => [styles.inner, pressed && (onPress || onLongPress) && styles.pressed]}
-        accessibilityRole={onPress || onLongPress ? 'button' : undefined}
-        accessibilityLabel={displayName}>
+        disabled={!cardInteractive}
+        style={styles.inner}
+        accessibilityRole={cardInteractive ? 'button' : undefined}
+        accessibilityLabel={
+          showKinship && kinshipAboveName
+            ? `${kinshipLine}. ${displayName}`
+            : displayName
+        }>
+        {kinshipAboveName && !kinshipInteractive ? kinshipLabelBlock : null}
         <AvatarPlaceholder
           name={displayName}
           color={relative.avatarColor}
@@ -134,25 +164,7 @@ export function FamilyTreeCard({
           numberOfLines={2}>
           {displayName}
         </Text>
-        {!hideRelationship && showKinship ? (
-          <Pressable
-            onPress={onKinshipPress}
-            disabled={!onKinshipPress}
-            style={({ pressed }) => [styles.kinshipPress, pressed && onKinshipPress && styles.pressed]}
-            accessibilityRole={onKinshipPress ? 'button' : undefined}
-            accessibilityLabel={kinshipLine ?? undefined}>
-            <Text
-              style={[styles.relationship, mini && styles.relationshipMini]}
-              numberOfLines={2}>
-              {kinshipLine}
-            </Text>
-            {kinshipHint ? (
-              <Text style={[styles.kinshipHint, mini && styles.kinshipHintMini]} numberOfLines={2}>
-                {kinshipHint}
-              </Text>
-            ) : null}
-          </Pressable>
-        ) : null}
+        {!kinshipAboveName && !kinshipInteractive ? kinshipLabelBlock : null}
         {fallbackRelationship ? (
           <Text
             style={[styles.relationship, mini && styles.relationshipMini]}
@@ -165,30 +177,62 @@ export function FamilyTreeCard({
             {structuralRole}
           </Text>
         ) : null}
-      </Pressable>
+      </AnimatedPressable>
+      {kinshipInteractive ? (
+        <AnimatedPressable
+          onPress={onKinshipPress}
+          style={styles.kinshipPress}
+          accessibilityRole="button"
+          accessibilityLabel={kinshipLine ?? undefined}>
+          {kinshipAboveName ? (
+            <>
+              {kinshipLabelBlock}
+              <Text
+                style={[
+                  styles.name,
+                  tier === 'core' && styles.nameCore,
+                  compact && styles.nameCompact,
+                  mini && styles.nameMini,
+                ]}
+                numberOfLines={2}>
+                {displayName}
+              </Text>
+            </>
+          ) : (
+            <>
+              <KinshipBadge label={kinshipLine!} size={badgeSize} />
+              {kinshipHint ? (
+                <Text style={[styles.kinshipHint, mini && styles.kinshipHintMini]} numberOfLines={2}>
+                  {kinshipHint}
+                </Text>
+              ) : null}
+            </>
+          )}
+        </AnimatedPressable>
+      ) : null}
       {onConnect ? (
-        <Pressable
+        <AnimatedPressable
           onPress={onConnect}
-          style={({ pressed }) => [styles.connectButton, pressed && styles.pressed]}
+          style={styles.connectButton}
           accessibilityRole="button"
           accessibilityLabel={`Связать ${displayName}`}>
           <Text style={styles.connectText}>Байлау · Связать</Text>
-        </Pressable>
+        </AnimatedPressable>
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {
     minWidth: 140,
     backgroundColor: Palette.white,
     borderRadius: Radius.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: Palette.goldLight,
     padding: Spacing.md,
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: Spacing.sm,
     ...Shadow.soft,
   },
   gridItem: {
@@ -204,13 +248,15 @@ const styles = StyleSheet.create({
   },
   inner: {
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: Spacing.sm,
     width: '100%',
-    minHeight: 44,
+    minHeight: 48,
+    paddingVertical: 2,
   },
   compact: {
     minWidth: 0,
-    padding: Spacing.sm,
+    padding: Spacing.sm + 2,
+    gap: Spacing.xs,
   },
   mini: {
     paddingVertical: Spacing.sm,
@@ -230,14 +276,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: Spacing.xs,
   },
-  pressed: {
-    opacity: 0.9,
-  },
   name: {
     ...Typography.bodySmall,
     color: Palette.textPrimary,
     fontWeight: '700',
     textAlign: 'center',
+    letterSpacing: 0.1,
   },
   nameCore: {
     ...Typography.body,
@@ -277,6 +321,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
     paddingVertical: 2,
+    width: '100%',
+  },
+  kinshipStatic: {
+    alignItems: 'center',
+    gap: 2,
+    paddingVertical: 2,
+    width: '100%',
+  },
+  kinshipStaticAbove: {
+    paddingBottom: 2,
+    marginBottom: -2,
   },
   kinshipHint: {
     ...Typography.caption,

@@ -1,36 +1,55 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef } from 'react';
-import { Alert, Animated, Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo } from 'react';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FamilyStorySection } from '@/components/relatives/profile/FamilyStorySection';
+import { RootPersonIdentityBanner } from '@/components/identity/RootPersonIdentityBanner';
 import {
-  RelativeProfileActions,
-  RelativeProfileFamilySection,
+  RelativeProfileFamilyRing,
+  RelativeProfileFooterActions,
   RelativeProfileHeader,
-  RelativeProfileInfoSection,
-  RelativeProfileKinshipSection,
   RelativeProfileMemorialSection,
   RelativeProfileMemoriesSection,
   RelativeProfileNotesSection,
+  RelativeProfilePrimaryActions,
   RelativeProfileShezhireSection,
   RelativeProfileTopBar,
 } from '@/components/relatives/profile';
-import { SuggestedLinksSection } from '@/components/relatives/SuggestedLinksSection';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { RelativeDeleteConfirmModal } from '@/components/relatives/profile/RelativeDeleteConfirmModal';
+import { EditOwnershipLine } from '@/components/trust/EditOwnershipLine';
+import { CalmDisclosure } from '@/components/ui/CalmDisclosure';
+import { PresetEmptyState } from '@/components/ui/EmptyState';
+import { FadeTransition } from '@/components/ui/motion/FadeTransition';
+import { EMPTY_STATE_PRESETS } from '@/constants/family-ux-content';
+import { Palette } from '@/constants/theme';
+import { RELATIVE_PROFILE_COPY } from '@/constants/relative-profile-content';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { useDeleteRelative, useRelative, useRelatives } from '@/hooks/useRelatives';
+import { useRelativeDeleteFlow } from '@/hooks/useRelativeDeleteFlow';
+import { useSafeGoBack } from '@/hooks/useSafeGoBack';
 import { useFamilyPermissions } from '@/hooks/useFamilyPermissions';
+import { useRecentPeople } from '@/hooks/useRecentPeople';
 import { useRelativePhoto } from '@/hooks/useRelativePhoto';
+import { useArchive } from '@/hooks/useArchive';
+import { useFamilyStoryFromRoot } from '@/hooks/useFamilyStoryFromRoot';
+import { useKinshipFromRoot } from '@/hooks/useKinshipFromRoot';
+import { useKinshipAnchor } from '@/hooks/useKinshipAnchor';
+import { useRelativesListPreparedView } from '@/hooks/useShezhirePreparedView';
 import { useUserIdentity } from '@/hooks/useUserIdentity';
-import {
-  getChildrenOf,
-} from '@/utils/kinship-path';
-import { getKinshipCardLine } from '@/utils/kinship/getKinshipLabel';
+import { useCalmUx } from '@/hooks/useCalmUx';
+import { getKinshipExplanation } from '@/services/kinship.service';
+import { getPreparedKinshipLabel } from '@/services/shezhire-view.service';
 import { buildEditRelativeHref } from '@/utils/edit-relative-navigation';
 import { getRelativeDisplayName } from '@/utils/relative-names';
-import { GRAPH_INTEGRITY_COPY } from '@/constants/graph-integrity-content';
 import { FAMILY_SPACE_COPY } from '@/constants/family-space-content';
-import { MaxContentWidth, Palette, Spacing } from '@/constants/theme';
+import { pickDefaultRootId } from '@/utils/focused-family-tree';
+import { APP_ROUTES } from '@/utils/safe-navigation';
+import {
+  buildProfileFamilySummaries,
+  isUnknownKinshipLabel,
+} from '@/utils/profile-family-summary';
+import { recordRelativeInteraction } from '@/services/relative-interaction-session';
 
 export default function RelativeDetailsScreen() {
   const router = useRouter();
@@ -38,44 +57,81 @@ export default function RelativeDetailsScreen() {
   const relativeId = Array.isArray(id) ? id[0] : id;
   const { relative, loading, error } = useRelative(relativeId ?? '');
   const { relatives } = useRelatives();
-  const { myRelative } = useUserIdentity();
-  const { deleteRelativeAndLeave, clearRelativeReferences, assessSafeDelete, deleting } =
-    useDeleteRelative();
+  const { myRelative, myRelativeId } = useUserIdentity();
+  const { deleteRelative, clearRelativeReferences, deleting } = useDeleteRelative();
   const { canEdit, canDelete } = useFamilyPermissions();
+  const { recordView } = useRecentPeople();
   const { uploading: photoUploading, pickAndUploadPhoto, removePhoto } = useRelativePhoto(relative);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const { calm, theme } = useCalmUx();
+  const contentStyles = useMemo(() => createContentStyles(theme, calm), [calm, theme]);
+  const goBack = useSafeGoBack(APP_ROUTES.relatives);
 
+  const { startDelete, deleteModalProps } = useRelativeDeleteFlow({
+    relative,
+    relatives,
+    deleteRelative,
+    clearRelativeReferences,
+    onDeleted: () => router.replace('/(tabs)/relatives'),
+    treeRootId: pickDefaultRootId(relatives, myRelativeId),
+    myRelativeId,
+  });
+
+  const anchorPerson = useKinshipAnchor();
+  const { kinshipLabels } = useRelativesListPreparedView();
+  const { memories } = useArchive();
+  const kinshipMemoryContext = useMemo(
+    () => ({ memories }),
+    [memories],
+  );
+  const kinshipSnapshot = useKinshipFromRoot(relative ?? null, kinshipMemoryContext);
+  const familyStory = useFamilyStoryFromRoot(relative ?? null);
   const displayName = relative ? getRelativeDisplayName(relative) : '';
-  const anchorPerson = myRelative;
-  const kinshipSubtitle = useMemo(() => {
-    if (!relative || !anchorPerson) {
-      return null;
+
+  const kinshipDisplay = useMemo(() => {
+    if (!relative || !anchorPerson || anchorPerson.id === relative.id) {
+      return { label: null as string | null, detail: null as string | null, memoryLine: null };
     }
 
-    return getKinshipCardLine(anchorPerson, relative, relatives);
-  }, [anchorPerson, relative, relatives]);
+    const label =
+      getPreparedKinshipLabel(kinshipLabels, anchorPerson, relative) ||
+      kinshipSnapshot?.cardLine ||
+      null;
+    const explanation = kinshipSnapshot?.explanation ?? (
+      anchorPerson && relative
+        ? getKinshipExplanation(anchorPerson, relative, relatives)
+        : null
+    );
 
-  const children = useMemo(() => {
-    if (!relative) {
-      return [];
-    }
+    const safeLabel = isUnknownKinshipLabel(label) ? null : label;
+    const safeDetail =
+      explanation && explanation.summary !== label && !isUnknownKinshipLabel(explanation.summary)
+        ? explanation.summary
+        : isUnknownKinshipLabel(label)
+          ? RELATIVE_PROFILE_COPY.kinshipUnknownHint
+          : null;
 
-    return getChildrenOf(relative.id, relatives);
-  }, [relative, relatives]);
+    return {
+      label: safeLabel,
+      detail: safeDetail,
+      memoryLine: kinshipSnapshot?.memory?.line ?? null,
+    };
+  }, [anchorPerson, kinshipLabels, kinshipSnapshot, relative, relatives]);
+
+  const familySummaries = useMemo(
+    () => (relative ? buildProfileFamilySummaries(relative, relatives, anchorPerson) : []),
+    [anchorPerson, relative, relatives],
+  );
 
   useEffect(() => {
-    if (!relative) {
-      fadeAnim.setValue(0);
+    if (!relative?.id) {
       return;
     }
 
-    fadeAnim.setValue(0);
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 320,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim, relative?.id]);
+    void recordView(relative.id);
+    if (anchorPerson?.id) {
+      recordRelativeInteraction(anchorPerson.id, relative.id);
+    }
+  }, [anchorPerson?.id, relative?.id, recordView]);
 
   const handleOpenRelative = (targetId: string) => {
     if (!targetId || targetId === relativeId) {
@@ -95,15 +151,6 @@ export default function RelativeDetailsScreen() {
     }
 
     router.push(buildEditRelativeHref(relative.id, 'details'));
-  };
-
-  const handleCall = () => {
-    if (!relative?.phone) {
-      Alert.alert('Телефон жоқ', 'Номер телефона не указан.');
-      return;
-    }
-
-    Linking.openURL(`tel:${relative.phone}`);
   };
 
   const handleCongratulations = () => {
@@ -127,67 +174,16 @@ export default function RelativeDetailsScreen() {
       return;
     }
 
-    const assessment = assessSafeDelete(relative.id, relatives);
-
-    if (!assessment.canDelete) {
-      const affectedNames = assessment.referencingRelatives
-        .map((person) => getRelativeDisplayName(person))
-        .join('\n');
-
-      Alert.alert(
-        GRAPH_INTEGRITY_COPY.deleteBlocked,
-        `${GRAPH_INTEGRITY_COPY.deleteBlockedHint}\n\n${GRAPH_INTEGRITY_COPY.affectedRelatives}\n${affectedNames}`,
-        [
-          { text: 'Болдырмау', style: 'cancel' },
-          {
-            text: GRAPH_INTEGRITY_COPY.clearReferences,
-            onPress: () => {
-              void (async () => {
-                await clearRelativeReferences(relative.id);
-                Alert.alert(
-                  GRAPH_INTEGRITY_COPY.deleteAfterClear,
-                  'Енді туысын жоюға болады.',
-                  [
-                    { text: 'Болдырмау', style: 'cancel' },
-                    {
-                      text: 'Жою',
-                      style: 'destructive',
-                      onPress: () => void deleteRelativeAndLeave(relative.id),
-                    },
-                  ],
-                );
-              })();
-            },
-          },
-        ],
-      );
-      return;
-    }
-
-    Alert.alert(
-      'Туысын жою керек пе?',
-      `${getRelativeDisplayName(relative)} — шежіреден жойылады.`,
-      [
-        { text: 'Болдырмау', style: 'cancel' },
-        {
-          text: 'Жою',
-          style: 'destructive',
-          onPress: () => void deleteRelativeAndLeave(relative.id),
-        },
-      ],
-    );
+    startDelete();
   };
 
   if (!relativeId) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.stateWrap}>
-          <EmptyState
-            icon="👤"
-            title="Родственник не найден"
-            subtitle="Туыс табылмады · Проверьте ссылку"
-            actionLabel="Артқа · Назад"
-            onAction={() => router.back()}
+          <PresetEmptyState
+            preset={EMPTY_STATE_PRESETS.relativeNotFound}
+            onAction={goBack}
           />
         </View>
       </SafeAreaView>
@@ -197,8 +193,8 @@ export default function RelativeDetailsScreen() {
   if (loading && !relative) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <RelativeProfileTopBar onBack={() => router.back()} editDisabled />
-        <LoadingState message="Жүктелуде · Загрузка профиля..." />
+        <RelativeProfileTopBar onBack={goBack} editDisabled />
+        <LoadingState message="Профиль жүктелуде..." />
       </SafeAreaView>
     );
   }
@@ -206,14 +202,11 @@ export default function RelativeDetailsScreen() {
   if (error || !relative) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <RelativeProfileTopBar onBack={() => router.back()} editDisabled />
+        <RelativeProfileTopBar onBack={goBack} editDisabled />
         <View style={styles.stateWrap}>
-          <EmptyState
-            icon="⚠️"
-            title="Профиль жүктелмеді"
-            subtitle={error ?? 'Родственник не найден'}
-            actionLabel="Артқа · Назад"
-            onAction={() => router.back()}
+          <PresetEmptyState
+            preset={EMPTY_STATE_PRESETS.relativeProfileFailed}
+            onAction={goBack}
           />
         </View>
       </SafeAreaView>
@@ -223,7 +216,7 @@ export default function RelativeDetailsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <RelativeProfileTopBar
-        onBack={() => router.back()}
+        onBack={goBack}
         onEdit={canEdit ? handleEdit : undefined}
         editDisabled={!canEdit}
       />
@@ -232,54 +225,58 @@ export default function RelativeDetailsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
-        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+        <FadeTransition transitionKey={relative.id} style={contentStyles.content}>
+          <RootPersonIdentityBanner compact />
+
           <RelativeProfileHeader
             relative={relative}
-            relatives={relatives}
             displayName={displayName}
-            kinshipSubtitle={kinshipSubtitle}
+            kinshipLabel={kinshipDisplay.label}
+            kinshipMemoryLine={kinshipDisplay.memoryLine}
+            kinshipDetail={kinshipDisplay.detail}
+            familySummaries={familySummaries}
             uploading={photoUploading}
             onPickPhoto={() => void pickAndUploadPhoto()}
             onRemovePhoto={removePhoto}
           />
 
-          <SuggestedLinksSection subjectId={relative.id} limit={1} />
+          <RelativeProfilePrimaryActions relative={relative} displayName={displayName} />
 
-          <RelativeProfileInfoSection relative={relative} onCallPhone={handleCall} />
-
-          <RelativeProfileKinshipSection
+          <RelativeProfileFamilyRing
+            relative={relative}
+            relatives={relatives}
             anchorPerson={anchorPerson}
-            relative={relative}
-            relatives={relatives}
-          />
-
-          <RelativeProfileFamilySection
-            relative={relative}
-            relatives={relatives}
-            children={children}
+            canEdit={canEdit}
             onOpenRelative={handleOpenRelative}
           />
 
           <RelativeProfileShezhireSection relative={relative} />
 
-          <RelativeProfileNotesSection notes={relative.notes} />
-
           <RelativeProfileMemoriesSection relative={relative} />
 
-          {relative.isDeceased ? <RelativeProfileMemorialSection relative={relative} /> : null}
+          <CalmDisclosure section="profileMore">
+            {familyStory ? <FamilyStorySection story={familyStory} /> : null}
+            <EditOwnershipLine entityType="relative" entityId={relative.id} />
+            <RelativeProfileNotesSection notes={relative.notes} />
+            {relative.isDeceased ? <RelativeProfileMemorialSection relative={relative} /> : null}
+          </CalmDisclosure>
 
-          <RelativeProfileActions
+          <RelativeProfileFooterActions
             relative={relative}
-            displayName={displayName}
             deleting={deleting}
             canEdit={canEdit}
             canDelete={canDelete}
-            onEdit={handleEdit}
             onCongratulations={handleCongratulations}
             onDelete={handleDelete}
           />
-        </Animated.View>
+        </FadeTransition>
       </ScrollView>
+
+      <RelativeDeleteConfirmModal
+        {...deleteModalProps}
+        displayName={displayName}
+        deleting={deleting}
+      />
     </SafeAreaView>
   );
 }
@@ -290,20 +287,28 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.cream,
   },
   scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xxl,
-  },
-  content: {
-    gap: Spacing.lg,
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
-    width: '100%',
-    paddingTop: Spacing.sm,
+    paddingHorizontal: 24,
+    paddingBottom: 48,
   },
   stateWrap: {
     flex: 1,
     justifyContent: 'center',
-    padding: Spacing.lg,
-    gap: Spacing.lg,
+    padding: 24,
+    gap: 24,
   },
 });
+
+function createContentStyles(
+  theme: ReturnType<typeof useCalmUx>['theme'],
+  calm: ReturnType<typeof useCalmUx>['calm'],
+) {
+  return StyleSheet.create({
+    content: {
+      gap: calm.sectionGap,
+      maxWidth: theme.maxContentWidth,
+      alignSelf: 'center',
+      width: '100%',
+      paddingTop: theme.spacing.sm,
+    },
+  });
+}

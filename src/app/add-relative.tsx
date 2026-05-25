@@ -12,12 +12,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { RelativeFormFields } from '@/components/relatives/RelativeFormFields';
+import { DuplicateRelativeHint } from '@/components/relatives/DuplicateRelativeHint';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { HelperHintBanner } from '@/components/ui/HelperHintBanner';
+import { kk, FAMILY_LANGUAGE, ru } from '@/content/family-language';
 import { useCreateRelative, useRelatives } from '@/hooks/useRelatives';
+import { useSafeGoBack } from '@/hooks/useSafeGoBack';
 import { useToast } from '@/hooks/useToast';
 import { useUserIdentity } from '@/hooks/useUserIdentity';
 import { useFamilyContext } from '@/providers/FamilyProvider';
 import { saveAndSyncPhotoUrl } from '@/services/relative-photo.service';
+import { detectHighConfidenceDuplicates } from '@/services/duplicate-relative.service';
+import {
+  applyPendingRootLinkAfterSave,
+  type PendingRootLinkAfterSave,
+} from '@/services/guided-family-builder.service';
 import { relativesService } from '@/services/relatives.service';
 import { CreateRelativeInput, ConnectParentsInput } from '@/types/relative';
 import {
@@ -25,19 +34,45 @@ import {
   resolveParentLinkRole,
 } from '@/utils/family-child-links';
 import { resolveFamilyLinkFormLayout } from '@/utils/family-link-modes';
+import { findRelativeByLinkId } from '@/utils/family-link-picker';
 import { EMPTY_RELATIVE_FORM } from '@/utils/relative-form';
+import { getAddRelativeContextHelper } from '@/utils/jurt-actions';
+import {
+  getMissingLinkContextHelper,
+  isMissingLinkContext,
+  resolveMissingLinkSavePatches,
+  shouldReturnToShezhireAfterSave,
+} from '@/utils/missing-link-actions';
+import { getSpouse } from '@/utils/shezhire-lineage';
 import { hasFormErrors, prepareRelativeInput, validateRelativeForm } from '@/utils/validation';
+import {
+  getRelationshipSaveErrorMessage,
+  isRelationshipSafetyBlockedError,
+  PROPOSED_RELATIVE_ID,
+} from '@/utils/relationship-safety-validation';
+import { confirmDuplicateRelativeProceed } from '@/utils/confirm-action';
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function AddRelativeScreen() {
   const router = useRouter();
+  const goBack = useSafeGoBack();
   const params = useLocalSearchParams<{
     fatherId?: string;
+    father_id?: string;
     motherId?: string;
+    mother_id?: string;
     relationship?: string;
+    context?: string;
     rootId?: string;
+    spouseId?: string;
     fromSetup?: string;
     linkAsUser?: string;
+    targetRelativeId?: string;
+    target_relative_id?: string;
+    parentRelativeId?: string;
+    parent_relative_id?: string;
+    gender?: string;
+    returnTo?: string;
   }>();
   const { showToast } = useToast();
   const { familyId } = useFamilyContext();
@@ -51,6 +86,7 @@ export default function AddRelativeScreen() {
     siblingId: string;
     patch: Partial<ConnectParentsInput>;
   } | null>(null);
+  const [pendingRootLink, setPendingRootLink] = useState<PendingRootLinkAfterSave | null>(null);
 
   const referenceRootId = useMemo(() => {
     const rootId = Array.isArray(params.rootId) ? params.rootId[0] : params.rootId;
@@ -62,29 +98,87 @@ export default function AddRelativeScreen() {
     return value === '1' || value === 'true';
   }, [params.linkAsUser]);
 
-  useEffect(() => {
-    const fatherId = Array.isArray(params.fatherId) ? params.fatherId[0] : params.fatherId;
-    const motherId = Array.isArray(params.motherId) ? params.motherId[0] : params.motherId;
+  const routeContext = useMemo(() => {
+    const context = Array.isArray(params.context) ? params.context[0] : params.context;
+    return context ?? null;
+  }, [params.context]);
+
+  const targetRelativeId = useMemo(() => {
+    const value =
+      (Array.isArray(params.targetRelativeId)
+        ? params.targetRelativeId[0]
+        : params.targetRelativeId) ??
+      (Array.isArray(params.target_relative_id)
+        ? params.target_relative_id[0]
+        : params.target_relative_id);
+    return value ?? null;
+  }, [params.targetRelativeId, params.target_relative_id]);
+
+  const routeGender = useMemo(() => {
+    const gender = Array.isArray(params.gender) ? params.gender[0] : params.gender;
+    return gender === 'male' || gender === 'female' ? gender : null;
+  }, [params.gender]);
+
+  const returnToShezhire = useMemo(
+    () =>
+      shouldReturnToShezhireAfterSave(
+        Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo,
+        routeContext,
+      ),
+    [params.returnTo, routeContext],
+  );
+
+  const routeRelationship = useMemo(() => {
     const relationship = Array.isArray(params.relationship)
       ? params.relationship[0]
       : params.relationship;
+    return relationship ?? null;
+  }, [params.relationship]);
 
-    if (!fatherId && !motherId && !relationship) {
+  const contextHelperText = useMemo(() => {
+    if (isMissingLinkContext(routeContext)) {
+      return getMissingLinkContextHelper(routeContext);
+    }
+
+    return getAddRelativeContextHelper(routeContext);
+  }, [routeContext]);
+
+  useEffect(() => {
+    const fatherId =
+      (Array.isArray(params.fatherId) ? params.fatherId[0] : params.fatherId) ??
+      (Array.isArray(params.father_id) ? params.father_id[0] : params.father_id);
+    const motherId =
+      (Array.isArray(params.motherId) ? params.motherId[0] : params.motherId) ??
+      (Array.isArray(params.mother_id) ? params.mother_id[0] : params.mother_id);
+    const spouseId = Array.isArray(params.spouseId) ? params.spouseId[0] : params.spouseId;
+
+    if (!fatherId && !motherId && !routeRelationship && !isMissingLinkContext(routeContext)) {
       return;
     }
 
     setForm((current) => ({
       ...current,
-      ...(relationship ? { relationship } : {}),
+      ...(routeRelationship ? { relationship: routeRelationship } : {}),
+      ...(routeGender ? { gender: routeGender } : {}),
+      ...(spouseId ? { spouseId } : {}),
       ...(fatherId || motherId
         ? {
-            relationship: relationship ?? 'Бала',
+            relationship: routeRelationship ?? 'Бала',
             fatherId: fatherId ?? null,
             motherId: motherId ?? null,
           }
         : {}),
     }));
-  }, [params.fatherId, params.motherId, params.relationship]);
+  }, [
+    params.fatherId,
+    params.father_id,
+    params.motherId,
+    params.mother_id,
+    params.spouseId,
+    routeContext,
+    routeGender,
+    routeRelationship,
+  ]);
 
   useEffect(() => {
     if (!resolveFamilyLinkFormLayout(form.relationship).showChildrenPicker) {
@@ -121,23 +215,16 @@ export default function AddRelativeScreen() {
     });
   };
 
-  const handleSubmit = async () => {
-    if (saving) {
-      return;
-    }
+  const preparedForm = useMemo(() => prepareRelativeInput(form), [form]);
 
-    const prepared = prepareRelativeInput(form);
-    const nextErrors = validateRelativeForm(prepared, {
-      relatives,
-    });
-    setErrors(nextErrors);
+  const duplicateDetection = useMemo(
+    () => detectHighConfidenceDuplicates(preparedForm, relatives),
+    [preparedForm, relatives],
+  );
 
-    if (hasFormErrors(nextErrors)) {
-      return;
-    }
-
+  const performCreate = async () => {
     try {
-      const { pendingPhotoUri, clearPhoto: _clearPhoto, ...relativeInput } = prepared;
+      const { pendingPhotoUri, clearPhoto: _clearPhoto, ...relativeInput } = preparedForm;
       const created = await createRelative(relativeInput, {
         allowMemberSelfAdd: shouldLinkAsUser && !hasLinkedRelative,
       });
@@ -185,23 +272,56 @@ export default function AddRelativeScreen() {
         setPendingSiblingSync(null);
       }
 
+      if (pendingRootLink && familyId) {
+        await relativesService.patchRelativeLinks(
+          pendingRootLink.rootPersonId,
+          applyPendingRootLinkAfterSave(pendingRootLink, created.id),
+          familyId,
+        );
+        await refetch({ silent: true });
+        linksSynced = true;
+        setPendingRootLink(null);
+      }
+
+      if (isMissingLinkContext(routeContext) && targetRelativeId && familyId) {
+        const targetPerson = findRelativeByLinkId(relatives, targetRelativeId);
+        const spousePerson = targetPerson
+          ? getSpouse(targetPerson, relatives)
+          : null;
+        const missingLinkPatches = resolveMissingLinkSavePatches(
+          routeContext,
+          targetRelativeId,
+          created.id,
+          { targetPerson, spouse: spousePerson },
+        );
+
+        for (const { personId, patch } of missingLinkPatches) {
+          await relativesService.patchRelativeLinks(personId, patch, familyId);
+          linksSynced = true;
+        }
+
+        if (missingLinkPatches.length > 0) {
+          await refetch({ silent: true });
+        }
+      }
+
       setForm(EMPTY_RELATIVE_FORM);
       setLinkedChildIds([]);
       setErrors({});
 
-      if (linksSynced) {
+      if (linksSynced || isMissingLinkContext(routeContext)) {
         showToast({
           type: 'success',
-          title: 'Байланыстар сақталды 🌿',
-          message: 'Связи между родственниками обновлены',
+          title: kk(FAMILY_LANGUAGE.success.linkAdded),
+          message: ru(FAMILY_LANGUAGE.success.linkAdded),
+        });
+      } else {
+        showToast({
+          type: 'success',
+          title: kk(FAMILY_LANGUAGE.success.relativeAdded),
+          message: ru(FAMILY_LANGUAGE.success.relativeAdded),
         });
       }
-
-      showToast({
-        type: 'success',
-        title: 'Туыс сәтті қосылды 🌿',
-        message: 'Родственник успешно добавлен',
-      });
 
       if (
         shouldLinkAsUser ||
@@ -211,19 +331,82 @@ export default function AddRelativeScreen() {
         await linkRelative(created.id);
       }
 
+      if (returnToShezhire) {
+        router.replace({
+          pathname: '/(tabs)/shezhire',
+          params: referenceRootId ? { focusRootId: referenceRootId } : {},
+        });
+        return;
+      }
+
+      const returnTo = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
+      const profileReturnId =
+        targetRelativeId ??
+        (Array.isArray(params.targetRelativeId)
+          ? params.targetRelativeId[0]
+          : params.targetRelativeId) ??
+        created.id;
+
+      if (returnTo === 'details' && profileReturnId) {
+        router.replace({
+          pathname: '/relative/[id]',
+          params: { id: profileReturnId },
+        });
+        return;
+      }
+
       router.replace({
-        pathname: shouldLinkAsUser ? '/(tabs)/relatives' : '/(tabs)/relatives',
-        params: { highlightId: created.id, ...(shouldLinkAsUser ? { view: 'tree' } : {}) },
+        pathname: shouldLinkAsUser ? '/(tabs)/shezhire' : '/(tabs)/relatives',
+        params: shouldLinkAsUser ? {} : { highlightId: created.id },
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Не удалось сохранить родственника.';
+      if (isRelationshipSafetyBlockedError(err)) {
+        setErrors((current) => ({ ...current, ...err.fieldErrors }));
+      }
 
       showToast({
         type: 'error',
-        title: 'Қате · Ошибка',
-        message,
+        title: 'Сақтау мүмкін емес',
+        message: getRelationshipSaveErrorMessage(err),
       });
     }
+  };
+
+  const handleSubmit = async () => {
+    if (saving) {
+      return;
+    }
+
+    const parentRole = resolveParentLinkRole(preparedForm.gender, preparedForm.relationship);
+    const nextErrors = validateRelativeForm(preparedForm, {
+      relatives,
+      relativeId: PROPOSED_RELATIVE_ID,
+      linkedChildIds: parentRole ? linkedChildIds : undefined,
+      parentLinkRole: parentRole ?? undefined,
+    });
+    setErrors(nextErrors);
+
+    if (hasFormErrors(nextErrors)) {
+      return;
+    }
+
+    if (duplicateDetection.hasHighConfidence && duplicateDetection.topMatch) {
+      const topMatchId = duplicateDetection.topMatch.relativeId;
+      confirmDuplicateRelativeProceed(
+        () => {
+          router.push({
+            pathname: '/relative/[id]',
+            params: { id: topMatchId },
+          });
+        },
+        () => {
+          void performCreate();
+        },
+      );
+      return;
+    }
+
+    await performCreate();
   };
 
   return (
@@ -232,7 +415,7 @@ export default function AddRelativeScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable onPress={goBack} style={styles.backButton}>
             <Text style={styles.backText}>← Артқа</Text>
           </Pressable>
           <Text style={styles.title}>Туыс қосу</Text>
@@ -243,6 +426,14 @@ export default function AddRelativeScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
+          {contextHelperText ? (
+            <HelperHintBanner icon="🌿" text={contextHelperText} tone="cream" />
+          ) : null}
+
+          {duplicateDetection.hasHighConfidence ? (
+            <DuplicateRelativeHint matches={duplicateDetection.matches} />
+          ) : null}
+
           <RelativeFormFields
             form={form}
             errors={errors}
@@ -254,6 +445,7 @@ export default function AddRelativeScreen() {
             onChange={updateForm}
             onPatch={patchForm}
             onSiblingParentSync={handleSiblingParentSync}
+            onPendingRootLinkChange={setPendingRootLink}
           />
 
           <View style={styles.saveWrap}>

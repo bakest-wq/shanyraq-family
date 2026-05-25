@@ -1,41 +1,121 @@
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ArchiveCategoryChips } from '@/components/archive/ArchiveCategoryChips';
 import { FamilyMemoryCard } from '@/components/family-memories/FamilyMemoryCard';
 import { AppHeader } from '@/components/ui/AppHeader';
-import { EmptyState, PresetEmptyState, ErrorState } from '@/components/ui/EmptyState';
+import { PresetEmptyState, ErrorState } from '@/components/ui/EmptyState';
 import { EMPTY_STATE_PRESETS } from '@/constants/family-ux-content';
+import { FAMILY_MEMORIES_COPY } from '@/constants/family-memories-content';
 import { LoadingState } from '@/components/ui/LoadingState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { ScreenShell } from '@/components/ui/ScreenShell';
 import { SectionTitle } from '@/components/ui/SectionTitle';
 import { useArchive } from '@/hooks/useArchive';
-import { MEMORY_TYPE_FILTERS, MemoryTypeFilter } from '@/types/archive';
-import { filterMemoriesByCategory, sortMemoriesNewestFirst } from '@/utils/archive-filters';
+import { useRelatives } from '@/hooks/useRelatives';
+import { useSafeGoBack } from '@/hooks/useSafeGoBack';
+import { MEMORY_TYPE_FILTERS, MemoryType, MemoryTypeFilter } from '@/types/archive';
+import {
+  filterMemoriesByCategory,
+  filterMemoriesByRelative,
+  sortMemoriesNewestFirst,
+} from '@/utils/archive-filters';
+import { confirmDeleteMemory } from '@/utils/confirm-action';
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
 type FamilyMemoriesScreenProps = {
   showBackButton?: boolean;
+  initialType?: MemoryType;
+  initialRelativeId?: string;
 };
 
-export function FamilyMemoriesScreen({ showBackButton = true }: FamilyMemoriesScreenProps) {
+function parseParam(value?: string | string[]): string | undefined {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw || undefined;
+}
+
+function parseMemoryType(value?: string | string[]): MemoryType | undefined {
+  const raw = parseParam(value);
+  if (!raw) {
+    return undefined;
+  }
+
+  return MEMORY_TYPE_FILTERS.some((option) => option.id === raw) && raw !== 'all'
+    ? (raw as MemoryType)
+    : undefined;
+}
+
+export function FamilyMemoriesScreen({
+  showBackButton = true,
+  initialType,
+  initialRelativeId,
+}: FamilyMemoriesScreenProps) {
   const router = useRouter();
-  const { memories, loading, error, isEmpty, refetch } = useArchive();
-  const [typeFilter, setTypeFilter] = useState<MemoryTypeFilter>('all');
+  const goBack = useSafeGoBack();
+  const { type: typeParam, relativeId: relativeIdParam } = useLocalSearchParams<{
+    type?: string | string[];
+    relativeId?: string | string[];
+  }>();
+  const routeType = parseMemoryType(typeParam);
+  const routeRelativeId = parseParam(relativeIdParam) ?? initialRelativeId;
+  const { relatives } = useRelatives();
+  const { memories, loading, error, isEmpty, refetch, removeMemory } = useArchive();
+  const [typeFilter, setTypeFilter] = useState<MemoryTypeFilter>(routeType ?? initialType ?? 'all');
   const [refreshing, setRefreshing] = useState(false);
 
+  const relative = useMemo(
+    () => relatives.find((item) => item.id === routeRelativeId) ?? null,
+    [relatives, routeRelativeId],
+  );
+
+  useEffect(() => {
+    const nextType = routeType ?? initialType;
+    if (nextType) {
+      setTypeFilter(nextType);
+    }
+  }, [initialType, routeType]);
+
   const filteredMemories = useMemo(() => {
-    const filtered = filterMemoriesByCategory(memories, typeFilter);
-    return sortMemoriesNewestFirst(filtered);
-  }, [memories, typeFilter]);
+    let next = memories;
+
+    if (routeRelativeId) {
+      next = filterMemoriesByRelative(next, routeRelativeId);
+    }
+
+    next = filterMemoriesByCategory(next, typeFilter);
+    return sortMemoriesNewestFirst(next);
+  }, [memories, routeRelativeId, typeFilter]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
     await refetch({ silent: true });
     setRefreshing(false);
   };
+
+  const handleAddMemory = () => {
+    router.push({
+      pathname: '/add-memory',
+      params: {
+        ...(routeRelativeId ? { relativeId: routeRelativeId } : {}),
+        ...(typeFilter !== 'all' ? { type: typeFilter } : {}),
+      },
+    });
+  };
+
+  const confirmDelete = (memoryId: string) => {
+    confirmDeleteMemory(() => {
+      void removeMemory(memoryId);
+    });
+  };
+
+  const screenTitle = relative
+    ? `${relative.fullName} — естеліктері`
+    : FAMILY_MEMORIES_COPY.screenTitle;
+
+  const screenSubtitle = relative
+    ? FAMILY_MEMORIES_COPY.profileHint
+    : FAMILY_MEMORIES_COPY.screenSubtitle;
 
   return (
     <ScreenShell
@@ -44,23 +124,21 @@ export function FamilyMemoriesScreen({ showBackButton = true }: FamilyMemoriesSc
       header={
         <>
           {showBackButton ? (
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Pressable onPress={goBack} style={styles.backButton}>
               <Text style={styles.backText}>← Артқа</Text>
             </Pressable>
           ) : null}
-          <AppHeader
-            title="Отбасы естеліктері"
-            subtitle="Family memories · фото, тарих, насихат"
-            badge="🌿"
-          />
+          <AppHeader title={screenTitle} subtitle={screenSubtitle} badge="📚" />
         </>
       }
       contentStyle={styles.content}>
-      <ArchiveCategoryChips
-        options={MEMORY_TYPE_FILTERS}
-        value={typeFilter}
-        onChange={setTypeFilter}
-      />
+      {!isEmpty ? (
+        <ArchiveCategoryChips
+          options={MEMORY_TYPE_FILTERS}
+          value={typeFilter}
+          onChange={setTypeFilter}
+        />
+      ) : null}
 
       {loading ? (
         <LoadingState message="Естеліктер жүктелуде..." />
@@ -68,42 +146,35 @@ export function FamilyMemoriesScreen({ showBackButton = true }: FamilyMemoriesSc
         <ErrorState message={error} onRetry={() => void refetch()} />
       ) : isEmpty ? (
         <View style={styles.emptyWrap}>
-          <PresetEmptyState
-            preset={EMPTY_STATE_PRESETS.memories}
-            onAction={() => router.push('/add-memory')}
-          />
+          <PresetEmptyState preset={EMPTY_STATE_PRESETS.memories} onAction={handleAddMemory} />
         </View>
       ) : filteredMemories.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <EmptyState
-            icon="🔍"
-            title="Бұл түрде естелік жоқ"
-            subtitle="Басқа түрді таңдаңыз · Try another memory type"
-            hint="Жаңа естелік қосуға әрқашан болады"
-            actionLabel="Естелік қосу · Add memory"
-            onAction={() => router.push('/add-memory')}
-          />
+          <PresetEmptyState preset={EMPTY_STATE_PRESETS.memoriesFiltered} onAction={handleAddMemory} />
         </View>
       ) : (
         <View style={styles.section}>
           <SectionTitle
             title="Естеліктер"
-            subtitle={`${filteredMemories.length} жазба · family memories`}
+            subtitle={`${filteredMemories.length} жазба`}
           />
           <View style={styles.list}>
             {filteredMemories.map((memory) => (
-              <FamilyMemoryCard key={memory.id} memory={memory} />
+              <FamilyMemoryCard
+                key={memory.id}
+                memory={memory}
+                onLongPress={() => confirmDelete(memory.id)}
+              />
             ))}
           </View>
         </View>
       )}
 
-      {!loading && !error ? (
+      {!loading && !error && !isEmpty ? (
         <PrimaryButton
-          label="Естелік қосу"
-          sublabel="Add memory · Локально сақталады"
+          label={FAMILY_MEMORIES_COPY.profileAdd}
           variant="green"
-          onPress={() => router.push('/add-memory')}
+          onPress={handleAddMemory}
         />
       ) : null}
     </ScreenShell>

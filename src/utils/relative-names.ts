@@ -1,5 +1,6 @@
 import { CreateRelativeInput, Relative } from '@/types/relative';
 
+/** Build full name when saving — not for display when full_name is stored. */
 export function composeFullName(input: {
   firstName?: string;
   middleName?: string;
@@ -53,20 +54,19 @@ function hasCustomDisplayName(displayName?: string, fullName?: string, composedF
   return true;
 }
 
+/** Prefer stored full_name — never concatenate name parts for display. */
 export function getRelativeDisplayName(relative: Relative): string {
-  const composedFull = composeFullName(relative);
-  const storedDisplay = relative.displayName?.trim();
   const storedFull = relative.fullName?.trim();
-
-  if (composedFull) {
-    if (!hasCustomDisplayName(storedDisplay, storedFull, composedFull)) {
-      return composedFull;
-    }
-
-    return storedDisplay!;
+  if (storedFull) {
+    return storedFull;
   }
 
-  return storedDisplay || storedFull || relative.firstName;
+  const storedDisplay = relative.displayName?.trim();
+  if (storedDisplay) {
+    return storedDisplay;
+  }
+
+  return relative.firstName?.trim() || '—';
 }
 
 export function parseLegacyFullName(fullName: string): {

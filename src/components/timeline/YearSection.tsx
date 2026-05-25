@@ -1,10 +1,11 @@
+import { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
 type YearSectionProps = {
   yearLabel: string;
-  children: React.ReactNode;
+  children: ReactNode;
 };
 
 export function YearSection({ yearLabel, children }: YearSectionProps) {

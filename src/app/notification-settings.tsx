@@ -11,10 +11,13 @@ import {
   DEFAULT_NOTIFICATION_SETTINGS,
   REMINDER_TIME_OPTIONS,
 } from '@/types/reminders';
+import { useSafeGoBack } from '@/hooks/useSafeGoBack';
+import { APP_ROUTES } from '@/utils/safe-navigation';
 import { Palette, Spacing, Typography } from '@/constants/theme';
 
 export default function NotificationSettingsScreen() {
   const router = useRouter();
+  const goBack = useSafeGoBack(APP_ROUTES.management);
   const { settings, loading, permissionGranted, updateSetting, updateSettings, sendTest } =
     useNotificationSettings();
 
@@ -39,7 +42,7 @@ export default function NotificationSettingsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={goBack} style={styles.backButton}>
           <Text style={styles.backText}>← Артқа</Text>
         </Pressable>
 

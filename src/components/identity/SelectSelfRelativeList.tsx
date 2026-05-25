@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AvatarPlaceholder } from '@/components/ui/RelativeCard';
 import { SearchField } from '@/components/ui/SearchField';
+import { EMPTY_STATE_COPY } from '@/constants/empty-state-content';
 import type { Relative } from '@/types/relative';
 import { getRelativeDisplayName } from '@/utils/relative-names';
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
@@ -60,10 +61,8 @@ export function SelectSelfRelativeList({
   if (livingRelatives.length === 0) {
     return (
       <View style={styles.emptyWrap}>
-        <Text style={styles.emptyTitle}>Шежіреде туыс жоқ</Text>
-        <Text style={styles.emptyText}>
-          Алдымен «Мені қосу» арқылы өзіңізді қосыңыз · Add yourself first
-        </Text>
+        <Text style={styles.emptyTitle}>{EMPTY_STATE_COPY.pickerNoRelatives.title}</Text>
+        <Text style={styles.emptyText}>{EMPTY_STATE_COPY.pickerNoRelatives.hint}</Text>
       </View>
     );
   }
@@ -82,7 +81,7 @@ export function SelectSelfRelativeList({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         {filteredRelatives.length === 0 ? (
-          <Text style={styles.emptyText}>Ешкім табылмады · No matches</Text>
+          <Text style={styles.emptyText}>{EMPTY_STATE_COPY.searchNoMatch.title}</Text>
         ) : (
           filteredRelatives.map((relative) => {
             const isSelected = selectedId === relative.id;

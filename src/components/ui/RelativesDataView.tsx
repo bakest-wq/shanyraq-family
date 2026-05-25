@@ -3,6 +3,7 @@ import { View, ViewStyle } from 'react-native';
 
 import { LoadingState } from '@/components/ui/LoadingState';
 import { EmptyState, ErrorState } from '@/components/ui/EmptyState';
+import { FadeTransition } from '@/components/ui/motion/FadeTransition';
 
 type RelativesDataViewProps = {
   loading: boolean;
@@ -33,16 +34,16 @@ export function RelativesDataView({
   children,
   contentStyle,
 }: RelativesDataViewProps) {
+  const stateKey = loading ? 'loading' : error ? 'error' : isEmpty ? 'empty' : 'content';
+
+  let body: ReactNode;
+
   if (loading) {
-    return <LoadingState message={loadingMessage} />;
-  }
-
-  if (error) {
-    return <ErrorState message={error} onRetry={onRetry} />;
-  }
-
-  if (isEmpty) {
-    return (
+    body = <LoadingState message={loadingMessage} />;
+  } else if (error) {
+    body = <ErrorState message={error} onRetry={onRetry} />;
+  } else if (isEmpty) {
+    body = (
       <EmptyState
         icon={emptyIcon}
         title={emptyTitle}
@@ -51,7 +52,9 @@ export function RelativesDataView({
         onAction={onEmptyAction}
       />
     );
+  } else {
+    body = <View style={contentStyle}>{children}</View>;
   }
 
-  return <View style={contentStyle}>{children}</View>;
+  return <FadeTransition transitionKey={stateKey}>{body}</FadeTransition>;
 }

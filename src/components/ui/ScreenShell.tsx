@@ -1,4 +1,4 @@
-import { ReactNode, RefObject } from 'react';
+import { ReactNode, RefObject, useMemo } from 'react';
 import {
   RefreshControl,
   ScrollView,
@@ -8,7 +8,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BottomTabInset, MaxContentWidth, Palette, Spacing } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/useElderMode';
+import { useCalmUx } from '@/hooks/useCalmUx';
 
 type ScreenShellProps = {
   children: ReactNode;
@@ -29,6 +30,10 @@ export function ScreenShell({
   onRefresh,
   scrollRef,
 }: ScreenShellProps) {
+  const theme = useAppTheme();
+  const { calm } = useCalmUx();
+  const styles = useMemo(() => createStyles(theme, calm), [calm, theme]);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       {header}
@@ -41,8 +46,8 @@ export function ScreenShell({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={Palette.greenDeep}
-              colors={[Palette.greenDeep]}
+              tintColor={theme.palette.greenDeep}
+              colors={[theme.palette.greenDeep]}
             />
           ) : undefined
         }>
@@ -53,20 +58,25 @@ export function ScreenShell({
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Palette.cream,
-  },
-  scrollContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: BottomTabInset + Spacing.lg,
-    flexGrow: 1,
-  },
-  inner: {
-    width: '100%',
-    maxWidth: MaxContentWidth,
-    alignSelf: 'center',
-    gap: Spacing.lg,
-  },
-});
+function createStyles(
+  theme: ReturnType<typeof useAppTheme>,
+  calm: ReturnType<typeof useCalmUx>['calm'],
+) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: theme.palette.cream,
+    },
+    scrollContent: {
+      paddingHorizontal: theme.spacing.lg,
+      paddingBottom: theme.layout.bottomTabInset + theme.spacing.lg,
+      flexGrow: 1,
+    },
+    inner: {
+      width: '100%',
+      maxWidth: theme.maxContentWidth,
+      alignSelf: 'center',
+      gap: calm.sectionGap,
+    },
+  });
+}

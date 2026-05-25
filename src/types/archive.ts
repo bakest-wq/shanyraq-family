@@ -1,17 +1,20 @@
-export type MemoryType = 'photo' | 'story' | 'advice' | 'voice' | 'document';
+export type MemoryType = 'photo' | 'story' | 'note';
 
 export type MemoryTypeFilter = 'all' | MemoryType;
 
+export type ArchiveCategoryFilter = MemoryTypeFilter | MemoryType;
+
 /** @deprecated Legacy stored values — normalized on read. */
-export type LegacyMemoryCategory = 'stories' | 'legacy' | 'memorial' | 'documents';
+export type LegacyMemoryCategory =
+  | 'stories'
+  | 'legacy'
+  | 'memorial'
+  | 'documents'
+  | 'advice'
+  | 'voice'
+  | 'document';
 
 export type StoredMemoryCategory = MemoryType | LegacyMemoryCategory;
-
-/** @deprecated Use MemoryType */
-export type ArchiveCategoryId = MemoryType;
-
-/** @deprecated Use MemoryTypeFilter */
-export type ArchiveCategoryFilter = MemoryTypeFilter;
 
 export type FamilyMemory = {
   id: string;
@@ -23,9 +26,8 @@ export type FamilyMemory = {
   day?: string;
   story: string;
   category: MemoryType;
+  photoUri?: string;
   hasPhoto: boolean;
-  hasVoice?: boolean;
-  hasDocument?: boolean;
   createdAt: string;
 };
 
@@ -38,53 +40,34 @@ export type CreateMemoryInput = {
   day?: string;
   story: string;
   category: MemoryType;
-  hasPhoto: boolean;
-  hasVoice?: boolean;
-  hasDocument?: boolean;
+  pendingPhotoUri?: string | null;
 };
 
 export type MemoryTypeOption = {
   id: MemoryType;
-  labelKz: string;
-  labelRu: string;
+  label: string;
   icon: string;
 };
 
 export const MEMORY_TYPES: MemoryTypeOption[] = [
-  { id: 'photo', labelKz: 'Фото', labelRu: 'Photo', icon: '📷' },
-  { id: 'story', labelKz: 'Естелік', labelRu: 'Story', icon: '📖' },
-  { id: 'advice', labelKz: 'Насихат', labelRu: 'Advice', icon: '🌿' },
-  { id: 'voice', labelKz: 'Дауыс', labelRu: 'Voice note', icon: '🎙️' },
-  { id: 'document', labelKz: 'Құжат', labelRu: 'Document', icon: '📄' },
+  { id: 'photo', label: 'Фото', icon: '📷' },
+  { id: 'story', label: 'Естелік', icon: '📖' },
+  { id: 'note', label: 'Жазба', icon: '🌿' },
 ];
 
 export const MEMORY_TYPE_FILTERS: { id: MemoryTypeFilter; label: string }[] = [
-  { id: 'all', label: 'Барлығы · All' },
+  { id: 'all', label: 'Барлығы' },
   ...MEMORY_TYPES.map((type) => ({
     id: type.id,
-    label: `${type.labelKz} · ${type.labelRu}`,
+    label: type.label,
   })),
 ];
 
 export const MEMORY_TYPE_ICONS: Record<MemoryType, string> = {
   photo: '📷',
   story: '📖',
-  advice: '🌿',
-  voice: '🎙️',
-  document: '📄',
+  note: '🌿',
 };
-
-/** @deprecated Use MEMORY_TYPES */
-export const ARCHIVE_CATEGORIES = MEMORY_TYPES.map((type) => ({
-  id: type.id,
-  label: `${type.labelKz} · ${type.labelRu}`,
-}));
-
-/** @deprecated Use MEMORY_TYPE_FILTERS */
-export const ARCHIVE_CATEGORY_FILTERS = MEMORY_TYPE_FILTERS;
-
-/** @deprecated Use MEMORY_TYPE_ICONS */
-export const ARCHIVE_CATEGORY_ICONS = MEMORY_TYPE_ICONS;
 
 export function normalizeMemoryType(category: StoredMemoryCategory): MemoryType {
   switch (category) {
@@ -92,9 +75,11 @@ export function normalizeMemoryType(category: StoredMemoryCategory): MemoryType 
     case 'memorial':
       return 'story';
     case 'legacy':
-      return 'advice';
+    case 'advice':
+    case 'voice':
+    case 'document':
     case 'documents':
-      return 'document';
+      return 'note';
     default:
       return category;
   }
@@ -105,6 +90,9 @@ export function getMemoryTypeOption(type: MemoryType): MemoryTypeOption {
 }
 
 export function getMemoryTypeLabel(type: MemoryType): string {
-  const option = getMemoryTypeOption(type);
-  return `${option.labelKz} · ${option.labelRu}`;
+  return getMemoryTypeOption(type).label;
+}
+
+export function memoryHasDisplayPhoto(memory: FamilyMemory): boolean {
+  return Boolean(memory.photoUri) || memory.category === 'photo';
 }

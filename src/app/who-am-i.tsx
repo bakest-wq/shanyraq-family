@@ -11,7 +11,10 @@ import { USER_IDENTITY_COPY } from '@/constants/user-identity-content';
 import { useFamily } from '@/hooks/useFamily';
 import { useRelatives } from '@/hooks/useRelatives';
 import { useToast } from '@/hooks/useToast';
+import { useRootPersonIdentity } from '@/hooks/useRootPersonIdentity';
 import { useUserIdentity } from '@/hooks/useUserIdentity';
+import { useSafeGoBack } from '@/hooks/useSafeGoBack';
+import { APP_ROUTES } from '@/utils/safe-navigation';
 import type { Relative } from '@/types/relative';
 import { getRelativeDisplayName } from '@/utils/relative-names';
 import { Palette, Spacing, Typography } from '@/constants/theme';
@@ -20,10 +23,12 @@ type WhoAmIMode = 'choose' | 'existing';
 
 export default function WhoAmIScreen() {
   const router = useRouter();
+  const goBack = useSafeGoBack(APP_ROUTES.management);
   const { showToast } = useToast();
   const { session } = useFamily();
   const { relatives } = useRelatives();
   const { profile, myRelative, linkRelative } = useUserIdentity();
+  const { resetToMe } = useRootPersonIdentity();
   const [mode, setMode] = useState<WhoAmIMode>('choose');
   const [selectedRelative, setSelectedRelative] = useState<Relative | null>(myRelative);
   const [saving, setSaving] = useState(false);
@@ -48,12 +53,13 @@ export default function WhoAmIScreen() {
 
     try {
       await linkRelative(selectedRelative.id, session?.ownerName);
+      resetToMe();
       showToast({
         type: 'success',
         title: USER_IDENTITY_COPY.savedTitle,
         message: USER_IDENTITY_COPY.savedMessage(getRelativeDisplayName(selectedRelative)),
       });
-      router.back();
+      goBack();
     } catch (error) {
       showToast({
         type: 'error',
@@ -78,7 +84,7 @@ export default function WhoAmIScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <View style={styles.container}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={goBack} style={styles.backButton}>
           <Text style={styles.backText}>← Артқа</Text>
         </Pressable>
 

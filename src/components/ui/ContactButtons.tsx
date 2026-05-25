@@ -1,32 +1,20 @@
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
+import { openRelativeWhatsApp } from '@/utils/whatsapp-contact';
 
 type ContactButtonsProps = {
-  phone: string;
+  phone?: string | null;
   name: string;
 };
 
 export function ContactButtons({ phone, name }: ContactButtonsProps) {
-  const handleCall = () => {
-    Linking.openURL(`tel:${phone}`);
-  };
-
   const handleWhatsApp = () => {
-    const digits = phone.replace(/\D/g, '');
-    Linking.openURL(`https://wa.me/${digits}?text=${encodeURIComponent(`Ассалаумағалейкум, ${name}!`)}`);
+    openRelativeWhatsApp({ phone, name });
   };
 
   return (
     <View style={styles.row}>
-      <Pressable
-        onPress={handleCall}
-        style={({ pressed }) => [styles.button, styles.call, pressed && styles.pressed]}
-        accessibilityRole="button"
-        accessibilityLabel={`Позвонить ${name}`}>
-        <Text style={styles.icon}>📞</Text>
-        <Text style={styles.label}>Қоңырау</Text>
-      </Pressable>
       <Pressable
         onPress={handleWhatsApp}
         style={({ pressed }) => [styles.button, styles.whatsapp, pressed && styles.pressed]}
@@ -53,9 +41,6 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
-  },
-  call: {
-    backgroundColor: Palette.greenDeep,
   },
   whatsapp: {
     backgroundColor: Palette.whatsapp,

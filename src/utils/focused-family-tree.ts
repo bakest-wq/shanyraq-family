@@ -1,9 +1,20 @@
 import { Relative } from '@/types/relative';
 import { findRelativeByLinkId, normalizeRelativeLinkId, relativeLinkIdsMatch } from '@/utils/family-link-picker';
 import { findFamilyAnchor } from '@/utils/kinship-path';
-import { sharesLinkedParentWithRoot } from '@/utils/family-sibling-links';
-import { getRelativeDisplayName } from '@/utils/relative-names';
-import { getEffectiveSpouse, isFemale, isMale } from '@/utils/relationship-engine';
+import {
+  getAncestorChain,
+  getAncestors,
+  getChildren,
+  getDescendants,
+  getExtendedDescendants,
+  getLineageConnectedIds,
+  getSiblings,
+  getSpouse,
+  type LineageEntry,
+} from '@/utils/shezhire-lineage';
+import { isFemale, isMale } from '@/utils/relationship-engine';
+
+export type { LineageEntry } from '@/utils/shezhire-lineage';
 
 export type FocusedTreeParents = {
   fatherId: string | null;
@@ -15,14 +26,15 @@ export type FocusedTreeParents = {
 export type FocusedFamilyTree = {
   root: Relative;
   parents: FocusedTreeParents;
+  /** Grandparents and above — ordered oldest generation first. */
+  ancestorChain: Relative[];
+  ancestors: LineageEntry[];
   siblings: Relative[];
   spouse: Relative | null;
   children: Relative[];
+  /** Grandchildren and below. */
+  descendants: LineageEntry[];
 };
-
-function compareNames(a: Relative, b: Relative): number {
-  return getRelativeDisplayName(a).localeCompare(getRelativeDisplayName(b), 'ru');
-}
 
 function getById(relatives: Relative[], id: string): Relative | null {
   return findRelativeByLinkId(relatives, id);
@@ -55,55 +67,36 @@ export function lookupFocusedTreeRelative(
   return lookupById(relativeId);
 }
 
-function isDirectChildLink(rootPerson: Relative, candidate: Relative): boolean {
-  return (
-    relativeLinkIdsMatch(candidate.fatherId, rootPerson.id) ||
-    relativeLinkIdsMatch(candidate.motherId, rootPerson.id)
-  );
-}
-
 /**
- * Debug helper: getSiblings(rootPerson)
- * Same father_id or mother_id as root; never relationship labels or names.
+ * @deprecated Prefer getSiblings from shezhire-lineage.
  */
 export function getShezhireSiblings(rootPerson: Relative, relatives: Relative[]): Relative[] {
-  return relatives
-    .filter((candidate) => !candidate.isDeceased)
-    .filter((candidate) => !relativeLinkIdsMatch(candidate.id, rootPerson.id))
-    .filter((candidate) => sharesLinkedParentWithRoot(rootPerson, candidate))
-    .sort(compareNames);
+  return getSiblings(rootPerson, relatives);
 }
 
 export function getShezhireSiblingIds(rootPerson: Relative, relatives: Relative[]): Set<string> {
-  return new Set(getShezhireSiblings(rootPerson, relatives).map((sibling) => sibling.id));
+  return new Set(getSiblings(rootPerson, relatives).map((sibling) => sibling.id));
 }
 
 /**
- * Debug helper: getActualChildren(rootPerson)
- * Direct child links only, with siblings explicitly removed via siblingIds.
+ * @deprecated Prefer getChildren from shezhire-lineage.
  */
 export function getActualChildren(
   rootPerson: Relative,
   relatives: Relative[],
   siblingIds: Set<string> = getShezhireSiblingIds(rootPerson, relatives),
 ): Relative[] {
-  const childrenCandidates = relatives
-    .filter((candidate) => !candidate.isDeceased)
-    .filter((candidate) => isDirectChildLink(rootPerson, candidate));
-
-  return childrenCandidates
-    .filter((candidate) => !siblingIds.has(candidate.id))
-    .sort(compareNames);
+  return getChildren(rootPerson, relatives).filter((candidate) => !siblingIds.has(candidate.id));
 }
 
-/** @deprecated Use getActualChildren */
+/** @deprecated Use getChildren */
 export function getFocusedDirectChildren(root: Relative, relatives: Relative[]): Relative[] {
   return getActualChildren(root, relatives);
 }
 
-/** @deprecated Use getShezhireSiblings */
+/** @deprecated Use getSiblings */
 export function getFocusedSiblings(root: Relative, relatives: Relative[]): Relative[] {
-  return getShezhireSiblings(root, relatives);
+  return getSiblings(root, relatives);
 }
 
 export function pickDefaultRootId(
@@ -167,32 +160,28 @@ export function buildFocusedFamilyTree(
     return null;
   }
 
+  const ancestors = getAncestors(root, relatives);
+  const ancestorChain = getAncestorChain(root, relatives);
   const parents = resolveParentSlots(root, relatives);
-  const spouse = getEffectiveSpouse(root, relatives);
-
-  // 1) Siblings first — shared father_id / mother_id with root (IDs only).
-  const siblings = getShezhireSiblings(root, relatives);
+  const spouse = getSpouse(root, relatives);
+  const siblings = getSiblings(root, relatives);
   const siblingIds = new Set(siblings.map((sibling) => sibling.id));
-
-  // 2) Children candidates — direct parent links only.
-  const childrenCandidates = relatives.filter(
-    (candidate) =>
-      !candidate.isDeceased &&
-      (relativeLinkIdsMatch(candidate.fatherId, root.id) ||
-        relativeLinkIdsMatch(candidate.motherId, root.id)),
-  );
-
-  // 3) Siblings must NEVER appear in children.
-  const children = childrenCandidates
-    .filter((candidate) => !siblingIds.has(candidate.id))
-    .sort(compareNames);
+  const descendantEntries = getDescendants(root, relatives);
+  const children = descendantEntries
+    .filter((entry) => entry.depth === 1)
+    .map((entry) => entry.person)
+    .filter((candidate) => !siblingIds.has(candidate.id));
+  const descendants = getExtendedDescendants(root, relatives);
 
   return {
     root,
     parents,
+    ancestorChain,
+    ancestors,
     siblings,
     spouse,
     children,
+    descendants,
   };
 }
 
@@ -238,7 +227,7 @@ export function hasShezhireLinks(relatives: Relative[]): boolean {
 
   return living.some((relative) =>
     living.some(
-        (child) =>
+      (child) =>
         !child.isDeceased &&
         (relativeLinkIdsMatch(child.fatherId, relative.id) ||
           relativeLinkIdsMatch(child.motherId, relative.id)),
@@ -249,37 +238,22 @@ export function hasShezhireLinks(relatives: Relative[]): boolean {
 export function isFocusedTreeVisible(focused: FocusedFamilyTree): boolean {
   return Boolean(
     hasFocusedParentLinks(focused.parents) ||
+      focused.ancestorChain.length > 0 ||
       focused.siblings.length > 0 ||
       focused.spouse ||
       focused.children.length > 0 ||
+      focused.descendants.length > 0 ||
       focused.root.fatherId ||
       focused.root.motherId ||
       focused.root.spouseId,
   );
 }
 
-export function getFocusedTreeRelativeIds(focused: FocusedFamilyTree): Set<string> {
-  const ids = new Set<string>([focused.root.id]);
-
-  if (focused.parents.fatherId) {
-    ids.add(focused.parents.fatherId);
-  }
-
-  if (focused.parents.motherId) {
-    ids.add(focused.parents.motherId);
-  }
-
-  if (focused.spouse) {
-    ids.add(focused.spouse.id);
-  }
-
-  for (const sibling of focused.siblings) {
-    ids.add(sibling.id);
-  }
-
-  for (const child of focused.children) {
-    ids.add(child.id);
-  }
-
-  return ids;
+export function getFocusedTreeRelativeIds(
+  focused: FocusedFamilyTree,
+  relatives: Relative[],
+): Set<string> {
+  return getLineageConnectedIds(focused.root, relatives);
 }
+
+export { getAncestors, getDescendants, getSiblings, getSpouse, getLineageConnectedIds };

@@ -18,6 +18,8 @@ import { LoadingState } from '@/components/ui/LoadingState';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { useFamily } from '@/hooks/useFamily';
 import { useUserIdentity } from '@/hooks/useUserIdentity';
+import { useSafeGoBack } from '@/hooks/useSafeGoBack';
+import { APP_ROUTES } from '@/utils/safe-navigation';
 import { isSupabaseReady } from '@/lib/supabase';
 import { relativesService } from '@/services/relatives.service';
 import { userIdentityService } from '@/services/user-identity.service';
@@ -31,6 +33,7 @@ type JoinStep = 'code' | 'identity' | 'success';
 
 export default function JoinFamilyScreen() {
   const router = useRouter();
+  const goBack = useSafeGoBack(APP_ROUTES.onboarding);
   const { resolveInviteCode, finalizeJoin } = useFamily();
   const { linkRelative } = useUserIdentity();
   const [step, setStep] = useState<JoinStep>('code');
@@ -221,7 +224,7 @@ export default function JoinFamilyScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable onPress={goBack} style={styles.backButton}>
             <Text style={styles.backText}>← Артқа</Text>
           </Pressable>
           <Text style={styles.title}>Отбасыға қосылу</Text>

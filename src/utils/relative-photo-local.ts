@@ -119,6 +119,15 @@ export async function getLocalRelativePhotoUri(relativeId: string): Promise<stri
   return null;
 }
 
+export async function registerLocalRelativePhotoUri(
+  relativeId: string,
+  uri: string,
+): Promise<void> {
+  const map = await readLocalPhotoMap();
+  map[relativeId] = uri;
+  await writeLocalPhotoMap(map);
+}
+
 export async function removeLocalRelativePhoto(relativeId: string): Promise<void> {
   const map = await readLocalPhotoMap();
   const uri = map[relativeId];

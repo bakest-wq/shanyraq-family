@@ -1,4 +1,5 @@
 import type { Relative } from '@/types/relative';
+import { kk, FAMILY_LANGUAGE } from '@/content/family-language';
 import { getKinshipLabelText } from '@/utils/kinship/labels.kz';
 import type { KinshipCategory, KinshipPathStep, KinshipResult, KinshipType } from '@/utils/kinship/types';
 import { compareBirthYear, isFemale, isMale } from '@/utils/kinship/graph';
@@ -22,6 +23,7 @@ const CATEGORY_BY_TYPE: Record<KinshipType, KinshipCategory> = {
   nemere: 'grand',
   shobere: 'grand',
   jenge: 'in_law',
+  brother_wife_neutral: 'in_law',
   jezde: 'in_law',
   kelin: 'in_law',
   kuyeu_bala: 'in_law',
@@ -48,6 +50,9 @@ const CATEGORY_BY_TYPE: Record<KinshipType, KinshipCategory> = {
   paternal_singli: 'paternal',
   paternal_neutral: 'paternal',
   zhien: 'extended',
+  brother_child_older: 'extended',
+  brother_child_younger: 'extended',
+  brother_child_neutral: 'extended',
   bole: 'extended',
   tuas: 'extended',
   kuda: 'kuda',
@@ -158,9 +163,8 @@ export const KAYIN_SIBLING_AGE_MAP: SiblingAgeMap = {
   neutral: 'kayin_neutral',
 };
 
-export const PARTIAL_PARENT_HINT =
-  'Бұл байланыс әke/ана арқылы толықтырылады';
+export const PARTIAL_PARENT_HINT = kk(FAMILY_LANGUAGE.relationships.partialParentHint);
 
-export const INCOMPLETE_LINK_HINT = 'Байланыс толық анықталмады';
+export const INCOMPLETE_LINK_HINT = kk(FAMILY_LANGUAGE.relationships.incompleteLink);
 
 export const UNKNOWN_KINSHIP_LABEL = INCOMPLETE_LINK_HINT;

@@ -1,45 +1,45 @@
 import { useRouter } from 'expo-router';
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AvatarPlaceholder } from '@/components/ui/RelativeCard';
-import { Relative } from '@/types/relative';
-import { BirthdayEntry } from '@/utils/birthday-calendar';
+import { BIRTHDAY_UX } from '@/constants/birthday-content';
+import { useMyKinshipCardLine } from '@/hooks/useKinshipLabel';
+import { Palette, Radius, Spacing, Typography } from '@/constants/theme';
 import {
-  formatBirthdayCountdownLabel,
-  formatBirthdayKzRu,
-  getAgeTurningLabel,
-} from '@/utils/dates';
-import { Palette, Radius, Shadow, Spacing, Typography } from '@/constants/theme';
+  getMilestoneAge,
+  getSmartReminderHint,
+  type BirthdayEntry,
+} from '@/utils/birthday-calendar';
+import { formatBirthdayCountdownKz, getAgeTurningLabelKz } from '@/utils/dates';
+import { openRelativeWhatsApp } from '@/utils/whatsapp-contact';
 
 type BirthdayCalendarCardProps = {
   entry: BirthdayEntry;
+  featured?: boolean;
   compact?: boolean;
 };
 
-export function BirthdayCalendarCard({ entry, compact = false }: BirthdayCalendarCardProps) {
+export function BirthdayCalendarCard({
+  entry,
+  featured = false,
+  compact = false,
+}: BirthdayCalendarCardProps) {
   const router = useRouter();
   const { relative, daysUntil } = entry;
-  const countdownLabel = formatBirthdayCountdownLabel(daysUntil);
-  const ageTurningLabel = getAgeTurningLabel(relative);
-  const isSoon = daysUntil <= 7;
-
-  const handleCall = () => {
-    if (!relative.phone) {
-      Alert.alert('Телефон жоқ', 'Номер телефона не указан.');
-      return;
-    }
-    Linking.openURL(`tel:${relative.phone}`);
-  };
+  const kinshipLabel = useMyKinshipCardLine(relative);
+  const countdownLabel = formatBirthdayCountdownKz(daysUntil);
+  const ageTurningLabel = getAgeTurningLabelKz(relative);
+  const milestoneAge = getMilestoneAge(entry);
+  const smartHint = getSmartReminderHint(daysUntil);
+  const showActions = featured && !compact;
+  const isToday = daysUntil === 0;
+  const isSoon = daysUntil >= 1 && daysUntil <= 7;
 
   const handleWhatsApp = () => {
-    if (!relative.phone) {
-      Alert.alert('Телефон жоқ', 'Номер телефона не указан.');
-      return;
-    }
-    const digits = relative.phone.replace(/\D/g, '');
-    Linking.openURL(
-      `https://wa.me/${digits}?text=${encodeURIComponent(`Ассалаумағалейкум, ${relative.fullName}!`)}`,
-    );
+    openRelativeWhatsApp({
+      phone: relative.phone,
+      name: relative.fullName,
+    });
   };
 
   const handleAiGreeting = () => {
@@ -50,50 +50,72 @@ export function BirthdayCalendarCard({ entry, compact = false }: BirthdayCalenda
   };
 
   return (
-    <View style={[styles.card, isSoon && styles.cardSoon, compact && styles.cardCompact]}>
+    <View
+      style={[
+        styles.card,
+        isToday && styles.cardToday,
+        isSoon && !isToday && styles.cardSoon,
+        compact && styles.cardCompact,
+      ]}>
       <View style={styles.topRow}>
         <AvatarPlaceholder
           name={relative.fullName}
           color={relative.avatarColor}
           photoUrl={relative.photoUrl}
-          size={compact ? 56 : 64}
+          size={compact ? 48 : 56}
         />
         <View style={styles.info}>
-          <Text style={styles.relationship}>{relative.relationship}</Text>
           <Text style={styles.name}>{relative.fullName}</Text>
-          <Text style={styles.date}>{formatBirthdayKzRu(relative)}</Text>
+          {kinshipLabel ? <Text style={styles.kinship}>{kinshipLabel}</Text> : null}
           {ageTurningLabel ? <Text style={styles.ageTurning}>{ageTurningLabel}</Text> : null}
+          {milestoneAge !== null ? (
+            <Text style={styles.milestone}>{BIRTHDAY_UX.milestoneLabel(milestoneAge)}</Text>
+          ) : null}
+          {smartHint ? (
+            <Text style={[styles.smartHint, isToday && styles.smartHintToday]}>
+              {smartHint === 'today' ? BIRTHDAY_UX.smartReminderToday : BIRTHDAY_UX.smartReminderSoon}
+            </Text>
+          ) : null}
         </View>
-        <View style={[styles.countdownBadge, isSoon && styles.countdownBadgeSoon]}>
-          <Text style={[styles.countdownText, isSoon && styles.countdownTextSoon]}>
+        <View
+          style={[
+            styles.countdownBadge,
+            isToday && styles.countdownBadgeToday,
+            isSoon && !isToday && styles.countdownBadgeSoon,
+          ]}>
+          <Text
+            style={[
+              styles.countdownText,
+              isToday && styles.countdownTextToday,
+              isSoon && !isToday && styles.countdownTextSoon,
+            ]}>
             {countdownLabel}
           </Text>
         </View>
       </View>
 
-      <View style={styles.actions}>
-        <Pressable
-          onPress={handleCall}
-          style={({ pressed }) => [styles.actionButton, styles.call, pressed && styles.pressed]}
-          accessibilityRole="button">
-          <Text style={styles.actionIcon}>📞</Text>
-          <Text style={styles.actionLabel}>Позвонить</Text>
-        </Pressable>
-        <Pressable
-          onPress={handleWhatsApp}
-          style={({ pressed }) => [styles.actionButton, styles.whatsapp, pressed && styles.pressed]}
-          accessibilityRole="button">
-          <Text style={styles.actionIcon}>💬</Text>
-          <Text style={styles.actionLabel}>WhatsApp</Text>
-        </Pressable>
-        <Pressable
-          onPress={handleAiGreeting}
-          style={({ pressed }) => [styles.actionButton, styles.ai, pressed && styles.pressed]}
-          accessibilityRole="button">
-          <Text style={styles.actionIcon}>✨</Text>
-          <Text style={[styles.actionLabel, styles.aiLabel]}>AI поздравление</Text>
-        </Pressable>
-      </View>
+      {showActions ? (
+        <View style={styles.actions}>
+          <Pressable
+            onPress={handleWhatsApp}
+            style={({ pressed }) => [
+              styles.actionButton,
+              styles.whatsapp,
+              pressed && styles.pressed,
+            ]}
+            accessibilityRole="button">
+            <Text style={styles.actionIcon}>💬</Text>
+            <Text style={styles.actionLabel}>WhatsApp</Text>
+          </Pressable>
+          <Pressable
+            onPress={handleAiGreeting}
+            style={({ pressed }) => [styles.actionButton, styles.ai, pressed && styles.pressed]}
+            accessibilityRole="button">
+            <Text style={styles.actionIcon}>✨</Text>
+            <Text style={[styles.actionLabel, styles.aiLabel]}>Құттықтау</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -104,16 +126,17 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     padding: Spacing.lg,
     gap: Spacing.md,
-    borderWidth: 1.5,
-    borderColor: Palette.creamDark,
-    ...Shadow.soft,
   },
-  cardSoon: {
-    borderColor: Palette.gold,
+  cardToday: {
     backgroundColor: '#FFFBF5',
   },
+  cardSoon: {
+    backgroundColor: '#FAFCF9',
+  },
   cardCompact: {
-    padding: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
   },
   topRow: {
     flexDirection: 'row',
@@ -122,52 +145,66 @@ const styles = StyleSheet.create({
   },
   info: {
     flex: 1,
-    gap: 2,
-  },
-  relationship: {
-    ...Typography.caption,
-    color: Palette.gold,
-    fontWeight: '700',
-    textTransform: 'uppercase',
+    gap: 3,
   },
   name: {
     ...Typography.body,
     color: Palette.textPrimary,
     fontWeight: '700',
   },
-  date: {
+  kinship: {
     ...Typography.caption,
-    color: Palette.textSecondary,
+    color: Palette.greenMid,
+    fontWeight: '600',
   },
   ageTurning: {
     ...Typography.bodySmall,
-    color: Palette.greenMid,
+    color: Palette.textSecondary,
+  },
+  milestone: {
+    ...Typography.caption,
+    color: Palette.gold,
     fontWeight: '700',
+  },
+  smartHint: {
+    ...Typography.caption,
+    color: Palette.textMuted,
+    fontStyle: 'italic',
+  },
+  smartHintToday: {
+    color: Palette.greenDeep,
+    fontWeight: '600',
+    fontStyle: 'normal',
   },
   countdownBadge: {
     backgroundColor: Palette.creamDark,
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    maxWidth: 110,
+    maxWidth: 108,
+  },
+  countdownBadgeToday: {
+    backgroundColor: '#FFF3D6',
   },
   countdownBadgeSoon: {
-    backgroundColor: '#FFF9EB',
-    borderWidth: 1,
-    borderColor: Palette.goldLight,
+    backgroundColor: '#EEF5F0',
   },
   countdownText: {
     ...Typography.caption,
-    color: Palette.greenDeep,
+    color: Palette.textSecondary,
     fontWeight: '700',
     textAlign: 'center',
   },
-  countdownTextSoon: {
+  countdownTextToday: {
     color: Palette.gold,
+  },
+  countdownTextSoon: {
+    color: Palette.greenMid,
   },
   actions: {
     flexDirection: 'row',
     gap: Spacing.sm,
+    paddingTop: Spacing.xs,
   },
   actionButton: {
     flex: 1,
@@ -178,22 +215,17 @@ const styles = StyleSheet.create({
     gap: 2,
     paddingHorizontal: Spacing.xs,
   },
-  call: {
-    backgroundColor: Palette.greenDeep,
-  },
   whatsapp: {
     backgroundColor: Palette.whatsapp,
   },
   ai: {
     backgroundColor: Palette.creamDark,
-    borderWidth: 1,
-    borderColor: Palette.goldLight,
   },
   pressed: {
     opacity: 0.88,
   },
   actionIcon: {
-    fontSize: 15,
+    fontSize: 14,
   },
   actionLabel: {
     ...Typography.caption,

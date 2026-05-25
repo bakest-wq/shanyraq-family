@@ -1,224 +1,200 @@
 import { useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { AppHeader } from '@/components/ui/AppHeader';
+import { HomeFamilyGreeting } from '@/components/home/HomeFamilyGreeting';
+import { HomeFamilyWisdomQuote } from '@/components/home/HomeFamilyWisdomQuote';
+import { HomeFamilySummary } from '@/components/home/HomeFamilySummary';
+import {
+  HomeBirthdaysSection,
+  HomeGentleRemindersSection,
+  HomeRecentMemoriesSection,
+} from '@/components/home/HomeDashboardSections';
 import { Card } from '@/components/ui/Card';
+import { CalmDisclosure } from '@/components/ui/CalmDisclosure';
 import { LoadingState } from '@/components/ui/LoadingState';
-import { QuickActionButton } from '@/components/ui/QuickActionButton';
-import { AvatarPlaceholder } from '@/components/ui/RelativeCard';
 import { OnboardingHintsCard } from '@/components/ui/OnboardingHintsCard';
-import { UserIdentityPromptBanner } from '@/components/identity/UserIdentityPromptBanner';
+import { QuickActionButton } from '@/components/ui/QuickActionButton';
 import { ScreenShell } from '@/components/ui/ScreenShell';
-import { SectionTitle } from '@/components/ui/SectionTitle';
-import { FAMILY_GREETING } from '@/data/mockData';
-import { familyViewHref } from '@/utils/family-view';
+import { ScreenSettingsBar } from '@/components/ui/ScreenSettingsBar';
+import { ELDER_MODE_COPY } from '@/constants/elder-mode-content';
+import { GENEALOGY_UX_COPY } from '@/constants/genealogy-ux-content';
+import { useAppTheme, useElderMode } from '@/hooks/useElderMode';
+import { useCalmUx } from '@/hooks/useCalmUx';
+import { useArchive } from '@/hooks/useArchive';
 import { useFamily } from '@/hooks/useFamily';
 import { useRelatives } from '@/hooks/useRelatives';
+import { useUserIdentity } from '@/hooks/useUserIdentity';
+import { familyBackupService } from '@/services/family-backup.service';
 import {
-  daysUntilBirthday,
-  formatBirthdayKzRu,
-  formatDaysUntil,
-  formatTodayDate,
-  getAgeLabel,
-  isBirthdayToday,
-  calculateAge,
-} from '@/utils/dates';
-import { hasBirthdayDayMonth } from '@/utils/birthday-parts';
-import { Palette, Spacing, Typography } from '@/constants/theme';
+  getHomeBirthdayHighlights,
+  getHomeFamilySummary,
+  getHomeGentleReminders,
+  getHomeRecentMemories,
+} from '@/utils/home-dashboard';
+import { pickDefaultRootId } from '@/utils/focused-family-tree';
+import { focusPersonInShezhire } from '@/utils/shezhire-navigation';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { session } = useFamily();
-  const { livingRelatives, loading, error, isEmpty } = useRelatives();
-  const today = new Date();
+  const { relatives, livingRelatives, deceasedRelatives, loading, error, isEmpty } = useRelatives();
+  const { memories } = useArchive();
+  const { userName, hasLinkedRelative, myRelativeId } = useUserIdentity();
+  const { enabled: elderMode } = useElderMode();
+  const theme = useAppTheme();
+  const { calm } = useCalmUx();
+  const styles = useMemo(() => createStyles(theme, calm), [calm, theme]);
+  const [hasBackup, setHasBackup] = useState<boolean | undefined>(undefined);
 
-  const todayBirthdays = livingRelatives.filter(
-    (r) => hasBirthdayDayMonth(r) && isBirthdayToday(r, today),
+  const familyId = session?.familyId ?? '';
+  const familyName = session?.familyName ?? 'Отбасы';
+  const displayName = userName ?? session?.ownerName ?? null;
+
+  useEffect(() => {
+    if (!familyId) {
+      setHasBackup(undefined);
+      return;
+    }
+
+    void familyBackupService.getLastBackupMeta(familyId).then((meta) => {
+      setHasBackup(Boolean(meta));
+    });
+  }, [familyId]);
+
+  const birthdayHighlights = useMemo(
+    () => getHomeBirthdayHighlights(livingRelatives, { limit: elderMode ? 5 : 3 }),
+    [elderMode, livingRelatives],
   );
 
-  const upcoming = livingRelatives
-    .filter((r) => hasBirthdayDayMonth(r) && !isBirthdayToday(r, today))
-    .map((r) => ({ relative: r, days: daysUntilBirthday(r, today) }))
-    .sort((a, b) => a.days - b.days)[0];
+  const recentMemories = useMemo(
+    () => getHomeRecentMemories(memories, elderMode ? 2 : 3),
+    [elderMode, memories],
+  );
+
+  const familySummary = useMemo(
+    () => getHomeFamilySummary(relatives, memories, deceasedRelatives.length),
+    [deceasedRelatives.length, memories, relatives],
+  );
+
+  const reminders = useMemo(
+    () =>
+      getHomeGentleReminders({
+        birthdayHighlights,
+        memories,
+        deceasedCount: deceasedRelatives.length,
+        hasLinkedIdentity: hasLinkedRelative,
+        hasBackup,
+        limit: elderMode ? 2 : 3,
+      }),
+    [
+      birthdayHighlights,
+      deceasedRelatives.length,
+      elderMode,
+      hasBackup,
+      hasLinkedRelative,
+      memories,
+    ],
+  );
+
+  const shezhireRootId = useMemo(
+    () => pickDefaultRootId(relatives, myRelativeId),
+    [myRelativeId, relatives],
+  );
+
+  const openMyShezhire = () => {
+    if (shezhireRootId) {
+      focusPersonInShezhire(router, shezhireRootId);
+      return;
+    }
+
+    router.push('/(tabs)/shezhire');
+  };
 
   return (
     <ScreenShell
-      header={
-        <AppHeader
-          title="Shanyraq Family"
-          subtitle="Шаңырақ · Семейный очаг"
-          badge={session?.familyName ?? 'Отбасы'}
-          onBadgePress={() => router.push('/settings')}
-        />
-      }>
-      <View style={styles.greetingBlock}>
-        <Text style={styles.greeting}>{FAMILY_GREETING}</Text>
-        <Text style={styles.greetingSub}>Қош келдіңіз · Добро пожаловать домой</Text>
-      </View>
+      header={<ScreenSettingsBar />}
+      contentStyle={styles.content}>
+      <HomeFamilyGreeting
+        familyName={familyName}
+        userName={displayName}
+        elderMode={elderMode}
+      />
+      <HomeFamilyWisdomQuote elderMode={elderMode} />
 
-      <UserIdentityPromptBanner />
+      {loading ? (
+        <LoadingState message="Жүктелуде..." />
+      ) : error ? (
+        <Text style={styles.calmText}>{error}</Text>
+      ) : (
+        <>
+          <HomeFamilySummary summary={familySummary} />
 
-      <Card goldBorder>
-        <SectionTitle title="Сегодня" subtitle={formatTodayDate(today)} />
-        {loading ? (
-          <LoadingState message="Туыстар жүктелуде..." />
-        ) : error ? (
-          <Text style={styles.calmText}>{error}</Text>
-        ) : todayBirthdays.length > 0 ? (
-          todayBirthdays.map((person) => (
-            <View key={person.id} style={styles.todayRow}>
-              <AvatarPlaceholder
-                name={person.fullName}
-                color={person.avatarColor}
-                photoUrl={person.photoUrl}
-                size={52}
+          {!elderMode && !isEmpty ? (
+            <Card style={styles.card}>
+              <QuickActionButton
+                icon="🌳"
+                label={GENEALOGY_UX_COPY.homeMyShezhire.kk}
+                sublabel={GENEALOGY_UX_COPY.homeMyShezhireHint.kk}
+                variant="green"
+                onPress={openMyShezhire}
               />
-              <View style={styles.todayInfo}>
-                <Text style={styles.todayHighlight}>🎂 Туған күн · День рождения!</Text>
-                <Text style={styles.todayName}>{person.fullName}</Text>
-                <Text style={styles.todayMeta}>
-                  {person.relationship}
-                  {calculateAge(person, today) !== null
-                    ? ` · ${getAgeLabel(calculateAge(person, today)!)}`
-                    : ''}
-                </Text>
-              </View>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.calmText}>Бүгін тыныш күн. Отдыхайте с семьёй ☕</Text>
-        )}
-      </Card>
+            </Card>
+          ) : null}
 
-      {!loading && !error && upcoming ? (
-        <Card>
-          <SectionTitle title="Жақын туған күн" subtitle="Ближайший день рождения" />
-          <View style={styles.upcomingRow}>
-            <AvatarPlaceholder
-              name={upcoming.relative.fullName}
-              color={upcoming.relative.avatarColor}
-              photoUrl={upcoming.relative.photoUrl}
-              size={56}
-            />
-            <View style={styles.upcomingInfo}>
-              <Text style={styles.upcomingName}>{upcoming.relative.fullName}</Text>
-              <Text style={styles.upcomingRole}>
-                {upcoming.relative.relationship} · {formatBirthdayKzRu(upcoming.relative)}
-              </Text>
-              <Text style={styles.upcomingDays}>{formatDaysUntil(upcoming.days)}</Text>
-            </View>
-          </View>
-        </Card>
-      ) : null}
+          <HomeBirthdaysSection entries={birthdayHighlights} elderMode={elderMode} />
 
-      {!loading && !error && isEmpty ? (
-        <OnboardingHintsCard />
-      ) : null}
+          <HomeGentleRemindersSection reminders={reminders} />
 
-      <View style={styles.actionsBlock}>
-        <SectionTitle title="Жылдам әрекет" subtitle="Быстрые действия" />
-        <View style={styles.actionsList}>
-          <QuickActionButton
-            icon="➕"
-            label="Добавить родственника"
-            sublabel="Туыс қосу"
-            variant="green"
-            onPress={() => router.push('/add-relative')}
-          />
-          <QuickActionButton
-            icon="📅"
-            label="Календарь"
-            sublabel="Күнтізбе"
-            variant="gold"
-            onPress={() => router.push('/calendar')}
-          />
-          <QuickActionButton
-            icon="🌳"
-            label="Семейное дерево"
-            sublabel="Отбасы ағашы"
-            onPress={() => router.push(familyViewHref('tree'))}
-          />
-          <QuickActionButton
-            icon="⚙️"
-            label="Настройки"
-            sublabel="Баптаулар · Семья"
-            variant="gold"
-            onPress={() => router.push('/settings')}
-          />
-        </View>
-      </View>
+          {!elderMode ? (
+            <Card style={styles.card}>
+              <CalmDisclosure section="homeMore">
+                <HomeRecentMemoriesSection memories={recentMemories} />
+              </CalmDisclosure>
+            </Card>
+          ) : null}
+
+          {elderMode ? (
+            <Card style={styles.card}>
+              <QuickActionButton
+                icon="🌳"
+                label={ELDER_MODE_COPY.homeShezhireAction}
+                sublabel={ELDER_MODE_COPY.homeShezhireHint}
+                variant="green"
+                onPress={openMyShezhire}
+              />
+              <QuickActionButton
+                icon="👨‍👩‍👧‍👦"
+                label="Туыстар"
+                variant="gold"
+                onPress={() => router.push('/(tabs)/relatives')}
+              />
+            </Card>
+          ) : isEmpty ? (
+            <OnboardingHintsCard />
+          ) : null}
+        </>
+      )}
     </ScreenShell>
   );
 }
 
-const styles = StyleSheet.create({
-  greetingBlock: {
-    gap: Spacing.xs,
-    paddingVertical: Spacing.sm,
-  },
-  greeting: {
-    ...Typography.hero,
-    color: Palette.greenDeep,
-  },
-  greetingSub: {
-    ...Typography.body,
-    color: Palette.textSecondary,
-  },
-  todayRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    alignItems: 'center',
-    marginTop: Spacing.sm,
-  },
-  todayInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  todayHighlight: {
-    ...Typography.bodySmall,
-    color: Palette.gold,
-    fontWeight: '700',
-  },
-  todayName: {
-    ...Typography.subtitle,
-    color: Palette.textPrimary,
-  },
-  todayMeta: {
-    ...Typography.bodySmall,
-    color: Palette.textSecondary,
-  },
-  calmText: {
-    ...Typography.body,
-    color: Palette.textSecondary,
-    marginTop: Spacing.sm,
-  },
-  upcomingRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    alignItems: 'center',
-    marginTop: Spacing.sm,
-  },
-  upcomingInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  upcomingName: {
-    ...Typography.subtitle,
-    color: Palette.textPrimary,
-  },
-  upcomingRole: {
-    ...Typography.bodySmall,
-    color: Palette.textSecondary,
-  },
-  upcomingDays: {
-    ...Typography.bodySmall,
-    color: Palette.greenMid,
-    fontWeight: '700',
-  },
-  actionsBlock: {
-    gap: Spacing.md,
-  },
-  actionsList: {
-    gap: Spacing.sm,
-  },
-});
+function createStyles(
+  theme: ReturnType<typeof useAppTheme>,
+  calm: ReturnType<typeof useCalmUx>['calm'],
+) {
+  return StyleSheet.create({
+    content: {
+      gap: calm.screenGap,
+      paddingTop: theme.spacing.sm,
+    },
+    calmText: {
+      ...theme.typography.body,
+      color: theme.palette.textSecondary,
+      lineHeight: 26,
+    },
+    card: {
+      gap: theme.spacing.md,
+    },
+  });
+}
